@@ -1,0 +1,74 @@
+{
+  "version": "1.0.0",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "environment": "test",
+  "description": "Test assets for Vibe Reels Template Factory",
+  "instructions": {
+    "setup": "Place test video/audio files in the corresponding folders",
+    "lipsync": "Add a 30-second talking head video as test-avatar.mp4",
+    "broll": "Add 4 B-roll clips as test-broll-01.mp4 through test-broll-04.mp4",
+    "music": "Add background music as test-music.mp3",
+    "covers": "Add a cover image as test-cover.jpg"
+  },
+  "assets": {
+    "lipsync": [
+      {
+        "id": "test-avatar",
+        "filename": "test-avatar.mp4",
+        "path": "/test/lipsync/test-avatar.mp4",
+        "duration": 30,
+        "width": 1080,
+        "height": 1920,
+        "description": "30-second placeholder talking head video"
+      }
+    ],
+    "broll": [
+      {
+        "id": "test-broll-01",
+        "filename": "test-broll-01.mp4",
+        "path": "/test/broll/test-broll-01.mp4",
+        "duration": 10,
+        "tags": ["abstract", "tech"]
+      },
+      {
+        "id": "test-broll-02",
+        "filename": "test-broll-02.mp4",
+        "path": "/test/broll/test-broll-02.mp4",
+        "duration": 10,
+        "tags": ["nature", "calm"]
+      },
+      {
+        "id": "test-broll-03",
+        "filename": "test-broll-03.mp4",
+        "path": "/test/broll/test-broll-03.mp4",
+        "duration": 10,
+        "tags": ["business", "office"]
+      },
+      {
+        "id": "test-broll-04",
+        "filename": "test-broll-04.mp4",
+        "path": "/test/broll/test-broll-04.mp4",
+        "duration": 10,
+        "tags": ["lifestyle", "modern"]
+      }
+    ],
+    "music": [
+      {
+        "id": "test-music",
+        "filename": "test-music.mp3",
+        "path": "/test/music/test-music.mp3",
+        "duration": 60,
+        "mood": "ambient"
+      }
+    ],
+    "covers": [
+      {
+        "id": "test-cover",
+        "filename": "test-cover.jpg",
+        "path": "/test/covers/test-cover.jpg",
+        "width": 1080,
+        "height": 1920
+      }
+    ]
+  }
+}

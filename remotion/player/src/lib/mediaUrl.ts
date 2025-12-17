@@ -1,0 +1,50 @@
+import type { LipSyncMainProps } from '@/store/types';
+
+// Render server URL for media assets
+export const RENDER_SERVER_URL = import.meta.env.VITE_RENDER_SERVER_URL || 'http://localhost:3333';
+
+/**
+ * Convert relative paths to absolute URLs for render server
+ * Used for both preview and export to ensure media loads correctly
+ */
+export function toAbsoluteUrl(path: string): string {
+  if (!path) return path;
+
+  // Don't touch blob URLs - they can't be accessed by render server
+  if (path.startsWith('blob:')) {
+    console.warn('[Media] Skipping blob URL (not accessible by render server):', path);
+    return path;
+  }
+
+  // Already absolute URL
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    // Replace localhost URLs with render server's public URL
+    if (path.includes('localhost:3000') || path.includes('localhost:5174') || path.includes('localhost:3333')) {
+      const relativePath = path.replace(/https?:\/\/localhost:\d+/, '');
+      return `${RENDER_SERVER_URL}${relativePath}`;
+    }
+    return path;
+  }
+
+  // Relative path - prepend render server URL
+  if (path.startsWith('/')) {
+    return `${RENDER_SERVER_URL}${path}`;
+  }
+
+  return `${RENDER_SERVER_URL}/${path}`;
+}
+
+/**
+ * Convert LipSyncMainProps media paths to absolute URLs
+ */
+export function convertPropsToAbsoluteUrls(props: LipSyncMainProps): LipSyncMainProps {
+  return {
+    ...props,
+    lipSyncVideo: toAbsoluteUrl(props.lipSyncVideo),
+    coverImage: toAbsoluteUrl(props.coverImage),
+    backgroundMusic: props.backgroundMusic ? toAbsoluteUrl(props.backgroundMusic) : '',
+    backgroundVideos: props.backgroundVideos
+      .filter(url => !url.startsWith('blob:'))
+      .map(toAbsoluteUrl),
+  };
+}

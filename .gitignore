@@ -1,0 +1,41 @@
+# Operating System Files
+.DS_Store
+*.swp
+*.swo
+*.bak
+*.tmp
+temp/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# Build artifacts
+dist/
+build/
+out/ # Seen in remotion
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.flaskenv
+
+# IDE and Editor specific files
+.vscode/
+
+# Gleam specific
+gleam/build/
+
+# Go specific
+telegram-bridge/telegram-bridge
+telegram-bridge/server
+telegram-bridge/bin/
+
+# Remotion specific
+remotion/whisper.cpp

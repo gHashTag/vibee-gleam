@@ -1,0 +1,46 @@
+# Remotion Video Renderer - Cloud Deployment
+# Deploy with: fly deploy -c fly.toml --app vibee-remotion
+
+app = 'vibee-remotion'
+primary_region = 'ams'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  PORT = '3333'
+  OUTPUT_DIR = '/app/out'
+  NODE_ENV = 'production'
+
+[http_service]
+  internal_port = 3333
+  force_https = true
+  auto_stop_machines = 'suspend'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+  [http_service.concurrency]
+    type = 'connections'
+    hard_limit = 100
+    soft_limit = 50
+
+# Video rendering requires more resources
+[[vm]]
+  size = 'performance-2x'
+  memory = '8192mb'
+  cpus = 4
+
+[checks]
+  [checks.health]
+    grace_period = '60s'
+    interval = '30s'
+    method = 'GET'
+    path = '/health'
+    port = 3333
+    timeout = '10s'
+    type = 'http'
+
+[mounts]
+  source = 'remotion_renders'
+  destination = '/app/out'

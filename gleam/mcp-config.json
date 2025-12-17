@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "vibee": {
+      "command": "/Users/playra/vibee-eliza-999/vibee/gleam/run_mcp.sh",
+      "args": [],
+      "env": {}
+    }
+  }
+}

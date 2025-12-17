@@ -1,0 +1,570 @@
+.timeline {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #0f0f0f;
+}
+
+/* Transport Controls */
+.timeline-transport {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: #111;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.transport-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.transport-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: #1a1a1a;
+  border: none;
+  border-radius: 6px;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.transport-btn:hover {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+.play-btn {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  color: #000;
+}
+
+.play-btn:hover {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+}
+
+.snap-btn.active {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  color: #000;
+}
+
+.snap-btn.active:hover {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+}
+
+/* Time Display */
+.transport-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.time-current {
+  color: #fff;
+}
+
+.time-separator {
+  color: #666;
+}
+
+.time-duration {
+  color: #666;
+}
+
+/* Playback Speed */
+.transport-speed {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px;
+  background: #1a1a1a;
+  border-radius: 6px;
+}
+
+.speed-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.speed-btn:hover:not(:disabled) {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+.speed-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.speed-value {
+  min-width: 40px;
+  text-align: center;
+  font-size: 11px;
+  font-family: monospace;
+  color: #888;
+  transition: color 0.15s;
+}
+
+.speed-value.modified {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+/* Zoom Controls */
+.transport-zoom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zoom-label {
+  min-width: 48px;
+  text-align: center;
+  font-size: 11px;
+  color: #666;
+  font-family: monospace;
+}
+
+/* Timeline Content */
+.timeline-content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Track Labels */
+.timeline-labels {
+  width: 100px;
+  flex-shrink: 0;
+  background: #111;
+  border-right: 1px solid #1a1a1a;
+}
+
+.track-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding: 0 12px;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.track-label:first-child {
+  margin-top: 24px; /* Account for time ruler */
+}
+
+.track-label.locked {
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.track-name {
+  flex: 1;
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-lock-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #555;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.track-label:hover .track-lock-btn {
+  opacity: 1;
+}
+
+.track-lock-btn:hover {
+  background: #2a2a2a;
+  color: #888;
+}
+
+.track-lock-btn.active {
+  opacity: 1;
+  color: #ef4444;
+}
+
+.track-lock-btn.active:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Timeline Tracks Wrapper */
+.timeline-tracks-wrapper {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.timeline-tracks {
+  position: relative;
+  min-height: 100%;
+}
+
+/* Track Row */
+.track-row {
+  position: relative;
+  height: 36px;
+  border-bottom: 1px solid #1a1a1a;
+  background: #0f0f0f;
+  transition: background 0.15s;
+}
+
+.track-row:hover {
+  background: #121212;
+}
+
+.track-row.drag-over {
+  background: #1a1a1a;
+  outline: 2px dashed #f59e0b;
+  outline-offset: -2px;
+}
+
+.track-row.drop-rejected {
+  background: #3a1a1a;
+  outline: 2px solid #f43f5e;
+  outline-offset: -2px;
+  animation: shake 0.3s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-4px); }
+}
+
+/* Track Item */
+.track-item {
+  position: absolute;
+  top: 4px;
+  height: 28px;
+  background: #f59e0b;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+  overflow: hidden;
+}
+
+.track-item:hover {
+  background: #fbbf24;
+}
+
+.track-item.selected {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.track-item.locked {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.track-item.locked .track-item-handle {
+  cursor: not-allowed;
+}
+
+.track-item-content {
+  padding: 0 8px;
+  font-size: 10px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 28px;
+}
+
+/* Track type colors */
+.track-item[data-type='video'] {
+  background: #3b82f6;
+}
+
+.track-item[data-type='video']:hover {
+  background: #60a5fa;
+}
+
+.track-item[data-type='avatar'] {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+}
+
+.track-item[data-type='avatar']:hover {
+  background: linear-gradient(135deg, #fbbf24, #fcd34d);
+}
+
+.track-item[data-type='text'] {
+  background: #f59e0b;
+}
+
+.track-item[data-type='text']:hover {
+  background: #fbbf24;
+}
+
+.track-item[data-type='audio'] {
+  background: #10b981;
+}
+
+.track-item[data-type='audio']:hover {
+  background: #34d399;
+}
+
+.track-item[data-type='image'] {
+  background: #ec4899;
+}
+
+.track-item[data-type='image']:hover {
+  background: #f472b6;
+}
+
+/* Resize Handles */
+.track-item-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  background: transparent;
+}
+
+.track-item-handle:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.track-item-handle.left {
+  left: 0;
+}
+
+.track-item-handle.right {
+  right: 0;
+}
+
+/* Track Item Badges */
+.track-item-badges {
+  position: absolute;
+  top: 2px;
+  right: 10px;
+  display: flex;
+  gap: 3px;
+  pointer-events: none;
+}
+
+.track-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: 700;
+  font-family: monospace;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+.track-badge.speed.fast {
+  background: rgba(239, 68, 68, 0.8);
+}
+
+.track-badge.speed.slow {
+  background: rgba(59, 130, 246, 0.8);
+}
+
+.track-badge.volume {
+  background: rgba(16, 185, 129, 0.8);
+}
+
+.track-badge.volume.muted {
+  background: rgba(107, 114, 128, 0.8);
+}
+
+/* In/Out Points Zone */
+.in-out-zone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.in-out-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  z-index: 6;
+}
+
+.in-out-marker.in-marker {
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+}
+
+.in-out-marker.in-marker::before {
+  content: 'I';
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #22c55e;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.in-out-marker.out-marker {
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+}
+
+.in-out-marker.out-marker::before {
+  content: 'O';
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #ef4444;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.in-out-range {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(251, 191, 36, 0.15);
+  border-top: 1px solid rgba(251, 191, 36, 0.4);
+  border-bottom: 1px solid rgba(251, 191, 36, 0.4);
+  z-index: 4;
+}
+
+/* Color Tags */
+.track-item-color-tag {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 4px 4px 0 0;
+  z-index: 1;
+}
+
+.track-item[data-color='red'] .track-item-color-tag {
+  background: #ef4444;
+}
+
+.track-item[data-color='orange'] .track-item-color-tag {
+  background: #f97316;
+}
+
+.track-item[data-color='yellow'] .track-item-color-tag {
+  background: #eab308;
+}
+
+.track-item[data-color='green'] .track-item-color-tag {
+  background: #22c55e;
+}
+
+.track-item[data-color='blue'] .track-item-color-tag {
+  background: #3b82f6;
+}
+
+.track-item[data-color='purple'] .track-item-color-tag {
+  background: #a855f7;
+}
+
+.track-item[data-color='pink'] .track-item-color-tag {
+  background: #ec4899;
+}
+
+/* Timeline Markers */
+.timeline-marker {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.marker-flag {
+  position: absolute;
+  top: 0;
+  left: -5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px 2px 2px 0;
+  transform: rotate(45deg);
+  transform-origin: bottom left;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* Marker colors */
+.timeline-marker.marker-yellow {
+  background: rgba(234, 179, 8, 0.3);
+}
+
+.timeline-marker.marker-yellow .marker-flag {
+  background: #eab308;
+}
+
+.timeline-marker.marker-red {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.timeline-marker.marker-red .marker-flag {
+  background: #ef4444;
+}
+
+.timeline-marker.marker-green {
+  background: rgba(34, 197, 94, 0.3);
+}
+
+.timeline-marker.marker-green .marker-flag {
+  background: #22c55e;
+}
+
+.timeline-marker.marker-blue {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+.timeline-marker.marker-blue .marker-flag {
+  background: #3b82f6;
+}
+
+.timeline-marker.marker-purple {
+  background: rgba(168, 85, 247, 0.3);
+}
+
+.timeline-marker.marker-purple .marker-flag {
+  background: #a855f7;
+}

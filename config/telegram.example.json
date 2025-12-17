@@ -1,0 +1,16 @@
+{
+  "api_id": 12345678,
+  "api_hash": "your_api_hash_here",
+  "phone": "+1234567890",
+  "session_name": "vibee_session",
+  "target_chats": [
+    -1001234567890
+  ],
+  "trigger_words": [
+    "@vibee",
+    "vibee",
+    "/help"
+  ],
+  "auto_reply": true,
+  "polling_interval_ms": 1000
+}

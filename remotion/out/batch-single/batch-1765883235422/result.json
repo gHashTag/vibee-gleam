@@ -1,0 +1,155 @@
+{
+  "batchId": "batch-1765883235422",
+  "templateId": "talking-head-base",
+  "totalVariants": 3,
+  "completed": 0,
+  "failed": 3,
+  "startedAt": "2025-12-16T11:07:15.422Z",
+  "completedAt": "2025-12-16T11:07:23.330Z",
+  "jobs": [
+    {
+      "id": "TH_cbl_zi_k_hcc",
+      "variant": {
+        "id": "TH_cbl_zi_k_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Karaoke + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 34,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T11:07:16.222Z",
+      "error": "The browser threw an error while playing the video /lipsync/lipsync.mp4: Code 4 - MEDIA_ELEMENT_ERROR: Format error. See https://remotion.dev/docs/media-playback-error for help. Pass an onError() prop to handle the error.",
+      "completedAt": "2025-12-16T11:07:18.911Z"
+    },
+    {
+      "id": "TH_cbl_zi_b_hcc",
+      "variant": {
+        "id": "TH_cbl_zi_b_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Bounce + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 33,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T11:07:18.911Z",
+      "error": "The browser threw an error while playing the video /lipsync/lipsync.mp4: Code 4 - MEDIA_ELEMENT_ERROR: Format error. See https://remotion.dev/docs/media-playback-error for help. Pass an onError() prop to handle the error.",
+      "completedAt": "2025-12-16T11:07:20.968Z"
+    },
+    {
+      "id": "TH_cbr_zi_k_hcc",
+      "variant": {
+        "id": "TH_cbr_zi_k_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Right + Zoom Impact + Karaoke + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 33,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T11:07:20.968Z",
+      "error": "The browser threw an error while playing the video /lipsync/lipsync.mp4: Code 4 - MEDIA_ELEMENT_ERROR: Format error. See https://remotion.dev/docs/media-playback-error for help. Pass an onError() prop to handle the error.",
+      "completedAt": "2025-12-16T11:07:23.330Z"
+    }
+  ],
+  "outputDir": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-single/batch-1765883235422",
+  "estimatedCost": 0.02,
+  "actualDuration": 7.908
+}

@@ -1,0 +1,4 @@
+# Placeholder for educational ambient music
+# This is a placeholder file for music testing
+# Replace with actual MP3 file for testing
+# The system expects: avatar-assets/audio/music/educational-ambient.mp3

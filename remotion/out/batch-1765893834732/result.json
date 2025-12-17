@@ -1,0 +1,61 @@
+{
+  "batchId": "batch-1765893834732",
+  "templateId": "talking-head-base",
+  "totalVariants": 1,
+  "completed": 1,
+  "failed": 0,
+  "startedAt": "2025-12-16T14:03:54.732Z",
+  "completedAt": "2025-12-16T14:04:27.800Z",
+  "jobs": [
+    {
+      "id": "TH_cbl_zi_k_hcc",
+      "variant": {
+        "id": "TH_cbl_zi_k_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Karaoke + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 34,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T14:03:55.311Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-1765893834732/videos/TH_cbl_zi_k_hcc.mp4",
+      "completedAt": "2025-12-16T14:04:27.781Z"
+    }
+  ],
+  "outputDir": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-1765893834732",
+  "estimatedCost": 0,
+  "actualDuration": 33.068
+}
