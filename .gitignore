@@ -39,3 +39,13 @@ telegram-bridge/bin/
 
 # Remotion specific
 remotion/whisper.cpp
+
+# Video files
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.flv
+*.wmv
+*.gif
