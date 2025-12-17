@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Factory Renders - 20 Variants</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: 2.5rem;
+      background: linear-gradient(90deg, #00d9ff, #ff6b9d);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .stats {
+      text-align: center;
+      margin-bottom: 2rem;
+      color: #8b8b8b;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1.5rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    }
+    video {
+      width: 100%;
+      aspect-ratio: 9/16;
+      object-fit: cover;
+      display: block;
+    }
+    .info {
+      padding: 1rem;
+    }
+    .variant-id {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #00d9ff;
+      margin-bottom: 0.5rem;
+    }
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+    }
+    .tag {
+      font-size: 0.7rem;
+      padding: 0.15rem 0.4rem;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      color: #aaa;
+    }
+    .legend {
+      max-width: 1400px;
+      margin: 2rem auto;
+      padding: 1rem;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+    }
+    .legend h3 { margin-bottom: 0.5rem; color: #00d9ff; }
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      font-size: 0.8rem;
+    }
+    .legend-item { color: #8b8b8b; }
+    .legend-item strong { color: #fff; }
+  </style>
+</head>
+<body>
+  <h1>🎬 Factory Renders</h1>
+  <p class="stats">20 Variants • 5 sec each • Rendered locally</p>
+
+  <div class="legend">
+    <h3>Variant ID Legend</h3>
+    <div class="legend-grid">
+      <div class="legend-item">
+        <strong>Avatar Position</strong><br>
+        cbl = circle-bottom-left<br>
+        cbr = circle-bottom-right
+      </div>
+      <div class="legend-item">
+        <strong>Hook Style</strong><br>
+        zi = zoom-impact<br>
+        sr = slide-reveal<br>
+        tw = typewriter
+      </div>
+      <div class="legend-item">
+        <strong>Caption Style</strong><br>
+        k = karaoke<br>
+        b = bounce<br>
+        m = modern<br>
+        tw = typewriter
+      </div>
+      <div class="legend-item">
+        <strong>B-Roll Pattern</strong><br>
+        hcc = hook-content-cta<br>
+        ed = even-distribution<br>
+        pr = progressive
+      </div>
+    </div>
+  </div>
+
+  <div class="grid" id="videoGrid"></div>
+
+  <script>
+    const videos = [
+      'TH_cbl_zi_k_hcc.mp4',
+      'TH_cbl_zi_b_hcc.mp4',
+      'TH_cbr_zi_k_hcc.mp4',
+      'TH_cbl_zi_k_ed.mp4',
+      'TH_cbl_zi_m_hcc.mp4',
+      'TH_cbl_sr_k_hcc.mp4',
+      'TH_cbr_zi_b_hcc.mp4',
+      'TH_cbl_zi_b_ed.mp4',
+      'TH_cbl_sr_b_hcc.mp4',
+      'TH_cbr_zi_k_ed.mp4',
+      'TH_cbr_zi_m_hcc.mp4',
+      'TH_cbr_sr_k_hcc.mp4',
+      'TH_cbl_zi_k_pr.mp4',
+      'TH_cbl_zi_m_ed.mp4',
+      'TH_cbl_zi_tw_hcc.mp4',
+      'TH_cbl_sr_k_ed.mp4',
+      'TH_cbl_sr_m_hcc.mp4',
+      'TH_cbl_tw_k_hcc.mp4',
+      'TH_cbr_zi_b_ed.mp4',
+      'TH_cbr_sr_b_hcc.mp4'
+    ];
+
+    const abbrevMap = {
+      cbl: 'circle-bottom-left',
+      cbr: 'circle-bottom-right',
+      zi: 'zoom-impact',
+      sr: 'slide-reveal',
+      tw: 'typewriter',
+      k: 'karaoke',
+      b: 'bounce',
+      m: 'modern',
+      hcc: 'hook-content-cta',
+      ed: 'even-distribution',
+      pr: 'progressive'
+    };
+
+    function parseVariantId(filename) {
+      const name = filename.replace('.mp4', '');
+      const parts = name.split('_');
+      return {
+        id: name,
+        avatar: abbrevMap[parts[1]] || parts[1],
+        hook: abbrevMap[parts[2]] || parts[2],
+        caption: abbrevMap[parts[3]] || parts[3],
+        broll: abbrevMap[parts[4]] || parts[4]
+      };
+    }
+
+    const grid = document.getElementById('videoGrid');
+    videos.forEach(filename => {
+      const info = parseVariantId(filename);
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <video src="${filename}" loop muted playsinline
+               onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0"></video>
+        <div class="info">
+          <div class="variant-id">${info.id}</div>
+          <div class="tags">
+            <span class="tag">${info.avatar}</span>
+            <span class="tag">${info.hook}</span>
+            <span class="tag">${info.caption}</span>
+            <span class="tag">${info.broll}</span>
+          </div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  </script>
+</body>
+</html>

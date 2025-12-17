@@ -1,0 +1,16 @@
+{
+  "projects": [
+    {
+      "name": "P2PEscrow",
+      "path": "./escrow.tact",
+      "output": "./build",
+      "options": {
+        "debug": true,
+        "masterchain": false,
+        "external": false,
+        "ipfsAbiGetter": false,
+        "interfacesGetter": true
+      }
+    }
+  ]
+}

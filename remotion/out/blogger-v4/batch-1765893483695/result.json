@@ -1,0 +1,61 @@
+{
+  "batchId": "batch-1765893483695",
+  "templateId": "talking-head-base",
+  "totalVariants": 1,
+  "completed": 1,
+  "failed": 0,
+  "startedAt": "2025-12-16T13:58:03.696Z",
+  "completedAt": "2025-12-16T13:59:24.365Z",
+  "jobs": [
+    {
+      "id": "TH_cbl_zi_k_hcc",
+      "variant": {
+        "id": "TH_cbl_zi_k_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Karaoke + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 34,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T13:58:05.279Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/blogger-v4/batch-1765893483695/videos/TH_cbl_zi_k_hcc.mp4",
+      "completedAt": "2025-12-16T13:59:24.332Z"
+    }
+  ],
+  "outputDir": "/Users/playra/vibee-eliza-999/vibee/remotion/out/blogger-v4/batch-1765893483695",
+  "estimatedCost": 0.01,
+  "actualDuration": 80.669
+}

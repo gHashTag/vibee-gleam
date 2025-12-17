@@ -1,0 +1,7 @@
+build/
+.git/
+logs/
+*.log
+.gleam/
+target/
+_build/

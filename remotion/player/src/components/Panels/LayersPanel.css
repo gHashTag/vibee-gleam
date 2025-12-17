@@ -1,0 +1,270 @@
+/* ===============================
+   Layers Panel - Track & Item Tree
+   =============================== */
+
+.layers-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Add Text Button */
+.add-text-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  margin: 8px;
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  border: none;
+  border-radius: 6px;
+  color: #000;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.add-text-btn:hover {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.add-text-btn:active {
+  transform: scale(0.98);
+}
+
+/* Layers List */
+.layers-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Track */
+.layer-track {
+  display: flex;
+  flex-direction: column;
+}
+
+.track-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 8px 8px 4px;
+  background: #111;
+  border-bottom: 1px solid #1a1a1a;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.track-header:hover {
+  background: #161616;
+}
+
+.track-expand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.track-expand:hover {
+  color: #888;
+}
+
+.track-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.track-name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+  color: #ccc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.track-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.track-action:hover {
+  background: #2a2a2a;
+  color: #888;
+}
+
+.track-action.inactive {
+  color: #444;
+}
+
+.track-action.active {
+  color: #f59e0b;
+}
+
+.track-count {
+  font-size: 10px;
+  color: #555;
+  padding: 2px 6px;
+  background: #1a1a1a;
+  border-radius: 4px;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* Track Items */
+.track-items {
+  display: flex;
+  flex-direction: column;
+  background: #0d0d0d;
+}
+
+.layer-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 28px;
+  border-bottom: 1px solid #151515;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.layer-item:hover {
+  background: #1a1a1a;
+}
+
+.layer-item.selected {
+  background: rgba(245, 158, 11, 0.15);
+  border-left: 2px solid #f59e0b;
+  padding-left: 26px;
+}
+
+.item-drag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #444;
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+.item-drag:active {
+  cursor: grabbing;
+}
+
+.layer-item:hover .item-drag {
+  color: #666;
+}
+
+.layer-item.dragging {
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px dashed #f59e0b;
+  border-radius: 4px;
+  z-index: 10;
+}
+
+.item-color {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.item-name {
+  flex: 1;
+  font-size: 11px;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.layer-item.selected .item-name {
+  color: #fff;
+}
+
+.item-frames {
+  font-size: 10px;
+  color: #555;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Selection Bar */
+.layers-selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #1a1a1a;
+  border-top: 1px solid #2a2a2a;
+}
+
+.selection-count {
+  font-size: 11px;
+  color: #888;
+}
+
+.selection-delete {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid #ef4444;
+  border-radius: 4px;
+  color: #ef4444;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.selection-delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* Scrollbar */
+.layers-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.layers-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.layers-list::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 3px;
+}
+
+.layers-list::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3a;
+}

@@ -1,0 +1,954 @@
+{
+  "batchId": "batch-1765883698733",
+  "templateId": "talking-head-base",
+  "totalVariants": 20,
+  "completed": 20,
+  "failed": 0,
+  "startedAt": "2025-12-16T11:14:58.733Z",
+  "completedAt": "2025-12-16T11:42:41.557Z",
+  "jobs": [
+    {
+      "id": "TH_cbr_zi_k_hcc",
+      "variant": {
+        "id": "TH_cbr_zi_k_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Right + Zoom Impact + Karaoke + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 33,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:15:00.943Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbr_zi_k_hcc.mp4",
+      "completedAt": "2025-12-16T11:20:58.515Z"
+    },
+    {
+      "id": "TH_cbl_zi_b_hcc",
+      "variant": {
+        "id": "TH_cbl_zi_b_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Bounce + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 33,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:15:00.937Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbl_zi_b_hcc.mp4",
+      "completedAt": "2025-12-16T11:20:59.520Z"
+    },
+    {
+      "id": "TH_cbl_zi_k_hcc",
+      "variant": {
+        "id": "TH_cbl_zi_k_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Karaoke + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 34,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:15:00.926Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbl_zi_k_hcc.mp4",
+      "completedAt": "2025-12-16T11:20:59.728Z"
+    },
+    {
+      "id": "TH_cbl_zi_k_ed",
+      "variant": {
+        "id": "TH_cbl_zi_k_ed",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Karaoke + Even Distribution",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "even-distribution"
+        },
+        "priority": 31,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "even-distribution",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:15:00.949Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbl_zi_k_ed.mp4",
+      "completedAt": "2025-12-16T11:21:52.804Z"
+    },
+    {
+      "id": "TH_cbl_zi_m_hcc",
+      "variant": {
+        "id": "TH_cbl_zi_m_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Modern + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "modern",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 31,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "modern",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:20:58.652Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbl_zi_m_hcc.mp4",
+      "completedAt": "2025-12-16T11:26:15.568Z"
+    },
+    {
+      "id": "TH_cbl_sr_k_hcc",
+      "variant": {
+        "id": "TH_cbl_sr_k_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Slide Reveal + Karaoke + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 31,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:20:59.684Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbl_sr_k_hcc.mp4",
+      "completedAt": "2025-12-16T11:26:19.210Z"
+    },
+    {
+      "id": "TH_cbr_zi_b_hcc",
+      "variant": {
+        "id": "TH_cbr_zi_b_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Right + Zoom Impact + Bounce + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 31,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:20:59.853Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbr_zi_b_hcc.mp4",
+      "completedAt": "2025-12-16T11:26:19.447Z"
+    },
+    {
+      "id": "TH_cbl_zi_b_ed",
+      "variant": {
+        "id": "TH_cbl_zi_b_ed",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Bounce + Even Distribution",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "even-distribution"
+        },
+        "priority": 30,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "even-distribution",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:21:53.783Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbl_zi_b_ed.mp4",
+      "completedAt": "2025-12-16T11:27:23.207Z"
+    },
+    {
+      "id": "TH_cbl_sr_b_hcc",
+      "variant": {
+        "id": "TH_cbl_sr_b_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Slide Reveal + Bounce + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 30,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:26:15.745Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbl_sr_b_hcc.mp4",
+      "completedAt": "2025-12-16T11:31:31.832Z"
+    },
+    {
+      "id": "TH_cbr_zi_m_hcc",
+      "variant": {
+        "id": "TH_cbr_zi_m_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Right + Zoom Impact + Modern + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "modern",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 30,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "modern",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:26:19.540Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbr_zi_m_hcc.mp4",
+      "completedAt": "2025-12-16T11:31:33.000Z"
+    },
+    {
+      "id": "TH_cbr_zi_k_ed",
+      "variant": {
+        "id": "TH_cbr_zi_k_ed",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Right + Zoom Impact + Karaoke + Even Distribution",
+        "axes": {
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "even-distribution"
+        },
+        "priority": 30,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "even-distribution",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:26:19.349Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbr_zi_k_ed.mp4",
+      "completedAt": "2025-12-16T11:31:54.848Z"
+    },
+    {
+      "id": "TH_cbr_sr_k_hcc",
+      "variant": {
+        "id": "TH_cbr_sr_k_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Right + Slide Reveal + Karaoke + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 30,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:27:24.185Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbr_sr_k_hcc.mp4",
+      "completedAt": "2025-12-16T11:31:55.066Z"
+    },
+    {
+      "id": "TH_cbl_zi_k_pr",
+      "variant": {
+        "id": "TH_cbl_zi_k_pr",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Karaoke + Progressive",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "progressive"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "progressive",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:31:31.980Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbl_zi_k_pr.mp4",
+      "completedAt": "2025-12-16T11:37:18.176Z"
+    },
+    {
+      "id": "TH_cbl_zi_tw_hcc",
+      "variant": {
+        "id": "TH_cbl_zi_tw_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Typewriter + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "typewriter",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "typewriter",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:31:55.034Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbl_zi_tw_hcc.mp4",
+      "completedAt": "2025-12-16T11:37:25.271Z"
+    },
+    {
+      "id": "TH_cbl_zi_m_ed",
+      "variant": {
+        "id": "TH_cbl_zi_m_ed",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Modern + Even Distribution",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "modern",
+          "bRollPattern": "even-distribution"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "modern",
+          "bRollPattern": "even-distribution",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:31:33.200Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbl_zi_m_ed.mp4",
+      "completedAt": "2025-12-16T11:37:35.081Z"
+    },
+    {
+      "id": "TH_cbl_sr_k_ed",
+      "variant": {
+        "id": "TH_cbl_sr_k_ed",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Slide Reveal + Karaoke + Even Distribution",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "karaoke",
+          "bRollPattern": "even-distribution"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "karaoke",
+          "bRollPattern": "even-distribution",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:31:55.202Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbl_sr_k_ed.mp4",
+      "completedAt": "2025-12-16T11:38:09.644Z"
+    },
+    {
+      "id": "TH_cbl_sr_m_hcc",
+      "variant": {
+        "id": "TH_cbl_sr_m_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Slide Reveal + Modern + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "modern",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "modern",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:37:18.294Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbl_sr_m_hcc.mp4",
+      "completedAt": "2025-12-16T11:42:31.641Z"
+    },
+    {
+      "id": "TH_cbl_tw_k_hcc",
+      "variant": {
+        "id": "TH_cbl_tw_k_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Typewriter + Karaoke + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "typewriter",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "typewriter",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:37:25.371Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbl_tw_k_hcc.mp4",
+      "completedAt": "2025-12-16T11:42:34.608Z"
+    },
+    {
+      "id": "TH_cbr_sr_b_hcc",
+      "variant": {
+        "id": "TH_cbr_sr_b_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Right + Slide Reveal + Bounce + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:38:10.327Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbr_sr_b_hcc.mp4",
+      "completedAt": "2025-12-16T11:42:38.680Z"
+    },
+    {
+      "id": "TH_cbr_zi_b_ed",
+      "variant": {
+        "id": "TH_cbr_zi_b_ed",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Right + Zoom Impact + Bounce + Even Distribution",
+        "axes": {
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "even-distribution"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "even-distribution",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "completed",
+      "startedAt": "2025-12-16T11:37:35.212Z",
+      "outputPath": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733/videos/TH_cbr_zi_b_ed.mp4",
+      "completedAt": "2025-12-16T11:42:41.461Z"
+    }
+  ],
+  "outputDir": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch-final/batch-1765883698733",
+  "estimatedCost": 0.1,
+  "actualDuration": 1662.824
+}

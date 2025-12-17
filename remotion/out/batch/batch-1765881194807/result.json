@@ -1,0 +1,954 @@
+{
+  "batchId": "batch-1765881194807",
+  "templateId": "talking-head-base",
+  "totalVariants": 20,
+  "completed": 0,
+  "failed": 20,
+  "startedAt": "2025-12-16T10:33:14.807Z",
+  "completedAt": "2025-12-16T10:33:24.147Z",
+  "jobs": [
+    {
+      "id": "TH_cbr_zi_k_hcc",
+      "variant": {
+        "id": "TH_cbr_zi_k_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Right + Zoom Impact + Karaoke + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 33,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:16.715Z",
+      "error": "Error while downloading http://localhost:3000/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3000/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:18.626Z"
+    },
+    {
+      "id": "TH_cbl_zi_k_hcc",
+      "variant": {
+        "id": "TH_cbl_zi_k_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Karaoke + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 34,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:16.700Z",
+      "error": "Error while downloading http://localhost:3002/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3002/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:18.704Z"
+    },
+    {
+      "id": "TH_cbl_zi_k_ed",
+      "variant": {
+        "id": "TH_cbl_zi_k_ed",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Karaoke + Even Distribution",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "even-distribution"
+        },
+        "priority": 31,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "even-distribution",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:16.720Z",
+      "error": "Error while downloading http://localhost:3003/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3003/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:18.733Z"
+    },
+    {
+      "id": "TH_cbl_zi_b_hcc",
+      "variant": {
+        "id": "TH_cbl_zi_b_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Bounce + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 33,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:16.710Z",
+      "error": "Error while downloading http://localhost:3001/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3001/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:18.755Z"
+    },
+    {
+      "id": "TH_cbl_zi_m_hcc",
+      "variant": {
+        "id": "TH_cbl_zi_m_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Modern + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "modern",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 31,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "modern",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:18.653Z",
+      "error": "Error while downloading http://localhost:3001/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3001/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:19.806Z"
+    },
+    {
+      "id": "TH_cbl_sr_k_hcc",
+      "variant": {
+        "id": "TH_cbl_sr_k_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Slide Reveal + Karaoke + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 31,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:18.717Z",
+      "error": "Error while downloading http://localhost:3000/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3000/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:19.857Z"
+    },
+    {
+      "id": "TH_cbr_zi_b_hcc",
+      "variant": {
+        "id": "TH_cbr_zi_b_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Right + Zoom Impact + Bounce + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 31,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:18.747Z",
+      "error": "Error while downloading http://localhost:3003/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3003/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:19.949Z"
+    },
+    {
+      "id": "TH_cbl_zi_b_ed",
+      "variant": {
+        "id": "TH_cbl_zi_b_ed",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Bounce + Even Distribution",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "even-distribution"
+        },
+        "priority": 30,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "even-distribution",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:18.764Z",
+      "error": "Error while downloading http://localhost:3002/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3002/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:20.084Z"
+    },
+    {
+      "id": "TH_cbl_sr_b_hcc",
+      "variant": {
+        "id": "TH_cbl_sr_b_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Slide Reveal + Bounce + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 30,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:19.824Z",
+      "error": "Error while downloading http://localhost:3001/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3001/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:21.270Z"
+    },
+    {
+      "id": "TH_cbr_zi_k_ed",
+      "variant": {
+        "id": "TH_cbr_zi_k_ed",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Right + Zoom Impact + Karaoke + Even Distribution",
+        "axes": {
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "even-distribution"
+        },
+        "priority": 30,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "even-distribution",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:19.869Z",
+      "error": "Error while downloading http://localhost:3000/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3000/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:21.463Z"
+    },
+    {
+      "id": "TH_cbr_zi_m_hcc",
+      "variant": {
+        "id": "TH_cbr_zi_m_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Right + Zoom Impact + Modern + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "modern",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 30,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "modern",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:19.963Z",
+      "error": "Error while downloading http://localhost:3003/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3003/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:21.583Z"
+    },
+    {
+      "id": "TH_cbr_sr_k_hcc",
+      "variant": {
+        "id": "TH_cbr_sr_k_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Right + Slide Reveal + Karaoke + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 30,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:20.123Z",
+      "error": "Error while downloading http://localhost:3002/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3002/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:21.660Z"
+    },
+    {
+      "id": "TH_cbl_zi_k_pr",
+      "variant": {
+        "id": "TH_cbl_zi_k_pr",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Karaoke + Progressive",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "progressive"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "karaoke",
+          "bRollPattern": "progressive",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:21.291Z",
+      "error": "Error while downloading http://localhost:3001/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3001/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:22.446Z"
+    },
+    {
+      "id": "TH_cbl_zi_m_ed",
+      "variant": {
+        "id": "TH_cbl_zi_m_ed",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Modern + Even Distribution",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "modern",
+          "bRollPattern": "even-distribution"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "modern",
+          "bRollPattern": "even-distribution",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:21.492Z",
+      "error": "Error while downloading http://localhost:3000/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3000/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:22.847Z"
+    },
+    {
+      "id": "TH_cbl_zi_tw_hcc",
+      "variant": {
+        "id": "TH_cbl_zi_tw_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Zoom Impact + Typewriter + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "typewriter",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "typewriter",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:21.601Z",
+      "error": "Error while downloading http://localhost:3003/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3003/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:22.919Z"
+    },
+    {
+      "id": "TH_cbl_sr_k_ed",
+      "variant": {
+        "id": "TH_cbl_sr_k_ed",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Slide Reveal + Karaoke + Even Distribution",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "karaoke",
+          "bRollPattern": "even-distribution"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "karaoke",
+          "bRollPattern": "even-distribution",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:21.728Z",
+      "error": "Error while downloading http://localhost:3002/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3002/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:22.993Z"
+    },
+    {
+      "id": "TH_cbl_sr_m_hcc",
+      "variant": {
+        "id": "TH_cbl_sr_m_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Slide Reveal + Modern + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "modern",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "modern",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:22.473Z",
+      "error": "Error while downloading http://localhost:3001/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3001/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:23.941Z"
+    },
+    {
+      "id": "TH_cbr_zi_b_ed",
+      "variant": {
+        "id": "TH_cbr_zi_b_ed",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Right + Zoom Impact + Bounce + Even Distribution",
+        "axes": {
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "even-distribution"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "zoom-impact",
+          "captionStyle": "bounce",
+          "bRollPattern": "even-distribution",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:22.933Z",
+      "error": "Error while downloading http://localhost:3003/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3003/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:24.077Z"
+    },
+    {
+      "id": "TH_cbl_tw_k_hcc",
+      "variant": {
+        "id": "TH_cbl_tw_k_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Left + Typewriter + Karaoke + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "typewriter",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-left",
+          "hookStyle": "typewriter",
+          "captionStyle": "karaoke",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:22.866Z",
+      "error": "Error while downloading http://localhost:3000/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3000/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:24.095Z"
+    },
+    {
+      "id": "TH_cbr_sr_b_hcc",
+      "variant": {
+        "id": "TH_cbr_sr_b_hcc",
+        "templateId": "talking-head-base",
+        "name": "Circle Bottom Right + Slide Reveal + Bounce + Hook Content Cta",
+        "axes": {
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta"
+        },
+        "priority": 29,
+        "props": {
+          "lipSyncVideo": "{{assets.placeholders.lipsync}}",
+          "backgroundVideos": [
+            "{{assets.placeholders.broll}}"
+          ],
+          "backgroundMusic": "{{assets.placeholders.music}}",
+          "musicVolume": 0.3,
+          "avatarPosition": "circle-bottom-right",
+          "hookStyle": "slide-reveal",
+          "captionStyle": "bounce",
+          "bRollPattern": "hook-content-cta",
+          "circleSizePercent": 25.2,
+          "circleBottomPercent": 15,
+          "circleLeftPx": 40,
+          "glassMorphism": true,
+          "hookText": "",
+          "hookDuration": 3,
+          "bRollDuration": 4,
+          "bRollGapDuration": 1.5,
+          "vignetteStrength": 0.7,
+          "filmGrainOpacity": 0.3,
+          "colorCorrection": 1.2,
+          "captions": [],
+          "captionPosition": "bottom",
+          "captionFontSize": 48,
+          "captionFontColor": "#ffffff",
+          "captionHighlightColor": "#FFD700"
+        }
+      },
+      "status": "failed",
+      "startedAt": "2025-12-16T10:33:23.007Z",
+      "error": "Error while downloading http://localhost:3002/public/test-placeholder.mp4: Error: Received a status code of 404 while downloading file http://localhost:3002/public/test-placeholder.mp4.\nThe response body was:\n---\n{\"statusCode\":404,\"message\":\"The requested path (/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/remotion-webpack-bundle-GVrxEL/public/test-placeholder.mp4) could not be found\"}\n---\n    at readFile (file:///Users/playra/vibee-eliza-999/vibee/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:507:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "completedAt": "2025-12-16T10:33:24.139Z"
+    }
+  ],
+  "outputDir": "/Users/playra/vibee-eliza-999/vibee/remotion/out/batch/batch-1765881194807",
+  "estimatedCost": 0.03,
+  "actualDuration": 9.34
+}

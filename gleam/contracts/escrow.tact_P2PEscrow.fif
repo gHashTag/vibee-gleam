@@ -1,0 +1,1437 @@
+// automatically generated from `@stdlib/std/stdlib.fc` `/Users/playra/vibee-eliza-999/vibee/gleam/contracts/escrow.tact_P2PEscrow.fc` 
+PROGRAM{
+  DECLPROC __tact_store_address_opt
+  DECLPROC __tact_not_null
+  DECLPROC __tact_context_get
+  DECLPROC __tact_context_get_sender
+  DECLPROC __tact_slice_eq_bits_nullable_right
+  DECLPROC __tact_slice_eq_bits_nullable_left
+  DECLPROC __tact_dict_get_int_cell
+  DECLPROC __tact_dict_set_int_cell
+  DECLPROC $DeployOk$_store
+  DECLPROC $DeployOk$_store_cell
+  DECLPROC $Order$_store
+  DECLPROC $Order$_store_cell
+  DECLPROC $Order$_load
+  DECLPROC $Order$_as_optional
+  DECLPROC $Order$_load_opt
+  DECLPROC $OrderCreated$_store
+  DECLPROC $OrderCreated$_store_cell
+  DECLPROC $OrderTaken$_store
+  DECLPROC $OrderTaken$_store_cell
+  DECLPROC $OrderCompleted$_store
+  DECLPROC $OrderCompleted$_store_cell
+  DECLPROC $OrderCancelled$_store
+  DECLPROC $OrderCancelled$_store_cell
+  DECLPROC $DisputeOpened$_store
+  DECLPROC $DisputeOpened$_store_cell
+  DECLPROC $DisputeResolved$_store
+  DECLPROC $DisputeResolved$_store_cell
+  DECLPROC $P2PEscrow$_store
+  DECLPROC $P2PEscrow$_load
+  DECLPROC $Context$_get_value
+  DECLPROC $Order$_not_null
+  DECLPROC $Order$_to_tuple
+  DECLPROC $Order$_to_opt_tuple
+  DECLPROC $Order$_to_opt_external
+  DECLPROC $P2PEscrow$init$_load
+  DECLPROC $P2PEscrow$_contract_init
+  DECLPROC $P2PEscrow$_contract_load
+  DECLPROC $P2PEscrow$_contract_store
+  DECLPROC $global_emit
+  DECLPROC $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout
+  DECLPROC $SendParameters$_constructor_to_value_mode_body
+  DECLPROC $OrderCompleted$_constructor_orderId_buyer_amount
+  DECLPROC $P2PEscrow$_fun_releaseOrder
+  DECLPROC $P2PEscrow$_fun_getOrder
+  DECLPROC $P2PEscrow$_fun_getOrderCount
+  DECLPROC $P2PEscrow$_fun_getCollectedFees
+  DECLPROC $P2PEscrow$_fun_getFeePercent
+  DECLPROC $P2PEscrow$_fun_getOracle
+  DECLPROC $MessageParameters$_constructor_bounce_to_value_mode_body
+  DECLPROC $P2PEscrow$_fun_notify
+  DECLPROC $P2PEscrow$_fun_requireOwner
+  DECLPROC $P2PEscrow$_fun_owner
+  DECLPROC $OrderCreated$_constructor_orderId_seller_cryptoAmount_fiatAmount
+  DECLPROC $OrderTaken$_constructor_orderId_buyer
+  DECLPROC $OrderCancelled$_constructor_orderId
+  DECLPROC $DisputeOpened$_constructor_orderId_openedBy
+  DECLPROC $DisputeResolved$_constructor_orderId_winner
+  DECLPROC $DeployOk$_constructor_queryId
+  128269 DECLMETHOD %getOrder
+  94927 DECLMETHOD %getOrderCount
+  108894 DECLMETHOD %getCollectedFees
+  109126 DECLMETHOD %getFeePercent
+  106528 DECLMETHOD %getOracle
+  83229 DECLMETHOD %owner
+  DECLPROC recv_internal
+  65535 DECLMETHOD __tact_selector_hack
+  DECLGLOBVAR __tact_context
+  DECLGLOBVAR __tact_context_sender
+  DECLGLOBVAR __tact_child_contract_codes
+  DECLGLOBVAR __tact_randomized
+  __tact_store_address_opt PROCINLINE:<{
+    DUP
+    ISNULL
+    IF:<{
+      DROP
+      b{00} STSLICECONST
+    }>ELSE<{
+      SWAP
+      STSLICE
+    }>
+  }>
+  __tact_not_null PROCINLINE:<{
+    DUP
+    ISNULL
+    128 THROWIF
+  }>
+  __tact_context_get PROCINLINE:<{
+    __tact_context GETGLOB
+    4 UNTUPLE
+  }>
+  __tact_context_get_sender PROCINLINE:<{
+    __tact_context_sender GETGLOB
+  }>
+  __tact_slice_eq_bits_nullable_right PROCINLINE:<{
+    DUP
+    ISNULL
+    IF:<{
+      2DROP
+      FALSE
+    }>ELSE<{
+      SDEQ
+    }>
+  }>
+  __tact_slice_eq_bits_nullable_left PROCINLINE:<{
+    OVER
+    ISNULL
+    IF:<{
+      2DROP
+      FALSE
+    }>ELSE<{
+      SDEQ
+    }>
+  }>
+  __tact_dict_get_int_cell PROCINLINE:<{
+    -ROT
+    DICTIGETREF
+    NULLSWAPIFNOT
+    IF:<{
+    }>ELSE<{
+      DROP
+      PUSHNULL
+    }>
+  }>
+  __tact_dict_set_int_cell PROCINLINE:<{
+    DUP
+    ISNULL
+    IF:<{
+      DROP
+      -ROT
+      DICTIDEL
+      DROP
+    }>ELSE<{
+      s1 s3 s3 XCHG3
+      DICTISETREF
+    }>
+  }>
+  $DeployOk$_store PROCINLINE:<{
+    2952335191 PUSHINT
+    ROT
+    32 STU
+    64 STU
+  }>
+  $DeployOk$_store_cell PROCINLINE:<{
+    SWAP
+    $DeployOk$_store INLINECALLDICT
+    ENDC
+  }>
+  $Order$_store PROCINLINE:<{
+    s8 s9 XCHG2
+    STSLICE
+    s0 s6 XCHG2
+    __tact_store_address_opt INLINECALLDICT
+    s0 s4 XCHG2
+    STVARUINT16
+    s1 s2 XCHG
+    64 STU
+    8 STU
+    8 STU
+    32 STU
+    32 STU
+    32 STU
+  }>
+  $Order$_store_cell PROCINLINE:<{
+    9 -ROLL
+    $Order$_store INLINECALLDICT
+    ENDC
+  }>
+  $Order$_load PROCINLINE:<{
+    LDMSGADDR
+                b{00} SDBEGINSQ
+                IF:<{
+                  PUSHNULL
+                }>ELSE<{
+                  LDMSGADDR
+                  SWAP
+                }>
+    SWAP
+    LDVARUINT16
+    64 LDU
+    8 LDU
+    8 LDU
+    32 LDU
+    32 LDU
+    32 LDU
+    9 -ROLL
+  }>
+  $Order$_as_optional PROCINLINE:<{
+        9 TUPLE
+  }>
+  $Order$_load_opt PROCINLINE:<{
+    DUP
+    ISNULL
+    IF:<{
+      DROP
+      PUSHNULL
+    }>ELSE<{
+      CTOS
+      $Order$_load INLINECALLDICT
+      1 9 BLKDROP2
+      $Order$_as_optional INLINECALLDICT
+    }>
+  }>
+  $OrderCreated$_store PROCINLINE:<{
+    3924115121 PUSHINT
+    s0 s5 XCHG2
+    32 STU
+    s1 s3 XCHG
+    64 STU
+    STSLICE
+    SWAP
+    STVARUINT16
+    64 STU
+  }>
+  $OrderCreated$_store_cell PROCINLINE:<{
+    4 -ROLL
+    $OrderCreated$_store INLINECALLDICT
+    ENDC
+  }>
+  $OrderTaken$_store PROCINLINE:<{
+    2146179729 PUSHINT
+    s0 s3 XCHG2
+    32 STU
+    64 STU
+    STSLICE
+  }>
+  $OrderTaken$_store_cell PROCINLINE:<{
+    -ROT
+    $OrderTaken$_store INLINECALLDICT
+    ENDC
+  }>
+  $OrderCompleted$_store PROCINLINE:<{
+    742725614 PUSHINT
+    s0 s4 XCHG2
+    32 STU
+    s1 s2 XCHG
+    64 STU
+    STSLICE
+    SWAP
+    STVARUINT16
+  }>
+  $OrderCompleted$_store_cell PROCINLINE:<{
+    3 -ROLL
+    $OrderCompleted$_store INLINECALLDICT
+    ENDC
+  }>
+  $OrderCancelled$_store PROCINLINE:<{
+    2918286519 PUSHINT
+    ROT
+    32 STU
+    64 STU
+  }>
+  $OrderCancelled$_store_cell PROCINLINE:<{
+    SWAP
+    $OrderCancelled$_store INLINECALLDICT
+    ENDC
+  }>
+  $DisputeOpened$_store PROCINLINE:<{
+    842545338 PUSHINT
+    s0 s3 XCHG2
+    32 STU
+    64 STU
+    STSLICE
+  }>
+  $DisputeOpened$_store_cell PROCINLINE:<{
+    -ROT
+    $DisputeOpened$_store INLINECALLDICT
+    ENDC
+  }>
+  $DisputeResolved$_store PROCINLINE:<{
+    52015006 PUSHINT
+    s0 s3 XCHG2
+    32 STU
+    64 STU
+    STSLICE
+  }>
+  $DisputeResolved$_store_cell PROCINLINE:<{
+    -ROT
+    $DisputeResolved$_store INLINECALLDICT
+    ENDC
+  }>
+  $P2PEscrow$_store PROCINLINE:<{
+    s5 s6 XCHG2
+    STSLICE
+    s1 s3 XCHG
+    STSLICE
+    16 STU
+    SWAP
+    STVARUINT16
+    64 STU
+    STDICT
+  }>
+  $P2PEscrow$_load PROCINLINE:<{
+    LDMSGADDR
+    LDMSGADDR
+    16 LDU
+    LDVARUINT16
+    64 LDU
+    LDDICT
+    6 -ROLL
+  }>
+  $Context$_get_value PROCINLINE:<{
+    s1 s3 XCHG
+    3 BLKDROP
+  }>
+  $Order$_not_null PROCINLINE:<{
+    DUP
+    ISNULL
+    128 THROWIF
+        9 UNTUPLE
+  }>
+  $Order$_to_tuple PROCINLINE:<{
+        9 TUPLE
+  }>
+  $Order$_to_opt_tuple PROCINLINE:<{
+    DUP
+    ISNULL
+    IF:<{
+      DROP
+      PUSHNULL
+    }>ELSE<{
+      $Order$_not_null INLINECALLDICT
+      $Order$_to_tuple INLINECALLDICT
+    }>
+  }>
+  $Order$_to_opt_external PROCINLINE:<{
+    $Order$_to_opt_tuple INLINECALLDICT
+    DUP
+    ISNULL
+    IF:<{
+      DROP
+      PUSHNULL
+    }>ELSE<{
+    }>
+  }>
+  $P2PEscrow$init$_load PROCINLINE:<{
+    LDMSGADDR
+    SWAP
+  }>
+  $P2PEscrow$_contract_init PROCINLINE:<{
+    PUSHNULL
+    __tact_context_get_sender INLINECALLDICT
+    50 PUSHINT
+    0 PUSHINT
+    DUP
+    s3 s5 XCHG
+    4 ROLL
+  }>
+  $P2PEscrow$_contract_load PROCINLINE:<{
+    c4 PUSH
+    CTOS
+    1 LDI
+    SWAP
+    IF:<{
+      $P2PEscrow$_load INLINECALLDICT
+      1 6 BLKDROP2
+    }>ELSE<{
+      $P2PEscrow$init$_load INLINECALLDICT
+      SWAP
+      ENDS
+      $P2PEscrow$_contract_init INLINECALLDICT
+    }>
+  }>
+  $P2PEscrow$_contract_store PROCINLINE:<{
+    NEWC
+    TRUE
+    SWAP
+    1 STI
+    6 -ROLL
+    $P2PEscrow$_store INLINECALLDICT
+    ENDC
+    c4 POP
+  }>
+  $global_emit PROCINLINE:<{
+        NEWC
+    15211807202738752817960438464513 PUSHINT
+    SWAP
+    104 STU
+        STREF
+        ENDC
+    0 PUSHINT
+        SENDRAWMSG
+  }>
+  $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout PROCINLINE:<{
+  }>
+  $SendParameters$_constructor_to_value_mode_body PROCINLINE:<{
+    2SWAP
+    PUSHNULL
+    PUSHNULL
+    s0 s0 s3 XCHG3
+    TRUE
+  }>
+  $OrderCompleted$_constructor_orderId_buyer_amount PROCINLINE:<{
+  }>
+  $P2PEscrow$_fun_releaseOrder PROCREF:<{
+    s3 POP
+    44246 PUSHINT
+    s7 PUSH
+    ISNULL
+    NOT
+    THROWANYIFNOT
+    s5 s12 PUSH2
+    MUL
+    10000 PUSHINT
+    DIV
+    s6 s0 PUSH2
+    SUB
+    s13 s13 XCHG2
+    ADD
+    s6 s8 XCHG
+    3 PUSHINT
+    s8 PUSH
+    s0 s7 XCHG
+    s6 s10 XCHG
+    s0 s5 XCHG
+    s4 s10 XCHG
+    s10 s3 s0 XCHG3
+    $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout INLINECALLDICT
+    s0 s8 XCHG
+    s0 s7 XCHG
+    s0 s6 XCHG
+    s0 s5 XCHG
+    s0 s4 XCHG
+    s3 s1 s3 XCHG3
+    257 PUSHINT
+    s2 s9 XCHG2
+    NEWC
+    $Order$_store_cell INLINECALLDICT
+    s4 PUSH
+    s3 s6 XCHG
+    SWAP
+    __tact_dict_set_int_cell INLINECALLDICT
+    s3 PUSH
+    __tact_not_null INLINECALLDICT
+    2 PUSHINT
+        B{b5ee9c7241010101001800002c0000000050325020457363726f772052656c6561736552d2d9f7} B>boc PUSHREF
+    s8 PUSH
+    -ROT
+    $SendParameters$_constructor_to_value_mode_body INLINECALLDICT
+        NEWC
+        b{01} STSLICECONST  // store tag = $0 and ihr_disabled = true
+        1 STI               // store `bounce`
+        b{000} STSLICECONST // store bounced = false and src = addr_none
+        STSLICE             // store `to`
+        SWAP
+        STGRAMS             // store `value`
+        105 PUSHINT         // 1 + 4 + 4 + 64 + 32
+        STZEROES            // store currency_collection, ihr_fee, fwd_fee, created_lt and created_at
+        // → Stack state
+        // s0: Builder
+        // s1: `data`
+        // s2: `code`
+        // s3: `body`
+        // s4: `mode`
+        // Group 2: Placing the Builder after code and data, then checking those for nullability
+        s2 XCHG0
+        DUP2
+        ISNULL
+        SWAP
+        ISNULL
+        AND
+        // → Stack state
+        // s0: -1 (true) if `data` and `code` are both null, 0 (false) otherwise
+        // s1: `code`
+        // s2: `data`
+        // s3: Builder
+        // s4: `body`
+        // s5: `mode`
+        // Group 3: Left branch of the IFELSE, executed if s0 is -1 (true)
+        <{
+            DROP2 // drop `data` and `code`, since either of those is null
+            b{0} STSLICECONST
+        }> PUSHCONT
+        // Group 3: Right branch of the IFELSE, executed if s0 is 0 (false)
+        <{
+            // _ split_depth:(Maybe (## 5))
+            //   special:(Maybe TickTock)
+            //   code:(Maybe ^Cell)
+            //   data:(Maybe ^Cell)
+            //   library:(Maybe ^Cell)
+            // = StateInit;
+            ROT                // place message Builder on top
+            b{10} STSLICECONST // store Maybe = true, Either = false
+            // Start composing inlined StateInit
+            b{00} STSLICECONST // store split_depth and special first
+            STDICT             // store code
+            STDICT             // store data
+            b{0} STSLICECONST  // store library
+        }> PUSHCONT
+        // Group 3: IFELSE that does the branching shown above
+        IFELSE
+        // → Stack state
+        // s0: Builder
+        // s1: null or StateInit
+        // s2: `body`
+        // s3: `mode`
+        // Group 4: Finalizing the message
+        STDICT // store `body` as ref with an extra Maybe bit, since `body` might be null
+        ENDC
+        // → Stack state
+        // s0: Cell
+        // s1: `mode`
+        // Group 5: Sending the message, with `mode` on top
+        SWAP
+        SENDRAWMSG // https://github.com/tact-lang/tact/issues/1558
+    s0 s3 XCHG
+    __tact_not_null INLINECALLDICT
+    s0 s5 XCHG2
+    $OrderCompleted$_constructor_orderId_buyer_amount INLINECALLDICT
+    NEWC
+    $OrderCompleted$_store_cell INLINECALLDICT
+    $global_emit INLINECALLDICT
+  }>
+  $P2PEscrow$_fun_getOrder PROCREF:<{
+    257 PUSHINT
+    s2 PUSH
+    s0 s2 XCHG
+    __tact_dict_get_int_cell INLINECALLDICT
+    $Order$_load_opt INLINECALLDICT
+  }>
+  $P2PEscrow$_fun_getOrderCount PROCREF:<{
+    OVER
+  }>
+  $P2PEscrow$_fun_getCollectedFees PROCREF:<{
+    s2 PUSH
+  }>
+  $P2PEscrow$_fun_getFeePercent PROCREF:<{
+    s3 PUSH
+  }>
+  $P2PEscrow$_fun_getOracle PROCREF:<{
+    s4 PUSH
+  }>
+  $MessageParameters$_constructor_bounce_to_value_mode_body PROCINLINE:<{
+    s3 s3 XCHG2
+    s0 s4 XCHG
+  }>
+  $P2PEscrow$_fun_notify PROCINLINE:<{
+    __tact_context_get_sender INLINECALLDICT
+    FALSE
+    0 PUSHINT
+    s0 s3 XCHG2
+    66 PUSHINT
+    SWAP
+    $MessageParameters$_constructor_bounce_to_value_mode_body INLINECALLDICT
+        NEWC
+        b{01} STSLICECONST  // store tag = $0 and ihr_disabled = true
+        1 STI               // store `bounce`
+        b{000} STSLICECONST // store bounced = false and src = addr_none
+        STSLICE             // store `to`
+        SWAP
+        STGRAMS             // store `value`
+        106 PUSHINT         // 1 + 4 + 4 + 64 + 32 + 1
+        STZEROES
+        // → Stack state
+        // s0: Builder
+        // s1: `body`
+        // s2: `mode`
+        STDICT
+        ENDC
+        SWAP
+        SENDRAWMSG
+  }>
+  $P2PEscrow$_fun_requireOwner PROCREF:<{
+    __tact_context_get_sender INLINECALLDICT
+    s6 PUSH
+    SDEQ
+    132 THROWIFNOT
+  }>
+  $P2PEscrow$_fun_owner PROCREF:<{
+    s5 PUSH
+  }>
+  $OrderCreated$_constructor_orderId_seller_cryptoAmount_fiatAmount PROCINLINE:<{
+  }>
+  $OrderTaken$_constructor_orderId_buyer PROCINLINE:<{
+  }>
+  $OrderCancelled$_constructor_orderId PROCINLINE:<{
+  }>
+  $DisputeOpened$_constructor_orderId_openedBy PROCINLINE:<{
+  }>
+  $DisputeResolved$_constructor_orderId_winner PROCINLINE:<{
+  }>
+  $DeployOk$_constructor_queryId PROCINLINE:<{
+  }>
+  %getOrder PROC:<{
+    $P2PEscrow$_contract_load INLINECALLDICT
+    6 ROLL
+    $P2PEscrow$_fun_getOrder INLINECALLDICT
+    6 1 BLKDROP2
+    $Order$_to_opt_external INLINECALLDICT
+  }>
+  %getOrderCount PROC:<{
+    $P2PEscrow$_contract_load INLINECALLDICT
+    $P2PEscrow$_fun_getOrderCount INLINECALLDICT
+    6 1 BLKDROP2
+  }>
+  %getCollectedFees PROC:<{
+    $P2PEscrow$_contract_load INLINECALLDICT
+    $P2PEscrow$_fun_getCollectedFees INLINECALLDICT
+    6 1 BLKDROP2
+  }>
+  %getFeePercent PROC:<{
+    $P2PEscrow$_contract_load INLINECALLDICT
+    $P2PEscrow$_fun_getFeePercent INLINECALLDICT
+    6 1 BLKDROP2
+  }>
+  %getOracle PROC:<{
+    $P2PEscrow$_contract_load INLINECALLDICT
+    $P2PEscrow$_fun_getOracle INLINECALLDICT
+    6 1 BLKDROP2
+  }>
+  %owner PROC:<{
+    $P2PEscrow$_contract_load INLINECALLDICT
+    $P2PEscrow$_fun_owner INLINECALLDICT
+    6 1 BLKDROP2
+  }>
+  recv_internal PROC:<{
+    c2 SAVE
+    SAMEALTSAVE
+    SWAP
+    CTOS
+    2 PUSHINT
+    SDSKIPFIRST
+    1 LDI
+    1 LDI
+    LDMSGADDR
+    OVER
+    s3 s4 XCHG
+    s6 s6 XCHG2
+    4 TUPLE
+    __tact_context SETGLOB
+    s0 s2 XCHG
+    __tact_context_sender SETGLOB
+    $P2PEscrow$_contract_load INLINECALLDICT
+    s0 s7 XCHG
+    IFJMP:<{
+      7 BLKDROP
+    }>
+    s5 PUSH
+    SBITS
+    31 GTINT
+    IF:<{
+      s0 s5 XCHG
+      32 LDU
+      OVER
+      3932749128 PUSHINT
+      EQUAL
+      IFJMP:<{
+        NIP
+        64 LDU
+        64 LDU
+        8 LDU
+        32 LDU
+        DROP
+        __tact_context_get INLINECALLDICT
+        DROP
+        s2 POP
+        7620 PUSHINT
+        s2 PUSH
+        100000000 PUSHINT
+        GEQ
+        THROWANYIFNOT
+        PUSHNULL
+        0 PUSHINT
+            NOW
+        s1 s3 PUSH2
+        s6 s0 XCPU
+        s0 s5 XCHG
+        s6 s10 XCPU
+        s0 s5 XCHG
+        s4 s10 XCHG
+        s10 s3 s3 XCHG3
+        s0 s9 XCHG
+        $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout INLINECALLDICT
+        s0 s8 XCHG
+        s0 s7 XCHG
+        s0 s6 XCHG
+        s0 s5 XCHG
+        s0 s4 XCHG
+        s3 s1 s3 XCHG3
+        257 PUSHINT
+        s2 s9 XCHG2
+        NEWC
+        $Order$_store_cell INLINECALLDICT
+        s5 PUSH
+        s3 s12 XCHG
+        SWAP
+        __tact_dict_set_int_cell INLINECALLDICT
+        s0 s8 XCHG
+        INC
+        s9 s1 s9 XCHG3
+        $OrderCreated$_constructor_orderId_seller_cryptoAmount_fiatAmount INLINECALLDICT
+        NEWC
+        $OrderCreated$_store_cell INLINECALLDICT
+        $global_emit INLINECALLDICT
+        2 4 BLKSWAP
+        $P2PEscrow$_contract_store INLINECALLDICT
+        RETALT
+      }>
+      OVER
+      3808834696 PUSHINT
+      EQUAL
+      IFJMP:<{
+        NIP
+        64 LDU
+        DROP
+        __tact_context_get INLINECALLDICT
+        s2 s3 XCHG
+        3 BLKDROP
+        s7 PUSH
+        257 PUSHINT
+        s3 PUSH
+        __tact_dict_get_int_cell INLINECALLDICT
+        $Order$_load_opt INLINECALLDICT
+        18518 PUSHINT
+        OVER
+        ISNULL
+        NOT
+        THROWANYIFNOT
+        $Order$_not_null INLINECALLDICT
+        NIP
+        s6 POP
+        57383 PUSHINT
+        s0 s2 XCHG
+        0 EQINT
+        s1 s2 XCHG
+        THROWANYIFNOT
+        10101 PUSHINT
+        s6 s7 PUSH2
+        SDEQ
+        NOT
+        THROWANYIFNOT
+        1 PUSHINT
+            NOW
+        s8 PUSH
+        s3 s1 s7 XCHG3
+        $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout INLINECALLDICT
+        s0 s8 XCHG
+        s0 s7 XCHG
+        s0 s6 XCHG
+        s0 s5 XCHG
+        s0 s4 XCHG
+        s3 s1 s3 XCHG3
+        257 PUSHINT
+        s2 s9 XCHG2
+        NEWC
+        $Order$_store_cell INLINECALLDICT
+        s3 PUSH
+        s3 s10 XCHG
+        SWAP
+        __tact_dict_set_int_cell INLINECALLDICT
+        s0 s7 XCHG
+        $OrderTaken$_constructor_orderId_buyer INLINECALLDICT
+        NEWC
+        $OrderTaken$_store_cell INLINECALLDICT
+        $global_emit INLINECALLDICT
+        s3 s5 XCHG
+        2 3 BLKSWAP
+        $P2PEscrow$_contract_store INLINECALLDICT
+        RETALT
+      }>
+      OVER
+      4285838865 PUSHINT
+      EQUAL
+      IFJMP:<{
+        NIP
+        64 LDU
+        DROP
+        __tact_context_get INLINECALLDICT
+        s2 s3 XCHG
+        3 BLKDROP
+        s7 PUSH
+        257 PUSHINT
+        s3 PUSH
+        __tact_dict_get_int_cell INLINECALLDICT
+        $Order$_load_opt INLINECALLDICT
+        18518 PUSHINT
+        OVER
+        ISNULL
+        NOT
+        THROWANYIFNOT
+        $Order$_not_null INLINECALLDICT
+        s8 PUSH
+        55532 PUSHINT
+        s0 s11 XCHG
+        SDEQ
+        s1 s10 XCHG
+        THROWANYIFNOT
+        41074 PUSHINT
+        s3 PUSH
+        1 EQINT
+        IF:<{
+          TRUE
+        }>ELSE<{
+          s3 PUSH
+          2 EQINT
+        }>
+        THROWANYIFNOT
+        s13 s15 XCHG
+        s12 s14 XCHG
+        s11 s13 XCHG
+        s10 s12 XCHG
+        s10 s11 XCHG
+        8 ROLL
+        $P2PEscrow$_fun_releaseOrder INLINECALLDICT
+        $P2PEscrow$_contract_store INLINECALLDICT
+        RETALT
+      }>
+      OVER
+      2418055224 PUSHINT
+      EQUAL
+      IFJMP:<{
+        NIP
+        64 LDU
+        DROP
+        __tact_context_get INLINECALLDICT
+        2DROP
+        25888 PUSHINT
+        s2 POP
+        s5 PUSH
+        SDEQ
+        THROWANYIFNOT
+        s6 PUSH
+        257 PUSHINT
+        s2 PUSH
+        __tact_dict_get_int_cell INLINECALLDICT
+        $Order$_load_opt INLINECALLDICT
+        18518 PUSHINT
+        OVER
+        ISNULL
+        NOT
+        THROWANYIFNOT
+        $Order$_not_null INLINECALLDICT
+        41074 PUSHINT
+        s4 PUSH
+        1 EQINT
+        IF:<{
+          TRUE
+        }>ELSE<{
+          s4 PUSH
+          2 EQINT
+        }>
+        THROWANYIFNOT
+        s13 s15 XCHG
+        s12 s14 XCHG
+        s11 s13 XCHG
+        s10 s12 XCHG
+        s10 s11 XCHG
+        $P2PEscrow$_fun_releaseOrder INLINECALLDICT
+        $P2PEscrow$_contract_store INLINECALLDICT
+        RETALT
+      }>
+      OVER
+      3037552710 PUSHINT
+      EQUAL
+      IFJMP:<{
+        NIP
+        64 LDU
+        DROP
+        __tact_context_get INLINECALLDICT
+        s2 s3 XCHG
+        3 BLKDROP
+        s7 PUSH
+        257 PUSHINT
+        s3 PUSH
+        __tact_dict_get_int_cell INLINECALLDICT
+        $Order$_load_opt INLINECALLDICT
+        18518 PUSHINT
+        OVER
+        ISNULL
+        NOT
+        THROWANYIFNOT
+        $Order$_not_null INLINECALLDICT
+        s8 PUSH
+        41186 PUSHINT
+        s0 s11 XCHG
+        SDEQ
+        s1 s10 XCHG
+        THROWANYIFNOT
+        8126 PUSHINT
+        s0 s3 XCHG
+        0 EQINT
+        s1 s3 XCHG
+        THROWANYIFNOT
+        5 PUSHINT
+        s7 PUSH
+        s0 s7 XCHG
+        s6 s0 XCPU
+        s0 s6 XCHG
+        s0 s5 XCHG
+        s3 s4 s4 XCHG3
+        s0 s10 XCHG
+        $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout INLINECALLDICT
+        s0 s8 XCHG
+        s0 s7 XCHG
+        s0 s6 XCHG
+        s0 s5 XCHG
+        s0 s4 XCHG
+        s3 s1 s3 XCHG3
+        257 PUSHINT
+        s2 s9 XCHG2
+        NEWC
+        $Order$_store_cell INLINECALLDICT
+        s4 PUSH
+        s3 s11 XCHG
+        SWAP
+        __tact_dict_set_int_cell INLINECALLDICT
+        2 PUSHINT
+            B{b5ee9c7241010101001700002a0000000050325020457363726f7720526566756e640538899f} B>boc PUSHREF
+        s3 s10 XCHG
+        s2 s10 XCHG
+        $SendParameters$_constructor_to_value_mode_body INLINECALLDICT
+            NEWC
+            b{01} STSLICECONST  // store tag = $0 and ihr_disabled = true
+            1 STI               // store `bounce`
+            b{000} STSLICECONST // store bounced = false and src = addr_none
+            STSLICE             // store `to`
+            SWAP
+            STGRAMS             // store `value`
+            105 PUSHINT         // 1 + 4 + 4 + 64 + 32
+            STZEROES            // store currency_collection, ihr_fee, fwd_fee, created_lt and created_at
+            // → Stack state
+            // s0: Builder
+            // s1: `data`
+            // s2: `code`
+            // s3: `body`
+            // s4: `mode`
+            // Group 2: Placing the Builder after code and data, then checking those for nullability
+            s2 XCHG0
+            DUP2
+            ISNULL
+            SWAP
+            ISNULL
+            AND
+            // → Stack state
+            // s0: -1 (true) if `data` and `code` are both null, 0 (false) otherwise
+            // s1: `code`
+            // s2: `data`
+            // s3: Builder
+            // s4: `body`
+            // s5: `mode`
+            // Group 3: Left branch of the IFELSE, executed if s0 is -1 (true)
+            <{
+                DROP2 // drop `data` and `code`, since either of those is null
+                b{0} STSLICECONST
+            }> PUSHCONT
+            // Group 3: Right branch of the IFELSE, executed if s0 is 0 (false)
+            <{
+                // _ split_depth:(Maybe (## 5))
+                //   special:(Maybe TickTock)
+                //   code:(Maybe ^Cell)
+                //   data:(Maybe ^Cell)
+                //   library:(Maybe ^Cell)
+                // = StateInit;
+                ROT                // place message Builder on top
+                b{10} STSLICECONST // store Maybe = true, Either = false
+                // Start composing inlined StateInit
+                b{00} STSLICECONST // store split_depth and special first
+                STDICT             // store code
+                STDICT             // store data
+                b{0} STSLICECONST  // store library
+            }> PUSHCONT
+            // Group 3: IFELSE that does the branching shown above
+            IFELSE
+            // → Stack state
+            // s0: Builder
+            // s1: null or StateInit
+            // s2: `body`
+            // s3: `mode`
+            // Group 4: Finalizing the message
+            STDICT // store `body` as ref with an extra Maybe bit, since `body` might be null
+            ENDC
+            // → Stack state
+            // s0: Cell
+            // s1: `mode`
+            // Group 5: Sending the message, with `mode` on top
+            SWAP
+            SENDRAWMSG // https://github.com/tact-lang/tact/issues/1558
+        $OrderCancelled$_constructor_orderId INLINECALLDICT
+        NEWC
+        $OrderCancelled$_store_cell INLINECALLDICT
+        $global_emit INLINECALLDICT
+        s3 s5 XCHG
+        2 3 BLKSWAP
+        $P2PEscrow$_contract_store INLINECALLDICT
+        RETALT
+      }>
+      OVER
+      2721478341 PUSHINT
+      EQUAL
+      IFJMP:<{
+        NIP
+        64 LDU
+        DROP
+        __tact_context_get INLINECALLDICT
+        s2 s3 XCHG
+        3 BLKDROP
+        s7 PUSH
+        257 PUSHINT
+        s3 PUSH
+        __tact_dict_get_int_cell INLINECALLDICT
+        $Order$_load_opt INLINECALLDICT
+        18518 PUSHINT
+        OVER
+        ISNULL
+        NOT
+        THROWANYIFNOT
+        $Order$_not_null INLINECALLDICT
+        60749 PUSHINT
+        s9 s10 PUSH2
+        SDEQ
+        IF:<{
+          TRUE
+        }>ELSE<{
+          s8 s10 PUSH2
+          __tact_slice_eq_bits_nullable_left INLINECALLDICT
+        }>
+        THROWANYIFNOT
+        27002 PUSHINT
+        s4 PUSH
+        1 EQINT
+        IF:<{
+          s4 POP
+          TRUE
+        }>ELSE<{
+          s0 s4 XCHG
+          2 EQINT
+        }>
+        s1 s4 XCHG
+        THROWANYIFNOT
+        4 PUSHINT
+        s0 s3 XCHG
+        $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout INLINECALLDICT
+        s0 s8 XCHG
+        s0 s7 XCHG
+        s0 s6 XCHG
+        s0 s5 XCHG
+        s0 s4 XCHG
+        s3 s1 s3 XCHG3
+        257 PUSHINT
+        s2 s9 XCHG2
+        NEWC
+        $Order$_store_cell INLINECALLDICT
+        s3 PUSH
+        s3 s10 XCHG
+        SWAP
+        __tact_dict_set_int_cell INLINECALLDICT
+        s0 s7 XCHG
+        $DisputeOpened$_constructor_orderId_openedBy INLINECALLDICT
+        NEWC
+        $DisputeOpened$_store_cell INLINECALLDICT
+        $global_emit INLINECALLDICT
+        s3 s5 XCHG
+        2 3 BLKSWAP
+        $P2PEscrow$_contract_store INLINECALLDICT
+        RETALT
+      }>
+      OVER
+      2928221909 PUSHINT
+      EQUAL
+      IFJMP:<{
+        NIP
+        64 LDU
+        LDMSGADDR
+        DROP
+        __tact_context_get INLINECALLDICT
+        2DROP
+        62638 PUSHINT
+        s2 POP
+        s7 PUSH
+        SDEQ
+        THROWANYIFNOT
+        s7 PUSH
+        257 PUSHINT
+        s3 PUSH
+        __tact_dict_get_int_cell INLINECALLDICT
+        $Order$_load_opt INLINECALLDICT
+        18518 PUSHINT
+        OVER
+        ISNULL
+        NOT
+        THROWANYIFNOT
+        $Order$_not_null INLINECALLDICT
+        62062 PUSHINT
+        s0 s4 XCHG
+        4 EQINT
+        s1 s4 XCHG
+        THROWANYIFNOT
+        46500 PUSHINT
+        s9 s8 PUSH2
+        SDEQ
+        IF:<{
+          TRUE
+        }>ELSE<{
+          s9 s7 PUSH2
+          __tact_slice_eq_bits_nullable_right INLINECALLDICT
+        }>
+        THROWANYIFNOT
+        s6 s7 XCHG
+        s5 s7 XCHG
+        3 PUSHINT
+        s8 PUSH
+        s0 s6 XCHG
+        s0 s5 XCHG
+        s3 s3 s4 XCHG3
+        $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout INLINECALLDICT
+        s0 s8 XCHG
+        s0 s7 XCHG
+        s0 s6 XCHG
+        s0 s5 XCHG
+        s0 s4 XCHG
+        s3 s1 s3 XCHG3
+        257 PUSHINT
+        s2 s9 XCHG2
+        NEWC
+        $Order$_store_cell INLINECALLDICT
+        s4 PUSH
+        s3 s11 XCHG
+        SWAP
+        __tact_dict_set_int_cell INLINECALLDICT
+        2 PUSHINT
+            B{b5ee9c7241010101001c000034000000005032502044697370757465205265736f6c7574696f6e0e4fefa8} B>boc PUSHREF
+        s3 PUSH
+        s0 s3 XCHG
+        s11 s11 s11 XCHG3
+        $SendParameters$_constructor_to_value_mode_body INLINECALLDICT
+            NEWC
+            b{01} STSLICECONST  // store tag = $0 and ihr_disabled = true
+            1 STI               // store `bounce`
+            b{000} STSLICECONST // store bounced = false and src = addr_none
+            STSLICE             // store `to`
+            SWAP
+            STGRAMS             // store `value`
+            105 PUSHINT         // 1 + 4 + 4 + 64 + 32
+            STZEROES            // store currency_collection, ihr_fee, fwd_fee, created_lt and created_at
+            // → Stack state
+            // s0: Builder
+            // s1: `data`
+            // s2: `code`
+            // s3: `body`
+            // s4: `mode`
+            // Group 2: Placing the Builder after code and data, then checking those for nullability
+            s2 XCHG0
+            DUP2
+            ISNULL
+            SWAP
+            ISNULL
+            AND
+            // → Stack state
+            // s0: -1 (true) if `data` and `code` are both null, 0 (false) otherwise
+            // s1: `code`
+            // s2: `data`
+            // s3: Builder
+            // s4: `body`
+            // s5: `mode`
+            // Group 3: Left branch of the IFELSE, executed if s0 is -1 (true)
+            <{
+                DROP2 // drop `data` and `code`, since either of those is null
+                b{0} STSLICECONST
+            }> PUSHCONT
+            // Group 3: Right branch of the IFELSE, executed if s0 is 0 (false)
+            <{
+                // _ split_depth:(Maybe (## 5))
+                //   special:(Maybe TickTock)
+                //   code:(Maybe ^Cell)
+                //   data:(Maybe ^Cell)
+                //   library:(Maybe ^Cell)
+                // = StateInit;
+                ROT                // place message Builder on top
+                b{10} STSLICECONST // store Maybe = true, Either = false
+                // Start composing inlined StateInit
+                b{00} STSLICECONST // store split_depth and special first
+                STDICT             // store code
+                STDICT             // store data
+                b{0} STSLICECONST  // store library
+            }> PUSHCONT
+            // Group 3: IFELSE that does the branching shown above
+            IFELSE
+            // → Stack state
+            // s0: Builder
+            // s1: null or StateInit
+            // s2: `body`
+            // s3: `mode`
+            // Group 4: Finalizing the message
+            STDICT // store `body` as ref with an extra Maybe bit, since `body` might be null
+            ENDC
+            // → Stack state
+            // s0: Cell
+            // s1: `mode`
+            // Group 5: Sending the message, with `mode` on top
+            SWAP
+            SENDRAWMSG // https://github.com/tact-lang/tact/issues/1558
+        $DisputeResolved$_constructor_orderId_winner INLINECALLDICT
+        NEWC
+        $DisputeResolved$_store_cell INLINECALLDICT
+        $global_emit INLINECALLDICT
+        s3 s5 XCHG
+        2 3 BLKSWAP
+        $P2PEscrow$_contract_store INLINECALLDICT
+        RETALT
+      }>
+      OVER
+      3947541004 PUSHINT
+      EQUAL
+      IFJMP:<{
+        NIP
+        LDVARUINT16
+        DROP
+        s4 s5 XCHG
+        s3 s4 XCHG
+        s1 s3 s6 XCHG3
+        $P2PEscrow$_fun_requireOwner INLINECALLDICT
+        21449 PUSHINT
+        s7 s3 PUSH2
+        LEQ
+        THROWANYIFNOT
+        s2 s6 XCPU
+        SUB
+        2 PUSHINT
+            B{b5ee9c7241010101001900002e000000005032502046656573205769746864726177616cede9d169} B>boc PUSHREF
+        s7 PUSH
+        s0 s3 XCHG
+        s9 s9 s9 XCHG3
+        $SendParameters$_constructor_to_value_mode_body INLINECALLDICT
+            NEWC
+            b{01} STSLICECONST  // store tag = $0 and ihr_disabled = true
+            1 STI               // store `bounce`
+            b{000} STSLICECONST // store bounced = false and src = addr_none
+            STSLICE             // store `to`
+            SWAP
+            STGRAMS             // store `value`
+            105 PUSHINT         // 1 + 4 + 4 + 64 + 32
+            STZEROES            // store currency_collection, ihr_fee, fwd_fee, created_lt and created_at
+            // → Stack state
+            // s0: Builder
+            // s1: `data`
+            // s2: `code`
+            // s3: `body`
+            // s4: `mode`
+            // Group 2: Placing the Builder after code and data, then checking those for nullability
+            s2 XCHG0
+            DUP2
+            ISNULL
+            SWAP
+            ISNULL
+            AND
+            // → Stack state
+            // s0: -1 (true) if `data` and `code` are both null, 0 (false) otherwise
+            // s1: `code`
+            // s2: `data`
+            // s3: Builder
+            // s4: `body`
+            // s5: `mode`
+            // Group 3: Left branch of the IFELSE, executed if s0 is -1 (true)
+            <{
+                DROP2 // drop `data` and `code`, since either of those is null
+                b{0} STSLICECONST
+            }> PUSHCONT
+            // Group 3: Right branch of the IFELSE, executed if s0 is 0 (false)
+            <{
+                // _ split_depth:(Maybe (## 5))
+                //   special:(Maybe TickTock)
+                //   code:(Maybe ^Cell)
+                //   data:(Maybe ^Cell)
+                //   library:(Maybe ^Cell)
+                // = StateInit;
+                ROT                // place message Builder on top
+                b{10} STSLICECONST // store Maybe = true, Either = false
+                // Start composing inlined StateInit
+                b{00} STSLICECONST // store split_depth and special first
+                STDICT             // store code
+                STDICT             // store data
+                b{0} STSLICECONST  // store library
+            }> PUSHCONT
+            // Group 3: IFELSE that does the branching shown above
+            IFELSE
+            // → Stack state
+            // s0: Builder
+            // s1: null or StateInit
+            // s2: `body`
+            // s3: `mode`
+            // Group 4: Finalizing the message
+            STDICT // store `body` as ref with an extra Maybe bit, since `body` might be null
+            ENDC
+            // → Stack state
+            // s0: Cell
+            // s1: `mode`
+            // Group 5: Sending the message, with `mode` on top
+            SWAP
+            SENDRAWMSG // https://github.com/tact-lang/tact/issues/1558
+        s4 s5 XCHG
+        s3 s4 XCHG
+        s3 s0 s0 XCHG3
+        $P2PEscrow$_contract_store INLINECALLDICT
+        RETALT
+      }>
+      OVER
+      1084263761 PUSHINT
+      EQUAL
+      IFJMP:<{
+        NIP
+        LDMSGADDR
+        DROP
+        s4 s5 XCHG
+        s3 s4 XCHG
+        s1 s3 s6 XCHG3
+        $P2PEscrow$_fun_requireOwner INLINECALLDICT
+        s4 POP
+        s4 s5 XCHG
+        3 ROLL
+        $P2PEscrow$_contract_store INLINECALLDICT
+        RETALT
+      }>
+      OVER
+      2988846933 PUSHINT
+      EQUAL
+      IFJMP:<{
+        NIP
+        16 LDU
+        DROP
+        s4 s5 XCHG
+        s3 s4 XCHG
+        s1 s3 s6 XCHG3
+        $P2PEscrow$_fun_requireOwner INLINECALLDICT
+        s3 POP
+        46136 PUSHINT
+        s6 PUSH
+        500 PUSHINT
+        LEQ
+        THROWANYIFNOT
+        s4 s5 XCHG
+        s3 s4 XCHG
+        ROT
+        $P2PEscrow$_contract_store INLINECALLDICT
+        RETALT
+      }>
+      SWAP
+      2490013878 PUSHINT
+      EQUAL
+      IFJMP:<{
+        64 LDU
+        DROP
+        $DeployOk$_constructor_queryId INLINECALLDICT
+        NEWC
+        $DeployOk$_store_cell INLINECALLDICT
+        s4 s6 XCHG
+        s3 s5 XCHG
+        s4 s3 s0 XCHG3
+        s1 s2 XCHG
+        $P2PEscrow$_fun_notify INLINECALLDICT
+        $P2PEscrow$_contract_store INLINECALLDICT
+        RETALT
+      }>
+      s0 s5 XCHG
+    }>
+    s0 s5 XCHG
+    HASHSU
+    10330615874235888771889085667862659618458038716796237941750879978425047563963 PUSHINT
+    EQUAL
+    IFJMP:<{
+      s3 s5 XCHG
+      2 3 BLKSWAP
+      $P2PEscrow$_contract_store INLINECALLDICT
+    }>
+    6 BLKDROP
+    130 THROW
+  }>
+  __tact_selector_hack PROC:<{
+    @atend @ 1 {
+            execute current@ context@ current!
+            {
+                // The core idea of this function is to save gas by avoiding unnecessary dict jump, when recv_internal/recv_external is called
+                // We want to extract recv_internal/recv_external from the dict and select needed function
+                // not by jumping to the needed function by it's index, but by using usual IF statements.
+                }END> b> // Close previous builder, now we have a cell of previous code on top of the stack
+                <{ // Start of the new code builder
+                    SETCP0
+                    // Swap the new code builder with the previous code, now we have previous code on top of the stack
+                    swap
+                    // Transform cell to slice and load first ref from the previous code, now we have the dict on top of the stack
+                    <s ref@
+                    // Extract the recv_internal from the dict
+                    dup 0 swap @procdictkeylen idict@ { "internal shortcut error" abort } ifnot
+                    swap
+                    // Delete the recv_internal from the dict
+                    0 swap @procdictkeylen idict- drop
+                    // Delete the recv_external from the dict (it's okay if it's not there)
+                    -1 swap @procdictkeylen idict- drop
+                    // Delete the __tact_selector_hack from the dict
+                    65535 swap @procdictkeylen idict- drop
+                    // Bring the code builder from the bottom of the stack
+                    // because if recv_external extraction is optional, and the number of elements on the stack is not fixed
+                    depth 1- roll
+                    // Swap with the dict from which we extracted recv_internal and (maybe) recv_external
+                    swap
+                    // Check if the dict is empty
+                    dup null?
+                    // Store a copy of this flag in the bottom of the stack
+                    dup depth 1- -roll
+                    {
+                        // If the dict is empty, just drop it (it will be null if it's empty)
+                        drop
+                    }
+                    {
+                        // If the dict is not empty, prepare continuation to be stored in c3
+                        <{
+                            // Save this dict as first ref in this continuation, it will be pushed in runtime by DICTPUSHCONST
+                            swap @procdictkeylen DICTPUSHCONST
+                            // Jump to the needed function by it's index
+                            DICTIGETJMPZ
+                            // If such key is not found, throw 11 along with the key as an argument
+                            11 THROWARG
+                        }> PUSHCONT
+                        // Store the continuation in c3
+                        c3 POP
+                    } cond
+                    // Function id is on top of the (runtime) stack
+                    DUP IFNOTJMP:<{
+                        // place recv_internal here
+                        DROP swap @addop
+                    }>
+                    // Bring back the flag, indicating if the dict is empty or not from the bottom of the stack
+                    depth 1- roll
+                    {
+                        // If the dict is empty, throw 11
+                        11 THROWARG
+                    }
+                    {
+                        // If the dict is not empty, jump to continuation from c3
+                        c3 PUSH JMPX
+                    } cond
+                }> b>
+            } : }END>c
+            current@ context! current!
+        } does @atend !
+  }>
+}END>c

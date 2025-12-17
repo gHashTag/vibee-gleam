@@ -1,0 +1,340 @@
+// ===============================
+// Vibee Editor - Type Definitions
+// ===============================
+
+export interface Project {
+  id: string;
+  name: string;
+  fps: number;
+  width: number;
+  height: number;
+  durationInFrames: number;
+}
+
+// ===============================
+// Track Types
+// ===============================
+
+export type TrackType = 'video' | 'avatar' | 'text' | 'audio' | 'image';
+
+export interface Track {
+  id: string;
+  type: TrackType;
+  name: string;
+  items: TrackItem[];
+  locked: boolean;
+  visible: boolean;
+}
+
+// ===============================
+// Track Item Types
+// ===============================
+
+// Color tag options for organizing clips
+export type ColorTag = 'none' | 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink';
+
+export interface TrackItemBase {
+  id: string;
+  trackId: string;
+  assetId?: string;
+
+  // Timeline position
+  startFrame: number;
+  durationInFrames: number;
+
+  // Canvas position & transform
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  opacity: number;
+
+  // Organization
+  colorTag?: ColorTag;
+}
+
+export interface VideoItemProps {
+  type: 'video';
+  volume: number;
+  playbackRate: number;
+}
+
+export interface ImageItemProps {
+  type: 'image';
+}
+
+export interface TextItemProps {
+  type: 'text';
+  text: string;
+  fontSize: number;
+  fontFamily: string;
+  fontWeight: number;
+  color: string;
+  textAlign: 'left' | 'center' | 'right';
+}
+
+export interface AudioItemProps {
+  type: 'audio';
+  volume: number;
+}
+
+export interface AvatarItemProps {
+  type: 'avatar';
+  // Avatar-specific props (lipsync video)
+  circleSizePercent: number;
+  circleBottomPercent: number;
+  circleLeftPx: number;
+}
+
+export type TrackItemProps =
+  | VideoItemProps
+  | ImageItemProps
+  | TextItemProps
+  | AudioItemProps
+  | AvatarItemProps;
+
+export type TrackItem = TrackItemBase & TrackItemProps;
+
+// ===============================
+// Asset Types
+// ===============================
+
+export type AssetType = 'video' | 'image' | 'audio';
+
+export interface Asset {
+  id: string;
+  type: AssetType;
+  name: string;
+  url: string;
+  thumbnail?: string;
+  duration?: number; // frames, for video/audio
+  width?: number;
+  height?: number;
+  fileSize?: number;
+}
+
+// ===============================
+// Selection
+// ===============================
+
+export interface Selection {
+  itemIds: string[];
+  trackId?: string;
+}
+
+// ===============================
+// Caption Types (from @remotion/captions)
+// ===============================
+
+export interface CaptionItem {
+  text: string;
+  startMs: number;
+  endMs: number;
+  timestampMs: number;
+  confidence: number | null;
+}
+
+export interface CaptionStyle {
+  fontSize?: number;
+  textColor?: string;
+  highlightColor?: string;
+  backgroundColor?: string;
+  bottomPercent?: number;
+  maxWidthPercent?: number;
+  fontFamily?: string;
+  fontWeight?: number;
+  showShadow?: boolean;
+}
+
+// ===============================
+// LipSyncMain Template Props
+// ===============================
+
+export interface LipSyncMainProps {
+  // Media files
+  lipSyncVideo: string;
+  coverImage: string;
+  backgroundMusic: string;
+  backgroundVideos: string[];
+
+  // Effects
+  musicVolume: number;
+  coverDuration: number;
+  vignetteStrength: number;
+  colorCorrection: number;
+
+  // Avatar circle position
+  circleSizePercent: number;
+  circleBottomPercent: number;
+  circleLeftPx: number;
+
+  // Captions (TikTok-style subtitles)
+  captions?: CaptionItem[];
+  captionStyle?: CaptionStyle;
+  showCaptions?: boolean;
+}
+
+// ===============================
+// Snap Settings
+// ===============================
+
+export interface SnapSettings {
+  enabled: boolean;
+  interval: number; // frames
+}
+
+// ===============================
+// Timeline Markers
+// ===============================
+
+export type MarkerColor = 'yellow' | 'red' | 'green' | 'blue' | 'purple';
+
+export interface Marker {
+  id: string;
+  frame: number;
+  name: string;
+  color: MarkerColor;
+}
+
+// ===============================
+// Editor State
+// ===============================
+
+export interface EditorState {
+  // Project config
+  project: Project;
+
+  // Tracks & timeline
+  tracks: Track[];
+  currentFrame: number;
+  isPlaying: boolean;
+  playbackRate: number; // 0.5x to 2x
+  timelineZoom: number; // 1 = 100%
+
+  // Selection
+  selectedItemIds: string[];
+  selectionAnchor: string | null; // for shift+click range selection
+
+  // Clipboard
+  clipboard: TrackItem[];
+
+  // Assets
+  assets: Asset[];
+
+  // Template props (LipSyncMain)
+  templateProps: LipSyncMainProps;
+
+  // UI state
+  sidebarTab: 'assets' | 'properties';
+  canvasZoom: number;
+
+  // Snap settings
+  snapSettings: SnapSettings;
+
+  // In/Out points for playback range
+  inPoint: number | null;
+  outPoint: number | null;
+
+  // Timeline markers
+  markers: Marker[];
+
+  // Export
+  isExporting: boolean;
+  exportProgress: number;
+}
+
+// ===============================
+// Editor Actions
+// ===============================
+
+export interface EditorActions {
+  // Undo/Redo
+  undo: () => void;
+  redo: () => void;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
+
+  // Project
+  setProject: (project: Partial<Project>) => void;
+
+  // Playback
+  setCurrentFrame: (frame: number) => void;
+  setIsPlaying: (playing: boolean) => void;
+  setPlaybackRate: (rate: number) => void;
+  play: () => void;
+  pause: () => void;
+  seekTo: (frame: number) => void;
+
+  // Tracks
+  addTrack: (type: TrackType, name?: string) => string;
+  removeTrack: (trackId: string) => void;
+  updateTrack: (trackId: string, updates: Partial<Track>) => void;
+
+  // Items
+  addItem: (trackId: string, item: Omit<TrackItem, 'id' | 'trackId'>) => string;
+  updateItem: (itemId: string, updates: Partial<TrackItem>) => void;
+  deleteItems: (itemIds: string[]) => void;
+  rippleDelete: (itemIds: string[]) => void;
+  duplicateItems: (itemIds: string[]) => void;
+  copyItems: (itemIds: string[]) => void;
+  pasteItems: () => void;
+  moveItem: (itemId: string, newStartFrame: number) => void;
+  resizeItem: (itemId: string, newDuration: number) => void;
+  splitItem: (itemId: string, atFrame: number) => void;
+  moveItemToTrack: (itemId: string, newTrackId: string) => void;
+  reorderItems: (trackId: string, activeId: string, overId: string) => void;
+
+  // Selection
+  selectItems: (itemIds: string[], addToSelection?: boolean) => void;
+  selectRange: (toItemId: string) => void; // Shift+click range selection
+  clearSelection: () => void;
+  selectAll: () => void;
+
+  // Assets
+  addAsset: (asset: Omit<Asset, 'id'>) => string;
+  removeAsset: (assetId: string) => void;
+
+  // Timeline
+  setTimelineZoom: (zoom: number) => void;
+
+  // Canvas
+  setCanvasZoom: (zoom: number) => void;
+
+  // UI
+  setSidebarTab: (tab: 'assets' | 'properties') => void;
+
+  // Snap
+  setSnapEnabled: (enabled: boolean) => void;
+  setSnapInterval: (frames: number) => void;
+
+  // In/Out points
+  setInPoint: (frame: number | null) => void;
+  setOutPoint: (frame: number | null) => void;
+  clearInOutPoints: () => void;
+
+  // Markers
+  addMarker: (frame: number, name?: string, color?: MarkerColor) => string;
+  removeMarker: (markerId: string) => void;
+  updateMarker: (markerId: string, updates: Partial<Marker>) => void;
+  goToNextMarker: () => void;
+  goToPrevMarker: () => void;
+
+  // Export
+  setExporting: (exporting: boolean, progress?: number) => void;
+
+  // Utils
+  getItemById: (itemId: string) => TrackItem | undefined;
+  getTrackById: (trackId: string) => Track | undefined;
+  getAssetById: (assetId: string) => Asset | undefined;
+  getSelectedItems: () => TrackItem[];
+
+  // Template props
+  updateTemplateProp: <K extends keyof LipSyncMainProps>(
+    key: K,
+    value: LipSyncMainProps[K]
+  ) => void;
+  syncBackgroundVideosFromTimeline: () => void;
+}
+
+export type EditorStore = EditorState & EditorActions;

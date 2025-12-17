@@ -1,0 +1,1124 @@
+#pragma version =0.4.6;
+#pragma allow-post-modification;
+#pragma compute-asm-ltr;
+
+;; escrow.tact_P2PEscrow.headers.fc
+;;
+;; Header files for P2PEscrow
+;; NOTE: declarations are sorted for optimal order
+;;
+
+;; __tact_store_address_opt
+builder __tact_store_address_opt(builder b, slice address) inline;
+
+;; __tact_not_null
+forall X -> X __tact_not_null(X x) impure inline;
+
+;; __tact_context_get
+(int, slice, int, slice) __tact_context_get() inline;
+
+;; __tact_context_get_sender
+slice __tact_context_get_sender() inline;
+
+;; __tact_slice_eq_bits_nullable_right
+int __tact_slice_eq_bits_nullable_right(slice a, slice b) inline;
+
+;; __tact_slice_eq_bits_nullable_left
+int __tact_slice_eq_bits_nullable_left(slice a, slice b) inline;
+
+;; __tact_dict_get_int_cell
+cell __tact_dict_get_int_cell(cell d, int kl, int k) inline;
+
+;; __tact_dict_set_int_cell
+(cell, ()) __tact_dict_set_int_cell(cell d, int kl, int k, cell v) inline;
+
+;; $DeployOk$_store
+builder $DeployOk$_store(builder build_0, (int) v) inline;
+
+;; $DeployOk$_store_cell
+cell $DeployOk$_store_cell((int) v, builder b) inline;
+
+;; $Order$_store
+builder $Order$_store(builder build_0, (slice, slice, int, int, int, int, int, int, int) v) inline;
+
+;; $Order$_store_cell
+cell $Order$_store_cell((slice, slice, int, int, int, int, int, int, int) v, builder b) inline;
+
+;; $Order$_load
+(slice, ((slice, slice, int, int, int, int, int, int, int))) $Order$_load(slice sc_0) inline;
+
+;; $Order$_as_optional
+tuple $Order$_as_optional((slice, slice, int, int, int, int, int, int, int) v) inline;
+
+;; $Order$_load_opt
+tuple $Order$_load_opt(cell cl) inline;
+
+;; $OrderCreated$_store
+builder $OrderCreated$_store(builder build_0, (int, slice, int, int) v) inline;
+
+;; $OrderCreated$_store_cell
+cell $OrderCreated$_store_cell((int, slice, int, int) v, builder b) inline;
+
+;; $OrderTaken$_store
+builder $OrderTaken$_store(builder build_0, (int, slice) v) inline;
+
+;; $OrderTaken$_store_cell
+cell $OrderTaken$_store_cell((int, slice) v, builder b) inline;
+
+;; $OrderCompleted$_store
+builder $OrderCompleted$_store(builder build_0, (int, slice, int) v) inline;
+
+;; $OrderCompleted$_store_cell
+cell $OrderCompleted$_store_cell((int, slice, int) v, builder b) inline;
+
+;; $OrderCancelled$_store
+builder $OrderCancelled$_store(builder build_0, (int) v) inline;
+
+;; $OrderCancelled$_store_cell
+cell $OrderCancelled$_store_cell((int) v, builder b) inline;
+
+;; $DisputeOpened$_store
+builder $DisputeOpened$_store(builder build_0, (int, slice) v) inline;
+
+;; $DisputeOpened$_store_cell
+cell $DisputeOpened$_store_cell((int, slice) v, builder b) inline;
+
+;; $DisputeResolved$_store
+builder $DisputeResolved$_store(builder build_0, (int, slice) v) inline;
+
+;; $DisputeResolved$_store_cell
+cell $DisputeResolved$_store_cell((int, slice) v, builder b) inline;
+
+;; $P2PEscrow$_store
+builder $P2PEscrow$_store(builder build_0, (slice, slice, int, int, int, cell) v) inline;
+
+;; $P2PEscrow$_load
+(slice, ((slice, slice, int, int, int, cell))) $P2PEscrow$_load(slice sc_0) inline;
+
+;; $Context$_get_value
+_ $Context$_get_value((int, slice, int, slice) v) inline;
+
+;; $Order$_not_null
+((slice, slice, int, int, int, int, int, int, int)) $Order$_not_null(tuple v) inline;
+
+;; $Order$_to_tuple
+tuple $Order$_to_tuple(((slice, slice, int, int, int, int, int, int, int)) v) inline;
+
+;; $Order$_to_opt_tuple
+tuple $Order$_to_opt_tuple(tuple v) inline;
+
+;; $Order$_to_opt_external
+tuple $Order$_to_opt_external(tuple v) inline;
+
+;; $P2PEscrow$init$_load
+(slice, ((slice))) $P2PEscrow$init$_load(slice sc_0) inline;
+
+;; $P2PEscrow$_contract_init
+(slice, slice, int, int, int, cell) $P2PEscrow$_contract_init(slice $oracle) impure inline;
+
+;; $P2PEscrow$_contract_load
+(slice, slice, int, int, int, cell) $P2PEscrow$_contract_load() impure inline;
+
+;; $P2PEscrow$_contract_store
+() $P2PEscrow$_contract_store((slice, slice, int, int, int, cell) v) impure inline;
+
+;; $global_emit
+() $global_emit(cell $body) impure inline;
+
+;; $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout
+((slice, slice, int, int, int, int, int, int, int)) $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout(slice $seller, slice $buyer, int $cryptoAmount, int $fiatAmount, int $fiatCurrency, int $status, int $createdAt, int $lockedAt, int $paymentTimeout) inline;
+
+;; $SendParameters$_constructor_to_value_mode_body
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode_body(slice $to, int $value, int $mode, cell $body) inline;
+
+;; $OrderCompleted$_constructor_orderId_buyer_amount
+((int, slice, int)) $OrderCompleted$_constructor_orderId_buyer_amount(int $orderId, slice $buyer, int $amount) inline;
+
+;; $P2PEscrow$_fun_releaseOrder
+((slice, slice, int, int, int, cell), ()) $P2PEscrow$_fun_releaseOrder((slice, slice, int, int, int, cell) $self, int $orderId, (slice, slice, int, int, int, int, int, int, int) $o) impure inline_ref;
+
+;; $P2PEscrow$_fun_getOrder
+((slice, slice, int, int, int, cell), tuple) $P2PEscrow$_fun_getOrder((slice, slice, int, int, int, cell) $self, int $orderId) impure inline_ref;
+
+;; $P2PEscrow$_fun_getOrderCount
+((slice, slice, int, int, int, cell), int) $P2PEscrow$_fun_getOrderCount((slice, slice, int, int, int, cell) $self) impure inline_ref;
+
+;; $P2PEscrow$_fun_getCollectedFees
+((slice, slice, int, int, int, cell), int) $P2PEscrow$_fun_getCollectedFees((slice, slice, int, int, int, cell) $self) impure inline_ref;
+
+;; $P2PEscrow$_fun_getFeePercent
+((slice, slice, int, int, int, cell), int) $P2PEscrow$_fun_getFeePercent((slice, slice, int, int, int, cell) $self) impure inline_ref;
+
+;; $P2PEscrow$_fun_getOracle
+((slice, slice, int, int, int, cell), slice) $P2PEscrow$_fun_getOracle((slice, slice, int, int, int, cell) $self) impure inline_ref;
+
+;; $MessageParameters$_constructor_bounce_to_value_mode_body
+((int, cell, int, slice, int)) $MessageParameters$_constructor_bounce_to_value_mode_body(int $bounce, slice $to, int $value, int $mode, cell $body) inline;
+
+;; $P2PEscrow$_fun_notify
+((slice, slice, int, int, int, cell), ()) $P2PEscrow$_fun_notify((slice, slice, int, int, int, cell) $self, cell $body) impure inline;
+
+;; $P2PEscrow$_fun_requireOwner
+((slice, slice, int, int, int, cell), ()) $P2PEscrow$_fun_requireOwner((slice, slice, int, int, int, cell) $self) impure inline_ref;
+
+;; $P2PEscrow$_fun_owner
+((slice, slice, int, int, int, cell), slice) $P2PEscrow$_fun_owner((slice, slice, int, int, int, cell) $self) impure inline_ref;
+
+;; $OrderCreated$_constructor_orderId_seller_cryptoAmount_fiatAmount
+((int, slice, int, int)) $OrderCreated$_constructor_orderId_seller_cryptoAmount_fiatAmount(int $orderId, slice $seller, int $cryptoAmount, int $fiatAmount) inline;
+
+;; $OrderTaken$_constructor_orderId_buyer
+((int, slice)) $OrderTaken$_constructor_orderId_buyer(int $orderId, slice $buyer) inline;
+
+;; $OrderCancelled$_constructor_orderId
+((int)) $OrderCancelled$_constructor_orderId(int $orderId) inline;
+
+;; $DisputeOpened$_constructor_orderId_openedBy
+((int, slice)) $DisputeOpened$_constructor_orderId_openedBy(int $orderId, slice $openedBy) inline;
+
+;; $DisputeResolved$_constructor_orderId_winner
+((int, slice)) $DisputeResolved$_constructor_orderId_winner(int $orderId, slice $winner) inline;
+
+;; $DeployOk$_constructor_queryId
+((int)) $DeployOk$_constructor_queryId(int $queryId) inline;
+
+
+;; escrow.tact_P2PEscrow.stdlib.fc
+global (int, slice, int, slice) __tact_context;
+global slice __tact_context_sender;
+global cell __tact_child_contract_codes;
+global int __tact_randomized;
+
+(slice, slice) __tact_load_address_opt(slice cs) asm """
+
+            b{00} SDBEGINSQ
+            IF:<{
+              PUSHNULL
+            }>ELSE<{
+              LDMSGADDR
+              SWAP
+            }>
+
+""";
+
+builder __tact_store_addr_none(builder b) asm "b{00} STSLICECONST";
+
+builder __tact_store_address_opt(builder b, slice address) inline {
+    if (null?(address)) {
+        return __tact_store_addr_none(b);
+    } else {
+        return b.store_slice(address);
+    }
+}
+
+forall X -> X __tact_not_null(X x) impure inline {
+    throw_if(128, null?(x)); return x;
+}
+
+(int, slice, int, slice) __tact_context_get() inline {
+    return __tact_context;
+}
+
+slice __tact_context_get_sender() inline {
+    return __tact_context_sender;
+}
+
+int __tact_slice_eq_bits_nullable_right(slice a, slice b) inline {
+    return (null?(b)) ? (false) : (equal_slices_bits(a, b));
+}
+
+int __tact_slice_eq_bits_nullable_left(slice a, slice b) inline {
+    return (null?(a)) ? (false) : (equal_slices_bits(a, b));
+}
+
+forall X0, X1, X2, X3, X4, X5, X6, X7, X8 -> tuple __tact_tuple_create_9((X0, X1, X2, X3, X4, X5, X6, X7, X8) v) asm """
+    9 TUPLE
+""";
+
+forall X0, X1, X2, X3, X4, X5, X6, X7, X8 -> (X0, X1, X2, X3, X4, X5, X6, X7, X8) __tact_tuple_destroy_9(tuple v) asm """
+    9 UNTUPLE
+""";
+
+cell __tact_dict_get_int_cell(cell d, int kl, int k) inline {
+    var (r, ok) = idict_get_ref?(d, kl, k);
+    if (ok) {
+        return r;
+    } else {
+        return null();
+    }
+}
+
+(cell, ()) __tact_dict_set_int_cell(cell d, int kl, int k, cell v) inline {
+    if (null?(v)) {
+        var (r, ok) = idict_delete?(d, kl, k);
+        return (r, ());
+    } else {
+        return (idict_set_ref(d, kl, k, v), ());
+    }
+}
+
+builder $global_beginCell() impure asm """
+    NEWC
+""";
+
+int $global_myBalance() impure asm """
+    BALANCE FIRST
+""";
+
+() $global_nativeReserve(int $amount, int $mode) impure asm """
+    RAWRESERVE
+""";
+
+() $global_message((int, cell, int, slice, int) $params) impure asm """
+    NEWC
+    b{01} STSLICECONST  // store tag = $0 and ihr_disabled = true
+    1 STI               // store `bounce`
+    b{000} STSLICECONST // store bounced = false and src = addr_none
+    STSLICE             // store `to`
+    SWAP
+    STGRAMS             // store `value`
+    106 PUSHINT         // 1 + 4 + 4 + 64 + 32 + 1
+    STZEROES
+    // → Stack state
+    // s0: Builder
+    // s1: `body`
+    // s2: `mode`
+    STDICT
+    ENDC
+    SWAP
+    SENDRAWMSG
+""";
+
+() $global_send((int, cell, cell, cell, int, slice, int) $params) impure asm """
+    NEWC
+    b{01} STSLICECONST  // store tag = $0 and ihr_disabled = true
+    1 STI               // store `bounce`
+    b{000} STSLICECONST // store bounced = false and src = addr_none
+    STSLICE             // store `to`
+    SWAP
+    STGRAMS             // store `value`
+    105 PUSHINT         // 1 + 4 + 4 + 64 + 32
+    STZEROES            // store currency_collection, ihr_fee, fwd_fee, created_lt and created_at
+    // → Stack state
+    // s0: Builder
+    // s1: `data`
+    // s2: `code`
+    // s3: `body`
+    // s4: `mode`
+
+    // Group 2: Placing the Builder after code and data, then checking those for nullability
+    s2 XCHG0
+    DUP2
+    ISNULL
+    SWAP
+    ISNULL
+    AND
+    // → Stack state
+    // s0: -1 (true) if `data` and `code` are both null, 0 (false) otherwise
+    // s1: `code`
+    // s2: `data`
+    // s3: Builder
+    // s4: `body`
+    // s5: `mode`
+
+    // Group 3: Left branch of the IFELSE, executed if s0 is -1 (true)
+    <{
+        DROP2 // drop `data` and `code`, since either of those is null
+        b{0} STSLICECONST
+    }> PUSHCONT
+
+    // Group 3: Right branch of the IFELSE, executed if s0 is 0 (false)
+    <{
+        // _ split_depth:(Maybe (## 5))
+        //   special:(Maybe TickTock)
+        //   code:(Maybe ^Cell)
+        //   data:(Maybe ^Cell)
+        //   library:(Maybe ^Cell)
+        // = StateInit;
+        ROT                // place message Builder on top
+        b{10} STSLICECONST // store Maybe = true, Either = false
+        // Start composing inlined StateInit
+        b{00} STSLICECONST // store split_depth and special first
+        STDICT             // store code
+        STDICT             // store data
+        b{0} STSLICECONST  // store library
+    }> PUSHCONT
+
+    // Group 3: IFELSE that does the branching shown above
+    IFELSE
+    // → Stack state
+    // s0: Builder
+    // s1: null or StateInit
+    // s2: `body`
+    // s3: `mode`
+
+    // Group 4: Finalizing the message
+    STDICT // store `body` as ref with an extra Maybe bit, since `body` might be null
+    ENDC
+    // → Stack state
+    // s0: Cell
+    // s1: `mode`
+
+    // Group 5: Sending the message, with `mode` on top
+    SWAP
+    SENDRAWMSG // https://github.com/tact-lang/tact/issues/1558
+""";
+
+() $global_sendRawMessage(cell $msg, int $mode) impure asm """
+    SENDRAWMSG
+""";
+
+cell $Builder$_fun_endCell(builder $self) impure asm """
+    ENDC
+""";
+
+builder $Builder$_fun_storeRef(cell $cell, builder $self) impure asm """
+    STREF
+""";
+
+() $global_emit(cell $body) impure inline {
+    cell $c = $Builder$_fun_endCell($Builder$_fun_storeRef($body, store_uint($global_beginCell(), 15211807202738752817960438464513, 104)));
+    $global_sendRawMessage($c, 0);
+}
+
+int $global_now() impure asm """
+    NOW
+""";
+
+((slice, slice, int, int, int, cell), ()) $P2PEscrow$_fun_notify((slice, slice, int, int, int, cell) $self, cell $body) impure inline {
+    var (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)) = $self;
+    slice $to = __tact_context_get_sender();
+    int $bounce = false;
+    if (false) {
+        int $balance = $global_myBalance();
+        int $balanceBeforeMessage = ($balance - $Context$_get_value(__tact_context_get()));
+        if (($balanceBeforeMessage < 0)) {
+            $global_nativeReserve(0, 0);
+            $global_message($MessageParameters$_constructor_bounce_to_value_mode_body($bounce, $to, 0, 130, $body));
+            return (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders), ());
+        }
+    }
+    $global_message($MessageParameters$_constructor_bounce_to_value_mode_body($bounce, $to, 0, 66, $body));
+    return (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders), ());
+}
+
+((slice, slice, int, int, int, cell), ()) $P2PEscrow$_fun_requireOwner((slice, slice, int, int, int, cell) $self) impure inline_ref {
+    var (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)) = $self;
+    throw_unless(132, ( equal_slices_bits(__tact_context_get_sender(), $self'owner) ));
+    return (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders), ());
+}
+
+((slice, slice, int, int, int, cell), slice) $P2PEscrow$_fun_owner((slice, slice, int, int, int, cell) $self) impure inline_ref {
+    var (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)) = $self;
+    var $fresh$ret_5 = $self'owner;
+    return (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders), $fresh$ret_5);
+}
+
+;; escrow.tact_P2PEscrow.constants.fc
+;; Cell FGUnE4/frxCBALaAY2pZaW4DoXIg4+ims/XFm9XtRfU=
+cell __gen_cell_cell_146527138fdfaf108100b680636a59696e03a17220e3e8a6b3f5c59bd5ed45f5() asm """
+    B{b5ee9c7241010101001800002c0000000050325020457363726f772052656c6561736552d2d9f7} B>boc PUSHREF
+""";
+
+;; Cell Fy3clXv5wIGHegd50YebkBlWXHCCZWNaUAdC8pKpubM=
+cell __gen_cell_cell_172ddc957bf9c081877a0779d1879b9019565c708265635a500742f292a9b9b3() asm """
+    B{b5ee9c7241010101001700002a0000000050325020457363726f7720526566756e640538899f} B>boc PUSHREF
+""";
+
+;; Cell fCSDrvP/H+8nZRPJNH5TBxYekHjLAvt6ktGrR6HKt+w=
+cell __gen_cell_cell_7c2483aef3ff1fef276513c9347e5307161e9078cb02fb7a92d1ab47a1cab7ec() asm """
+    B{b5ee9c7241010101001c000034000000005032502044697370757465205265736f6c7574696f6e0e4fefa8} B>boc PUSHREF
+""";
+
+;; Cell 7jRqJX5y5mZoM4UlFIax1unin0LxT8CcdeDTv7728sc=
+cell __gen_cell_cell_ee346a257e72e666683385251486b1d6e9e29f42f14fc09c75e0d3bfbef6f2c7() asm """
+    B{b5ee9c7241010101001900002e000000005032502046656573205769746864726177616cede9d169} B>boc PUSHREF
+""";
+
+;; escrow.tact_P2PEscrow.storage.fc
+;;
+;; Type: Context
+;; TLB: _ bounceable:bool sender:address value:int257 raw:^slice = Context
+;;
+
+_ $Context$_get_value((int, slice, int, slice) v) inline {
+    var (v'bounceable, v'sender, v'value, v'raw) = v;
+    return v'value;
+}
+
+;;
+;; Type: SendParameters
+;; TLB: _ mode:int257 body:Maybe ^cell code:Maybe ^cell data:Maybe ^cell value:int257 to:address bounce:bool = SendParameters
+;;
+
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode_body(slice $to, int $value, int $mode, cell $body) inline {
+    return ($mode, $body, null(), null(), $value, $to, true);
+}
+
+;;
+;; Type: MessageParameters
+;; TLB: _ mode:int257 body:Maybe ^cell value:int257 to:address bounce:bool = MessageParameters
+;;
+
+((int, cell, int, slice, int)) $MessageParameters$_constructor_bounce_to_value_mode_body(int $bounce, slice $to, int $value, int $mode, cell $body) inline {
+    return ($mode, $body, $value, $to, $bounce);
+}
+
+;;
+;; Type: DeployOk
+;; Header: 0xaff90f57
+;; TLB: deploy_ok#aff90f57 queryId:uint64 = DeployOk
+;;
+
+builder $DeployOk$_store(builder build_0, (int) v) inline {
+    var (v'queryId) = v;
+    build_0 = store_uint(build_0, 2952335191, 32);
+    build_0 = build_0.store_uint(v'queryId, 64);
+    return build_0;
+}
+
+cell $DeployOk$_store_cell((int) v, builder b) inline {
+    return $DeployOk$_store(b, v).end_cell();
+}
+
+((int)) $DeployOk$_constructor_queryId(int $queryId) inline {
+    return ($queryId);
+}
+
+;;
+;; Type: Order
+;; TLB: _ seller:address buyer:address cryptoAmount:coins fiatAmount:uint64 fiatCurrency:uint8 status:uint8 createdAt:uint32 lockedAt:uint32 paymentTimeout:uint32 = Order
+;;
+
+builder $Order$_store(builder build_0, (slice, slice, int, int, int, int, int, int, int) v) inline {
+    var (v'seller, v'buyer, v'cryptoAmount, v'fiatAmount, v'fiatCurrency, v'status, v'createdAt, v'lockedAt, v'paymentTimeout) = v;
+    build_0 = build_0.store_slice(v'seller);
+    build_0 = __tact_store_address_opt(build_0, v'buyer);
+    build_0 = build_0.store_varuint16(v'cryptoAmount);
+    build_0 = build_0.store_uint(v'fiatAmount, 64);
+    build_0 = build_0.store_uint(v'fiatCurrency, 8);
+    build_0 = build_0.store_uint(v'status, 8);
+    build_0 = build_0.store_uint(v'createdAt, 32);
+    build_0 = build_0.store_uint(v'lockedAt, 32);
+    build_0 = build_0.store_uint(v'paymentTimeout, 32);
+    return build_0;
+}
+
+cell $Order$_store_cell((slice, slice, int, int, int, int, int, int, int) v, builder b) inline {
+    return $Order$_store(b, v).end_cell();
+}
+
+(slice, ((slice, slice, int, int, int, int, int, int, int))) $Order$_load(slice sc_0) inline {
+    var v'seller = sc_0~load_msg_addr();
+    var v'buyer = sc_0~__tact_load_address_opt();
+    var v'cryptoAmount = sc_0~load_varuint16();
+    var v'fiatAmount = sc_0~load_uint(64);
+    var v'fiatCurrency = sc_0~load_uint(8);
+    var v'status = sc_0~load_uint(8);
+    var v'createdAt = sc_0~load_uint(32);
+    var v'lockedAt = sc_0~load_uint(32);
+    var v'paymentTimeout = sc_0~load_uint(32);
+    return (sc_0, (v'seller, v'buyer, v'cryptoAmount, v'fiatAmount, v'fiatCurrency, v'status, v'createdAt, v'lockedAt, v'paymentTimeout));
+}
+
+tuple $Order$_as_optional((slice, slice, int, int, int, int, int, int, int) v) inline {
+    var (v'seller, v'buyer, v'cryptoAmount, v'fiatAmount, v'fiatCurrency, v'status, v'createdAt, v'lockedAt, v'paymentTimeout) = v;
+    return __tact_tuple_create_9(v'seller, v'buyer, v'cryptoAmount, v'fiatAmount, v'fiatCurrency, v'status, v'createdAt, v'lockedAt, v'paymentTimeout);
+}
+
+tuple $Order$_load_opt(cell cl) inline {
+    if (null?(cl)) {
+        return null();
+    }
+    var sc = cl.begin_parse();
+    return $Order$_as_optional(sc~$Order$_load());
+}
+
+((slice, slice, int, int, int, int, int, int, int)) $Order$_not_null(tuple v) inline {
+    throw_if(128, null?(v));
+    var (slice vvv'seller, slice vvv'buyer, int vvv'cryptoAmount, int vvv'fiatAmount, int vvv'fiatCurrency, int vvv'status, int vvv'createdAt, int vvv'lockedAt, int vvv'paymentTimeout) = __tact_tuple_destroy_9(v);
+    return (vvv'seller, vvv'buyer, vvv'cryptoAmount, vvv'fiatAmount, vvv'fiatCurrency, vvv'status, vvv'createdAt, vvv'lockedAt, vvv'paymentTimeout);
+}
+
+tuple $Order$_to_tuple(((slice, slice, int, int, int, int, int, int, int)) v) inline {
+    var (v'seller, v'buyer, v'cryptoAmount, v'fiatAmount, v'fiatCurrency, v'status, v'createdAt, v'lockedAt, v'paymentTimeout) = v;
+    return __tact_tuple_create_9(v'seller, v'buyer, v'cryptoAmount, v'fiatAmount, v'fiatCurrency, v'status, v'createdAt, v'lockedAt, v'paymentTimeout);
+}
+
+tuple $Order$_to_opt_tuple(tuple v) inline {
+    if (null?(v)) { return null(); } 
+    return $Order$_to_tuple($Order$_not_null(v)); 
+}
+
+tuple $Order$_to_opt_external(tuple v) inline {
+    var loaded = $Order$_to_opt_tuple(v);
+    if (null?(loaded)) {
+        return null();
+    } else {
+        return (loaded);
+    }
+}
+
+((slice, slice, int, int, int, int, int, int, int)) $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout(slice $seller, slice $buyer, int $cryptoAmount, int $fiatAmount, int $fiatCurrency, int $status, int $createdAt, int $lockedAt, int $paymentTimeout) inline {
+    return ($seller, $buyer, $cryptoAmount, $fiatAmount, $fiatCurrency, $status, $createdAt, $lockedAt, $paymentTimeout);
+}
+
+;;
+;; Type: OrderCreated
+;; Header: 0xe9e53eb1
+;; TLB: order_created#e9e53eb1 orderId:uint64 seller:address cryptoAmount:coins fiatAmount:uint64 = OrderCreated
+;;
+
+builder $OrderCreated$_store(builder build_0, (int, slice, int, int) v) inline {
+    var (v'orderId, v'seller, v'cryptoAmount, v'fiatAmount) = v;
+    build_0 = store_uint(build_0, 3924115121, 32);
+    build_0 = build_0.store_uint(v'orderId, 64);
+    build_0 = build_0.store_slice(v'seller);
+    build_0 = build_0.store_varuint16(v'cryptoAmount);
+    build_0 = build_0.store_uint(v'fiatAmount, 64);
+    return build_0;
+}
+
+cell $OrderCreated$_store_cell((int, slice, int, int) v, builder b) inline {
+    return $OrderCreated$_store(b, v).end_cell();
+}
+
+((int, slice, int, int)) $OrderCreated$_constructor_orderId_seller_cryptoAmount_fiatAmount(int $orderId, slice $seller, int $cryptoAmount, int $fiatAmount) inline {
+    return ($orderId, $seller, $cryptoAmount, $fiatAmount);
+}
+
+;;
+;; Type: OrderTaken
+;; Header: 0x7fec1a91
+;; TLB: order_taken#7fec1a91 orderId:uint64 buyer:address = OrderTaken
+;;
+
+builder $OrderTaken$_store(builder build_0, (int, slice) v) inline {
+    var (v'orderId, v'buyer) = v;
+    build_0 = store_uint(build_0, 2146179729, 32);
+    build_0 = build_0.store_uint(v'orderId, 64);
+    build_0 = build_0.store_slice(v'buyer);
+    return build_0;
+}
+
+cell $OrderTaken$_store_cell((int, slice) v, builder b) inline {
+    return $OrderTaken$_store(b, v).end_cell();
+}
+
+((int, slice)) $OrderTaken$_constructor_orderId_buyer(int $orderId, slice $buyer) inline {
+    return ($orderId, $buyer);
+}
+
+;;
+;; Type: OrderCompleted
+;; Header: 0x2c4517ee
+;; TLB: order_completed#2c4517ee orderId:uint64 buyer:address amount:coins = OrderCompleted
+;;
+
+builder $OrderCompleted$_store(builder build_0, (int, slice, int) v) inline {
+    var (v'orderId, v'buyer, v'amount) = v;
+    build_0 = store_uint(build_0, 742725614, 32);
+    build_0 = build_0.store_uint(v'orderId, 64);
+    build_0 = build_0.store_slice(v'buyer);
+    build_0 = build_0.store_varuint16(v'amount);
+    return build_0;
+}
+
+cell $OrderCompleted$_store_cell((int, slice, int) v, builder b) inline {
+    return $OrderCompleted$_store(b, v).end_cell();
+}
+
+((int, slice, int)) $OrderCompleted$_constructor_orderId_buyer_amount(int $orderId, slice $buyer, int $amount) inline {
+    return ($orderId, $buyer, $amount);
+}
+
+;;
+;; Type: OrderCancelled
+;; Header: 0xadf184b7
+;; TLB: order_cancelled#adf184b7 orderId:uint64 = OrderCancelled
+;;
+
+builder $OrderCancelled$_store(builder build_0, (int) v) inline {
+    var (v'orderId) = v;
+    build_0 = store_uint(build_0, 2918286519, 32);
+    build_0 = build_0.store_uint(v'orderId, 64);
+    return build_0;
+}
+
+cell $OrderCancelled$_store_cell((int) v, builder b) inline {
+    return $OrderCancelled$_store(b, v).end_cell();
+}
+
+((int)) $OrderCancelled$_constructor_orderId(int $orderId) inline {
+    return ($orderId);
+}
+
+;;
+;; Type: DisputeOpened
+;; Header: 0x323838ba
+;; TLB: dispute_opened#323838ba orderId:uint64 openedBy:address = DisputeOpened
+;;
+
+builder $DisputeOpened$_store(builder build_0, (int, slice) v) inline {
+    var (v'orderId, v'openedBy) = v;
+    build_0 = store_uint(build_0, 842545338, 32);
+    build_0 = build_0.store_uint(v'orderId, 64);
+    build_0 = build_0.store_slice(v'openedBy);
+    return build_0;
+}
+
+cell $DisputeOpened$_store_cell((int, slice) v, builder b) inline {
+    return $DisputeOpened$_store(b, v).end_cell();
+}
+
+((int, slice)) $DisputeOpened$_constructor_orderId_openedBy(int $orderId, slice $openedBy) inline {
+    return ($orderId, $openedBy);
+}
+
+;;
+;; Type: DisputeResolved
+;; Header: 0x0319af9e
+;; TLB: dispute_resolved#0319af9e orderId:uint64 winner:address = DisputeResolved
+;;
+
+builder $DisputeResolved$_store(builder build_0, (int, slice) v) inline {
+    var (v'orderId, v'winner) = v;
+    build_0 = store_uint(build_0, 52015006, 32);
+    build_0 = build_0.store_uint(v'orderId, 64);
+    build_0 = build_0.store_slice(v'winner);
+    return build_0;
+}
+
+cell $DisputeResolved$_store_cell((int, slice) v, builder b) inline {
+    return $DisputeResolved$_store(b, v).end_cell();
+}
+
+((int, slice)) $DisputeResolved$_constructor_orderId_winner(int $orderId, slice $winner) inline {
+    return ($orderId, $winner);
+}
+
+;;
+;; Type: P2PEscrow
+;; TLB: _ owner:address oracle:address feePercent:uint16 collectedFees:coins orderCounter:uint64 orders:dict<int, ^Order{seller:address,buyer:address,cryptoAmount:coins,fiatAmount:uint64,fiatCurrency:uint8,status:uint8,createdAt:uint32,lockedAt:uint32,paymentTimeout:uint32}> = P2PEscrow
+;;
+
+builder $P2PEscrow$_store(builder build_0, (slice, slice, int, int, int, cell) v) inline {
+    var (v'owner, v'oracle, v'feePercent, v'collectedFees, v'orderCounter, v'orders) = v;
+    build_0 = build_0.store_slice(v'owner);
+    build_0 = build_0.store_slice(v'oracle);
+    build_0 = build_0.store_uint(v'feePercent, 16);
+    build_0 = build_0.store_varuint16(v'collectedFees);
+    build_0 = build_0.store_uint(v'orderCounter, 64);
+    build_0 = build_0.store_dict(v'orders);
+    return build_0;
+}
+
+(slice, ((slice, slice, int, int, int, cell))) $P2PEscrow$_load(slice sc_0) inline {
+    var v'owner = sc_0~load_msg_addr();
+    var v'oracle = sc_0~load_msg_addr();
+    var v'feePercent = sc_0~load_uint(16);
+    var v'collectedFees = sc_0~load_varuint16();
+    var v'orderCounter = sc_0~load_uint(64);
+    var v'orders = sc_0~load_dict();
+    return (sc_0, (v'owner, v'oracle, v'feePercent, v'collectedFees, v'orderCounter, v'orders));
+}
+
+(slice, ((slice))) $P2PEscrow$init$_load(slice sc_0) inline {
+    var v'oracle = sc_0~load_msg_addr();
+    return (sc_0, (v'oracle));
+}
+
+(slice, slice, int, int, int, cell) $P2PEscrow$_contract_load() impure inline {
+    slice $sc = get_data().begin_parse();
+    int $loaded = $sc~load_int(1);
+    if ($loaded) {
+        return $sc~$P2PEscrow$_load();
+    }
+    else {
+        (slice $oracle) = $sc~$P2PEscrow$init$_load();
+        $sc.end_parse();
+        return $P2PEscrow$_contract_init($oracle);
+    }
+}
+
+() $P2PEscrow$_contract_store((slice, slice, int, int, int, cell) v) impure inline {
+    builder b = begin_cell();
+    b = b.store_int(true, 1);
+    b = $P2PEscrow$_store(b, v);
+    set_data(b.end_cell());
+}
+
+;;
+;; Contract P2PEscrow functions
+;;
+
+(slice, slice, int, int, int, cell) $P2PEscrow$_contract_init(slice $oracle) impure inline {
+    var (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)) = (null(), null(), null(), null(), null(), null());
+    $self'owner = __tact_context_get_sender();
+    $self'oracle = $oracle;
+    $self'feePercent = 50;
+    $self'collectedFees = 0;
+    $self'orderCounter = 0;
+    return ($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders);
+}
+
+((slice, slice, int, int, int, cell), ()) $P2PEscrow$_fun_releaseOrder((slice, slice, int, int, int, cell) $self, int $orderId, (slice, slice, int, int, int, int, int, int, int) $o) impure inline_ref {
+    var (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)) = $self;
+    var (($o'seller, $o'buyer, $o'cryptoAmount, $o'fiatAmount, $o'fiatCurrency, $o'status, $o'createdAt, $o'lockedAt, $o'paymentTimeout)) = $o;
+    throw_unless(44246, (~ null?($o'buyer)));
+    int $fee = (($o'cryptoAmount * $self'feePercent) / 10000);
+    int $buyerAmount = ($o'cryptoAmount - $fee);
+    $self'collectedFees = ($self'collectedFees + $fee);
+    var ($completedOrder'seller, $completedOrder'buyer, $completedOrder'cryptoAmount, $completedOrder'fiatAmount, $completedOrder'fiatCurrency, $completedOrder'status, $completedOrder'createdAt, $completedOrder'lockedAt, $completedOrder'paymentTimeout) = $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout($o'seller, $o'buyer, $o'cryptoAmount, $o'fiatAmount, $o'fiatCurrency, 3, $o'createdAt, $o'lockedAt, $o'paymentTimeout);
+    $self'orders~__tact_dict_set_int_cell(257, $orderId, $Order$_store_cell(($completedOrder'seller, $completedOrder'buyer, $completedOrder'cryptoAmount, $completedOrder'fiatAmount, $completedOrder'fiatCurrency, $completedOrder'status, $completedOrder'createdAt, $completedOrder'lockedAt, $completedOrder'paymentTimeout), begin_cell()));
+    $global_send($SendParameters$_constructor_to_value_mode_body(__tact_not_null($o'buyer), $buyerAmount, 2, __gen_cell_cell_146527138fdfaf108100b680636a59696e03a17220e3e8a6b3f5c59bd5ed45f5()));
+    $global_emit($OrderCompleted$_store_cell($OrderCompleted$_constructor_orderId_buyer_amount($orderId, __tact_not_null($o'buyer), $buyerAmount), begin_cell()));
+    return (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders), ());
+}
+
+((slice, slice, int, int, int, cell), tuple) $P2PEscrow$_fun_getOrder((slice, slice, int, int, int, cell) $self, int $orderId) impure inline_ref {
+    var (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)) = $self;
+    var $fresh$ret_0 = $Order$_load_opt(__tact_dict_get_int_cell($self'orders, 257, $orderId));
+    return (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders), $fresh$ret_0);
+}
+
+((slice, slice, int, int, int, cell), int) $P2PEscrow$_fun_getOrderCount((slice, slice, int, int, int, cell) $self) impure inline_ref {
+    var (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)) = $self;
+    var $fresh$ret_1 = $self'orderCounter;
+    return (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders), $fresh$ret_1);
+}
+
+((slice, slice, int, int, int, cell), int) $P2PEscrow$_fun_getCollectedFees((slice, slice, int, int, int, cell) $self) impure inline_ref {
+    var (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)) = $self;
+    var $fresh$ret_2 = $self'collectedFees;
+    return (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders), $fresh$ret_2);
+}
+
+((slice, slice, int, int, int, cell), int) $P2PEscrow$_fun_getFeePercent((slice, slice, int, int, int, cell) $self) impure inline_ref {
+    var (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)) = $self;
+    var $fresh$ret_3 = $self'feePercent;
+    return (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders), $fresh$ret_3);
+}
+
+((slice, slice, int, int, int, cell), slice) $P2PEscrow$_fun_getOracle((slice, slice, int, int, int, cell) $self) impure inline_ref {
+    var (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)) = $self;
+    var $fresh$ret_4 = $self'oracle;
+    return (($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders), $fresh$ret_4);
+}
+
+;;
+;; Get methods of a Contract P2PEscrow
+;;
+
+_ %getOrder(int $orderId) method_id(128269) {
+    int $orderId = $orderId;
+    var self = $P2PEscrow$_contract_load();
+    var res = self~$P2PEscrow$_fun_getOrder($orderId);
+    return $Order$_to_opt_external(res);
+}
+
+_ %getOrderCount() method_id(94927) {
+    var self = $P2PEscrow$_contract_load();
+    var res = self~$P2PEscrow$_fun_getOrderCount();
+    return res;
+}
+
+_ %getCollectedFees() method_id(108894) {
+    var self = $P2PEscrow$_contract_load();
+    var res = self~$P2PEscrow$_fun_getCollectedFees();
+    return res;
+}
+
+_ %getFeePercent() method_id(109126) {
+    var self = $P2PEscrow$_contract_load();
+    var res = self~$P2PEscrow$_fun_getFeePercent();
+    return res;
+}
+
+_ %getOracle() method_id(106528) {
+    var self = $P2PEscrow$_contract_load();
+    var res = self~$P2PEscrow$_fun_getOracle();
+    return res;
+}
+
+_ %owner() method_id(83229) {
+    var self = $P2PEscrow$_contract_load();
+    var res = self~$P2PEscrow$_fun_owner();
+    return res;
+}
+
+;;
+;; Routing of a Contract P2PEscrow
+;;
+
+;; message opcode reader utility: only binary receivers
+;; Returns 32 bit message opcode, otherwise throws the "Invalid incoming message" exit code
+(slice, int) ~load_opcode_internal(slice s) asm( -> 1 0) "32 LDUQ 130 THROWIFNOT";
+
+() recv_internal(int msg_value, cell in_msg_cell, slice in_msg) impure {
+    
+    ;; Context
+    var cs = in_msg_cell.begin_parse();
+    cs~skip_bits(2);
+    var msg_bounceable = cs~load_int(1);
+    var msg_bounced = cs~load_int(1);
+    slice msg_sender_addr = cs~load_msg_addr();
+    __tact_context = (msg_bounceable, msg_sender_addr, msg_value, cs);
+    __tact_context_sender = msg_sender_addr;
+    
+    ;; Load contract data
+    var ($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders) = $P2PEscrow$_contract_load();
+    
+    ;; Handle bounced messages
+    if (msg_bounced) { return (); }
+    int op = 0;
+    int in_msg_length = slice_bits(in_msg);
+    if (in_msg_length >= 32) {
+        op = in_msg~load_uint(32);
+        ;; Receive CreateOrder message
+        if (op == 3932749128) {
+            var $msg'orderId = in_msg~load_uint(64);
+            var $msg'fiatAmount = in_msg~load_uint(64);
+            var $msg'fiatCurrency = in_msg~load_uint(8);
+            var $msg'paymentTimeout = in_msg~load_uint(32);
+            var ($ctx'bounceable, $ctx'sender, $ctx'value, $ctx'raw) = __tact_context_get();
+            int $depositAmount = $ctx'value;
+            throw_unless(7620, ($depositAmount >= 100000000));
+            var ($order'seller, $order'buyer, $order'cryptoAmount, $order'fiatAmount, $order'fiatCurrency, $order'status, $order'createdAt, $order'lockedAt, $order'paymentTimeout) = $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout($ctx'sender, null(), $depositAmount, $msg'fiatAmount, $msg'fiatCurrency, 0, $global_now(), 0, $msg'paymentTimeout);
+            $self'orders~__tact_dict_set_int_cell(257, $msg'orderId, $Order$_store_cell(($order'seller, $order'buyer, $order'cryptoAmount, $order'fiatAmount, $order'fiatCurrency, $order'status, $order'createdAt, $order'lockedAt, $order'paymentTimeout), begin_cell()));
+            $self'orderCounter = ($self'orderCounter + 1);
+            $global_emit($OrderCreated$_store_cell($OrderCreated$_constructor_orderId_seller_cryptoAmount_fiatAmount($msg'orderId, $ctx'sender, $depositAmount, $msg'fiatAmount), begin_cell()));
+            $P2PEscrow$_contract_store(($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders));
+            return ();
+        }
+        
+        ;; Receive TakeOrder message
+        if (op == 3808834696) {
+            var $msg'orderId = in_msg~load_uint(64);
+            var ($ctx'bounceable, $ctx'sender, $ctx'value, $ctx'raw) = __tact_context_get();
+            tuple $order = $Order$_load_opt(__tact_dict_get_int_cell($self'orders, 257, $msg'orderId));
+            throw_unless(18518, (~ null?($order)));
+            var ($o'seller, $o'buyer, $o'cryptoAmount, $o'fiatAmount, $o'fiatCurrency, $o'status, $o'createdAt, $o'lockedAt, $o'paymentTimeout) = $Order$_not_null($order);
+            throw_unless(57383, ($o'status == 0));
+            throw_unless(10101, ( ~ equal_slices_bits($o'seller, $ctx'sender) ));
+            var ($updatedOrder'seller, $updatedOrder'buyer, $updatedOrder'cryptoAmount, $updatedOrder'fiatAmount, $updatedOrder'fiatCurrency, $updatedOrder'status, $updatedOrder'createdAt, $updatedOrder'lockedAt, $updatedOrder'paymentTimeout) = $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout($o'seller, $ctx'sender, $o'cryptoAmount, $o'fiatAmount, $o'fiatCurrency, 1, $o'createdAt, $global_now(), $o'paymentTimeout);
+            $self'orders~__tact_dict_set_int_cell(257, $msg'orderId, $Order$_store_cell(($updatedOrder'seller, $updatedOrder'buyer, $updatedOrder'cryptoAmount, $updatedOrder'fiatAmount, $updatedOrder'fiatCurrency, $updatedOrder'status, $updatedOrder'createdAt, $updatedOrder'lockedAt, $updatedOrder'paymentTimeout), begin_cell()));
+            $global_emit($OrderTaken$_store_cell($OrderTaken$_constructor_orderId_buyer($msg'orderId, $ctx'sender), begin_cell()));
+            $P2PEscrow$_contract_store(($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders));
+            return ();
+        }
+        
+        ;; Receive ConfirmPayment message
+        if (op == 4285838865) {
+            var $msg'orderId = in_msg~load_uint(64);
+            var ($ctx'bounceable, $ctx'sender, $ctx'value, $ctx'raw) = __tact_context_get();
+            tuple $order = $Order$_load_opt(__tact_dict_get_int_cell($self'orders, 257, $msg'orderId));
+            throw_unless(18518, (~ null?($order)));
+            var ($o'seller, $o'buyer, $o'cryptoAmount, $o'fiatAmount, $o'fiatCurrency, $o'status, $o'createdAt, $o'lockedAt, $o'paymentTimeout) = $Order$_not_null($order);
+            throw_unless(55532, ( equal_slices_bits($o'seller, $ctx'sender) ));
+            throw_unless(41074, ( (($o'status == 1)) ? (true) : (($o'status == 2)) ));
+            ($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)~$P2PEscrow$_fun_releaseOrder($msg'orderId, ($o'seller, $o'buyer, $o'cryptoAmount, $o'fiatAmount, $o'fiatCurrency, $o'status, $o'createdAt, $o'lockedAt, $o'paymentTimeout));
+            $P2PEscrow$_contract_store(($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders));
+            return ();
+        }
+        
+        ;; Receive OracleConfirm message
+        if (op == 2418055224) {
+            var $msg'orderId = in_msg~load_uint(64);
+            var $msg'signature = in_msg~load_ref().begin_parse();
+            var ($ctx'bounceable, $ctx'sender, $ctx'value, $ctx'raw) = __tact_context_get();
+            throw_unless(25888, ( equal_slices_bits($ctx'sender, $self'oracle) ));
+            tuple $order = $Order$_load_opt(__tact_dict_get_int_cell($self'orders, 257, $msg'orderId));
+            throw_unless(18518, (~ null?($order)));
+            var ($o'seller, $o'buyer, $o'cryptoAmount, $o'fiatAmount, $o'fiatCurrency, $o'status, $o'createdAt, $o'lockedAt, $o'paymentTimeout) = $Order$_not_null($order);
+            throw_unless(41074, ( (($o'status == 1)) ? (true) : (($o'status == 2)) ));
+            ($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)~$P2PEscrow$_fun_releaseOrder($msg'orderId, ($o'seller, $o'buyer, $o'cryptoAmount, $o'fiatAmount, $o'fiatCurrency, $o'status, $o'createdAt, $o'lockedAt, $o'paymentTimeout));
+            $P2PEscrow$_contract_store(($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders));
+            return ();
+        }
+        
+        ;; Receive CancelOrder message
+        if (op == 3037552710) {
+            var $msg'orderId = in_msg~load_uint(64);
+            var ($ctx'bounceable, $ctx'sender, $ctx'value, $ctx'raw) = __tact_context_get();
+            tuple $order = $Order$_load_opt(__tact_dict_get_int_cell($self'orders, 257, $msg'orderId));
+            throw_unless(18518, (~ null?($order)));
+            var ($o'seller, $o'buyer, $o'cryptoAmount, $o'fiatAmount, $o'fiatCurrency, $o'status, $o'createdAt, $o'lockedAt, $o'paymentTimeout) = $Order$_not_null($order);
+            throw_unless(41186, ( equal_slices_bits($o'seller, $ctx'sender) ));
+            throw_unless(8126, ($o'status == 0));
+            var ($cancelledOrder'seller, $cancelledOrder'buyer, $cancelledOrder'cryptoAmount, $cancelledOrder'fiatAmount, $cancelledOrder'fiatCurrency, $cancelledOrder'status, $cancelledOrder'createdAt, $cancelledOrder'lockedAt, $cancelledOrder'paymentTimeout) = $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout($o'seller, $o'buyer, $o'cryptoAmount, $o'fiatAmount, $o'fiatCurrency, 5, $o'createdAt, $o'lockedAt, $o'paymentTimeout);
+            $self'orders~__tact_dict_set_int_cell(257, $msg'orderId, $Order$_store_cell(($cancelledOrder'seller, $cancelledOrder'buyer, $cancelledOrder'cryptoAmount, $cancelledOrder'fiatAmount, $cancelledOrder'fiatCurrency, $cancelledOrder'status, $cancelledOrder'createdAt, $cancelledOrder'lockedAt, $cancelledOrder'paymentTimeout), begin_cell()));
+            $global_send($SendParameters$_constructor_to_value_mode_body($o'seller, $o'cryptoAmount, 2, __gen_cell_cell_172ddc957bf9c081877a0779d1879b9019565c708265635a500742f292a9b9b3()));
+            $global_emit($OrderCancelled$_store_cell($OrderCancelled$_constructor_orderId($msg'orderId), begin_cell()));
+            $P2PEscrow$_contract_store(($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders));
+            return ();
+        }
+        
+        ;; Receive OpenDispute message
+        if (op == 2721478341) {
+            var $msg'orderId = in_msg~load_uint(64);
+            var $msg'reason = in_msg~load_uint(8);
+            var ($ctx'bounceable, $ctx'sender, $ctx'value, $ctx'raw) = __tact_context_get();
+            tuple $order = $Order$_load_opt(__tact_dict_get_int_cell($self'orders, 257, $msg'orderId));
+            throw_unless(18518, (~ null?($order)));
+            var ($o'seller, $o'buyer, $o'cryptoAmount, $o'fiatAmount, $o'fiatCurrency, $o'status, $o'createdAt, $o'lockedAt, $o'paymentTimeout) = $Order$_not_null($order);
+            throw_unless(60749, ( (( equal_slices_bits($o'seller, $ctx'sender) )) ? (true) : (( __tact_slice_eq_bits_nullable_left($o'buyer, $ctx'sender) )) ));
+            throw_unless(27002, ( (($o'status == 1)) ? (true) : (($o'status == 2)) ));
+            var ($disputedOrder'seller, $disputedOrder'buyer, $disputedOrder'cryptoAmount, $disputedOrder'fiatAmount, $disputedOrder'fiatCurrency, $disputedOrder'status, $disputedOrder'createdAt, $disputedOrder'lockedAt, $disputedOrder'paymentTimeout) = $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout($o'seller, $o'buyer, $o'cryptoAmount, $o'fiatAmount, $o'fiatCurrency, 4, $o'createdAt, $o'lockedAt, $o'paymentTimeout);
+            $self'orders~__tact_dict_set_int_cell(257, $msg'orderId, $Order$_store_cell(($disputedOrder'seller, $disputedOrder'buyer, $disputedOrder'cryptoAmount, $disputedOrder'fiatAmount, $disputedOrder'fiatCurrency, $disputedOrder'status, $disputedOrder'createdAt, $disputedOrder'lockedAt, $disputedOrder'paymentTimeout), begin_cell()));
+            $global_emit($DisputeOpened$_store_cell($DisputeOpened$_constructor_orderId_openedBy($msg'orderId, $ctx'sender), begin_cell()));
+            $P2PEscrow$_contract_store(($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders));
+            return ();
+        }
+        
+        ;; Receive ResolveDispute message
+        if (op == 2928221909) {
+            var $msg'orderId = in_msg~load_uint(64);
+            var $msg'winner = in_msg~load_msg_addr();
+            var ($ctx'bounceable, $ctx'sender, $ctx'value, $ctx'raw) = __tact_context_get();
+            throw_unless(62638, ( equal_slices_bits($ctx'sender, $self'owner) ));
+            tuple $order = $Order$_load_opt(__tact_dict_get_int_cell($self'orders, 257, $msg'orderId));
+            throw_unless(18518, (~ null?($order)));
+            var ($o'seller, $o'buyer, $o'cryptoAmount, $o'fiatAmount, $o'fiatCurrency, $o'status, $o'createdAt, $o'lockedAt, $o'paymentTimeout) = $Order$_not_null($order);
+            throw_unless(62062, ($o'status == 4));
+            throw_unless(46500, ( (( equal_slices_bits($msg'winner, $o'seller) )) ? (true) : (( __tact_slice_eq_bits_nullable_right($msg'winner, $o'buyer) )) ));
+            var ($resolvedOrder'seller, $resolvedOrder'buyer, $resolvedOrder'cryptoAmount, $resolvedOrder'fiatAmount, $resolvedOrder'fiatCurrency, $resolvedOrder'status, $resolvedOrder'createdAt, $resolvedOrder'lockedAt, $resolvedOrder'paymentTimeout) = $Order$_constructor_seller_buyer_cryptoAmount_fiatAmount_fiatCurrency_status_createdAt_lockedAt_paymentTimeout($o'seller, $o'buyer, $o'cryptoAmount, $o'fiatAmount, $o'fiatCurrency, 3, $o'createdAt, $o'lockedAt, $o'paymentTimeout);
+            $self'orders~__tact_dict_set_int_cell(257, $msg'orderId, $Order$_store_cell(($resolvedOrder'seller, $resolvedOrder'buyer, $resolvedOrder'cryptoAmount, $resolvedOrder'fiatAmount, $resolvedOrder'fiatCurrency, $resolvedOrder'status, $resolvedOrder'createdAt, $resolvedOrder'lockedAt, $resolvedOrder'paymentTimeout), begin_cell()));
+            $global_send($SendParameters$_constructor_to_value_mode_body($msg'winner, $o'cryptoAmount, 2, __gen_cell_cell_7c2483aef3ff1fef276513c9347e5307161e9078cb02fb7a92d1ab47a1cab7ec()));
+            $global_emit($DisputeResolved$_store_cell($DisputeResolved$_constructor_orderId_winner($msg'orderId, $msg'winner), begin_cell()));
+            $P2PEscrow$_contract_store(($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders));
+            return ();
+        }
+        
+        ;; Receive WithdrawFees message
+        if (op == 3947541004) {
+            var $msg'amount = in_msg~load_varuint16();
+            ($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)~$P2PEscrow$_fun_requireOwner();
+            throw_unless(21449, ($msg'amount <= $self'collectedFees));
+            $self'collectedFees = ($self'collectedFees - $msg'amount);
+            $global_send($SendParameters$_constructor_to_value_mode_body($self'owner, $msg'amount, 2, __gen_cell_cell_ee346a257e72e666683385251486b1d6e9e29f42f14fc09c75e0d3bfbef6f2c7()));
+            $P2PEscrow$_contract_store(($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders));
+            return ();
+        }
+        
+        ;; Receive UpdateOracle message
+        if (op == 1084263761) {
+            var $msg'newOracle = in_msg~load_msg_addr();
+            ($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)~$P2PEscrow$_fun_requireOwner();
+            $self'oracle = $msg'newOracle;
+            $P2PEscrow$_contract_store(($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders));
+            return ();
+        }
+        
+        ;; Receive UpdateFee message
+        if (op == 2988846933) {
+            var $msg'newFeePercent = in_msg~load_uint(16);
+            ($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)~$P2PEscrow$_fun_requireOwner();
+            throw_unless(46136, ($msg'newFeePercent <= 500));
+            $self'feePercent = $msg'newFeePercent;
+            $P2PEscrow$_contract_store(($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders));
+            return ();
+        }
+        
+        ;; Receive Deploy message
+        if (op == 0x946a98b6) {
+            var $deploy'queryId = in_msg~load_uint(64);
+            ($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders)~$P2PEscrow$_fun_notify($DeployOk$_store_cell($DeployOk$_constructor_queryId($deploy'queryId), begin_cell()));
+            $P2PEscrow$_contract_store(($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders));
+            return ();
+        }
+        
+    }
+    ;; Empty Receiver and Text Receivers
+    var text_op = slice_hash(in_msg);
+    ;; Receive "expire" message
+    if (text_op == 0x16d6ebdf693a7d12679060fcc66c2c70a4e2b79aa42d7a697c6dc605410fbebb) {
+        $P2PEscrow$_contract_store(($self'owner, $self'oracle, $self'feePercent, $self'collectedFees, $self'orderCounter, $self'orders));
+        return ();
+    }
+    ;; Throw if not handled
+    throw(130);
+}
+
+
+() __tact_selector_hack_asm() impure asm """
+@atend @ 1 {
+        execute current@ context@ current!
+        {
+            // The core idea of this function is to save gas by avoiding unnecessary dict jump, when recv_internal/recv_external is called
+            // We want to extract recv_internal/recv_external from the dict and select needed function
+            // not by jumping to the needed function by it's index, but by using usual IF statements.
+
+            }END> b> // Close previous builder, now we have a cell of previous code on top of the stack
+
+            <{ // Start of the new code builder
+                SETCP0
+                // Swap the new code builder with the previous code, now we have previous code on top of the stack
+                swap
+                // Transform cell to slice and load first ref from the previous code, now we have the dict on top of the stack
+                <s ref@
+
+                // Extract the recv_internal from the dict
+                dup 0 swap @procdictkeylen idict@ { "internal shortcut error" abort } ifnot
+                swap
+
+                // Delete the recv_internal from the dict
+                0 swap @procdictkeylen idict- drop
+                // Delete the recv_external from the dict (it's okay if it's not there)
+                -1 swap @procdictkeylen idict- drop
+                // Delete the __tact_selector_hack from the dict
+                65535 swap @procdictkeylen idict- drop
+
+                // Bring the code builder from the bottom of the stack
+                // because if recv_external extraction is optional, and the number of elements on the stack is not fixed
+                depth 1- roll
+                // Swap with the dict from which we extracted recv_internal and (maybe) recv_external
+                swap
+
+                // Check if the dict is empty
+                dup null?
+                // Store a copy of this flag in the bottom of the stack
+                dup depth 1- -roll
+                {
+                    // If the dict is empty, just drop it (it will be null if it's empty)
+                    drop
+                }
+                {
+                    // If the dict is not empty, prepare continuation to be stored in c3
+                    <{
+                        // Save this dict as first ref in this continuation, it will be pushed in runtime by DICTPUSHCONST
+                        swap @procdictkeylen DICTPUSHCONST
+                        // Jump to the needed function by it's index
+                        DICTIGETJMPZ
+                        // If such key is not found, throw 11 along with the key as an argument
+                        11 THROWARG
+                    }> PUSHCONT
+                    // Store the continuation in c3
+                    c3 POP
+                } cond
+
+                // Function id is on top of the (runtime) stack
+                DUP IFNOTJMP:<{
+                    // place recv_internal here
+                    DROP swap @addop
+                }>
+
+                // Bring back the flag, indicating if the dict is empty or not from the bottom of the stack
+                depth 1- roll
+                {
+                    // If the dict is empty, throw 11
+                    11 THROWARG
+                }
+                {
+                    // If the dict is not empty, jump to continuation from c3
+                    c3 PUSH JMPX
+                } cond
+            }> b>
+        } : }END>c
+        current@ context! current!
+    } does @atend !
+""";
+
+() __tact_selector_hack() method_id(65535) {
+    return __tact_selector_hack_asm();
+}

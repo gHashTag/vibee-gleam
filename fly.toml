@@ -1,0 +1,44 @@
+# VIBEE - Full deployment (Telegram Bridge + Gleam MCP Server)
+# Deploy with: fly deploy
+
+app = 'vibee-mcp'
+primary_region = 'ams'
+
+[build]
+
+[env]
+  PORT = '8080'
+  VIBEE_MODE = 'mcp'
+  VIBEE_LOG_LEVEL = 'info'
+  VIBEE_BRIDGE_URL = 'http://localhost:8081'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+  [http_service.concurrency]
+    type = 'connections'
+    hard_limit = 250
+    soft_limit = 200
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '512mb'
+
+[checks]
+  [checks.health]
+    grace_period = '15s'
+    interval = '30s'
+    method = 'GET'
+    path = '/health'
+    port = 8080
+    timeout = '5s'
+    type = 'http'
+
+[mounts]
+  source = 'vibee_sessions'
+  destination = '/app/sessions'
