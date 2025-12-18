@@ -11,6 +11,8 @@ import vibee/api/router
 import vibee/agent/polling_actor
 import vibee/config/telegram_config
 import vibee/events/event_bus
+import vibee/health
+import vibee/shutdown
 import vibee/telegram/telegram_agent.{TelegramAgentConfig}
 import vibee/mcp/config
 import vibee/mcp/tools.{init_registry}
@@ -146,11 +148,22 @@ fn run_telegram_agent() {
         owner_id: 144_022_504,
       )
 
+      // Start health check server
+      io.println("[HEALTH] Starting health check server on port 8080...")
+      case health.start(8080) {
+        Ok(_) -> io.println("[HEALTH] ✓ Health check server started")
+        Error(_) -> io.println("[HEALTH] ⚠️  Failed to start health check server")
+      }
+
       // Запускаем Polling Actor (Telegram Agent) with event bus
       io.println("[AGENT] Starting VIBEE Telegram Agent...")
       case polling_actor.start_with_events(agent_config, event_bus_subject) {
         Ok(agent_subject) -> {
           io.println("[AGENT] ✓ Polling Actor started with event bus")
+
+          // Setup graceful shutdown
+          shutdown.setup_handler(agent_subject)
+          io.println("[SHUTDOWN] ✓ Graceful shutdown handler registered")
 
           // Запускаем polling loop
           polling_actor.start_polling(agent_subject)

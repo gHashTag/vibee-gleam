@@ -1,16 +1,24 @@
-# VIBEE - Full deployment (Telegram Bridge + Gleam MCP Server)
+# VIBEE - Production deployment with reliability improvements
 # Deploy with: fly deploy
 
 app = 'vibee-mcp'
 primary_region = 'ams'
 
+# Kill signal and timeout for graceful shutdown
+kill_signal = 'SIGTERM'
+kill_timeout = '10s'
+
 [build]
+  dockerfile = 'Dockerfile.production'
 
 [env]
   PORT = '8080'
   VIBEE_MODE = 'mcp'
   VIBEE_LOG_LEVEL = 'info'
   VIBEE_BRIDGE_URL = 'http://localhost:8081'
+
+[experimental]
+  auto_rollback = true
 
 [http_service]
   internal_port = 8080
@@ -26,8 +34,9 @@ primary_region = 'ams'
     soft_limit = 200
 
 [[vm]]
-  size = 'shared-cpu-1x'
-  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 1024
 
 [checks]
   [checks.health]

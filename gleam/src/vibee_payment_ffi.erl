@@ -2,6 +2,7 @@
 %% Stores payment records in-memory with ETS
 
 -module(vibee_payment_ffi).
+-compile({no_auto_import,[get/1]}).
 
 -export([
     init/0,

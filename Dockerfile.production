@@ -1,0 +1,73 @@
+# Multi-stage Dockerfile for Production
+# Optimized for size and security
+
+# Stage 1: Build Gleam application
+FROM ghcr.io/gleam-lang/gleam:v1.0.0-erlang-alpine AS gleam-builder
+
+WORKDIR /app
+
+# Copy Gleam project files
+COPY gleam/gleam.toml gleam/manifest.toml ./
+COPY gleam/src ./src
+COPY gleam/test ./test
+
+# Build for production
+RUN gleam build --target erlang
+
+# Stage 2: Build Go telegram-bridge
+FROM golang:1.21-alpine AS go-builder
+
+WORKDIR /app
+
+# Copy Go project files
+COPY telegram-bridge/go.mod telegram-bridge/go.sum ./
+RUN go mod download
+
+COPY telegram-bridge/ ./
+
+# Build static binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o telegram-bridge cmd/server/main.go
+
+# Stage 3: Runtime image
+FROM alpine:3.19
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    erlang \
+    erlang-crypto \
+    erlang-ssl \
+    erlang-public-key \
+    erlang-asn1 \
+    erlang-sasl \
+    erlang-eunit \
+    erlang-dev \
+    ca-certificates \
+    tzdata
+
+# Create app user (non-root)
+RUN addgroup -g 1000 vibee && \
+    adduser -D -u 1000 -G vibee vibee
+
+WORKDIR /app
+
+# Copy built artifacts from builders
+COPY --from=gleam-builder --chown=vibee:vibee /app/build ./gleam
+COPY --from=go-builder --chown=vibee:vibee /app/telegram-bridge ./telegram-bridge
+
+# Create directories
+RUN mkdir -p /app/sessions /app/data && \
+    chown -R vibee:vibee /app
+
+# Switch to non-root user
+USER vibee
+
+# Expose ports
+EXPOSE 8080 8081
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+
+# Start both services using supervisord would be better, but for now:
+# In production, use proper process manager
+CMD ["/bin/sh", "-c", "./telegram-bridge & cd gleam && erl -pa erlang/*/ebin -eval 'vibee@main:main()' -noshell"]

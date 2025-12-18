@@ -10,14 +10,18 @@ import gleam/io
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
+
 import gleam/string
 import shellout
 import vibee/mcp/config
 import vibee/config/target_chats
 import vibee/config/telegram_config
+import vibee/config/trigger_chats
 import vibee/db/postgres
+import vibee/leads/lead_logger
 import vibee/logging
 import vibee/mcp/session_manager
+import vibee/telegram/dialog_forwarder
 
 /// Конфигурация Telegram агента
 pub type TelegramAgentConfig {
@@ -46,6 +50,7 @@ pub type DigitalTwinMode {
 pub type AgentState {
   AgentState(
     config: TelegramAgentConfig,
+    bot_user_id: Option(Int),  // Real user_id from session
     is_monitoring: Bool,
     total_messages: Int,
     last_reply_time: Int,
@@ -112,6 +117,7 @@ pub fn init(config: TelegramAgentConfig) -> AgentState {
 
   AgentState(
     config: config,
+    bot_user_id: None,  // Will be set on first message
     is_monitoring: False,
     total_messages: 0,
     last_reply_time: 0,
@@ -119,8 +125,137 @@ pub fn init(config: TelegramAgentConfig) -> AgentState {
   )
 }
 
-// Bot's user ID - skip messages from this user to prevent loops
-const bot_user_id = 6_579_515_876
+/// Get user_id from session (lazy initialization)
+fn get_or_fetch_user_id(state: AgentState) -> #(AgentState, Option(Int)) {
+  case state.bot_user_id {
+    Some(id) -> {
+      io.println("[USER_ID] Using cached bot_user_id: " <> int.to_string(id))
+      #(state, Some(id))
+    }
+    None -> {
+      io.println("[USER_ID] Fetching bot_user_id from session...")
+      // Fetch user_id from getMe
+      case get_me(state.config.bridge_url, state.config.session_id) {
+        Ok(user_id) -> {
+          io.println("[USER_ID] ✅ Bot user_id fetched: " <> int.to_string(user_id))
+          let new_state = AgentState(..state, bot_user_id: Some(user_id))
+          #(new_state, Some(user_id))
+        }
+        Error(reason) -> {
+          io.println("[USER_ID] ❌ Failed to get user_id: " <> reason)
+          #(state, None)
+        }
+      }
+    }
+  }
+}
+
+/// Get current user info from Telegram
+fn get_me(bridge_url: String, session_id: String) -> Result(Int, String) {
+  // Parse bridge_url to get scheme, host, port
+  let url_parts = case string.split(bridge_url, "://") {
+    [scheme, rest] -> {
+      case string.split(rest, ":") {
+        [host, port_str] -> #(scheme, host, port_str)
+        [host] -> #(scheme, host, "8081")
+        _ -> #("http", "localhost", "8081")
+      }
+    }
+    _ -> #("http", "localhost", "8081")
+  }
+  
+  let #(scheme, host, port_str) = url_parts
+  let body = "{\"session_id\": \"" <> session_id <> "\"}"
+  
+  let req = request.new()
+    |> request.set_method(http.Post)
+    |> request.set_scheme(case scheme {
+      "https" -> http.Https
+      _ -> http.Http
+    })
+    |> request.set_host(host)
+    |> request.set_port(case int.parse(port_str) {
+      Ok(p) -> p
+      Error(_) -> 8081
+    })
+    |> request.set_path("/getMe")
+    |> request.set_body(body)
+    |> request.prepend_header("content-type", "application/json")
+  
+  case httpc.send(req) {
+    Ok(response) -> {
+      io.println("[GETME] Response: " <> response.body)
+      // Parse JSON response to get user_id
+      // Expected: {"id": 123456789, "username": "...", ...}
+      case string.split(response.body, "\"id\":") {
+        [_, rest] -> {
+          case string.split(rest, ",") {
+            [id_str, ..] -> {
+              let cleaned = string.replace(id_str, " ", "")
+                |> string.replace("}", "")
+                |> string.replace("\"", "")
+              case int.parse(cleaned) {
+                Ok(id) -> Ok(id)
+                Error(_) -> Error("Failed to parse user_id")
+              }
+            }
+            _ -> Error("Invalid response format")
+          }
+        }
+        _ -> Error("No id field in response")
+      }
+    }
+    Error(err) -> {
+      io.println("[GETME] HTTP error")
+      Error("HTTP request failed")
+    }
+  }
+}
+
+/// Сохранить лид (логирование)
+fn save_lead_to_database(
+  from_id: Int,
+  from_name: String,
+  message_text: String,
+  chat_id: String,
+  agent_response: String,
+  trigger_words: List(String),
+) {
+  // Парсим имя пользователя
+  let parts = string.split(from_name, " ")
+  let first_name = case list.first(parts) {
+    Ok(name) -> Some(name)
+    Error(_) -> Some(from_name)
+  }
+  let last_name = case list.rest(parts) {
+    Ok(rest) -> case list.first(rest) {
+      Ok(name) -> Some(name)
+      Error(_) -> None
+    }
+    Error(_) -> None
+  }
+  
+  // Парсим chat_id
+  let source_chat_id = case int.parse(chat_id) {
+    Ok(id) -> id
+    Error(_) -> -5082217642
+  }
+  
+  // Сохраняем лид (пока только логирование)
+  let _ = lead_logger.save_lead(
+    from_id,
+    None,  // username (TODO: получать из API)
+    first_name,
+    last_name,
+    message_text,
+    source_chat_id,
+    "Aimly.io dev",
+    trigger_words,
+    agent_response,
+  )
+  
+  Nil
+}
 
 /// Обработка входящего сообщения
 pub fn handle_incoming_message(
@@ -134,46 +269,84 @@ pub fn handle_incoming_message(
   // Логируем в stdout для Fly.io видимости
   io.println("[MSG] chat=" <> chat_id <> " from_id=" <> int.to_string(from_id) <> " from=" <> from_name <> " text=" <> string.slice(text, 0, 50))
 
+  // Get or fetch bot user_id
+  let #(updated_state, bot_id) = get_or_fetch_user_id(state)
+
   // Не отвечаем на собственные сообщения (по user_id или owner_id, предотвращаем бесконечный цикл)
-  case from_id == bot_user_id || from_id == state.config.owner_id {
+  let should_skip = case bot_id {
+    Some(id) -> {
+      let is_bot = from_id == id
+      let is_owner = from_id == updated_state.config.owner_id
+      io.println("[FILTER] from_id=" <> int.to_string(from_id) <> " bot_id=" <> int.to_string(id) <> " owner_id=" <> int.to_string(updated_state.config.owner_id))
+      io.println("[FILTER] is_bot=" <> case is_bot { True -> "YES" False -> "NO" } <> " is_owner=" <> case is_owner { True -> "YES" False -> "NO" })
+      is_bot || is_owner
+    }
+    None -> {
+      io.println("[FILTER] No bot_id cached, checking owner_id only")
+      from_id == updated_state.config.owner_id
+    }
+  }
+
+  case should_skip {
     True -> {
-      io.println("[MSG] Skipping own message from user_id: " <> int.to_string(from_id))
-      state
+      io.println("[MSG] ⏭️  SKIPPING own message from user_id: " <> int.to_string(from_id))
+      updated_state
     }
     False -> {
+      io.println("[MSG] ✅ PROCESSING message from user_id: " <> int.to_string(from_id))
       // Сначала проверяем команды (работают везде, включая личные чаты)
       case parse_command(text) {
         Some(#("neurophoto", prompt)) -> {
           io.println("[CMD] /neurophoto detected! Prompt: " <> prompt)
-          handle_neurophoto_command(state, chat_id, message_id, prompt)
+          handle_neurophoto_command(updated_state, chat_id, message_id, prompt)
         }
         Some(#("neuro", prompt)) -> {
           io.println("[CMD] /neuro detected! Prompt: " <> prompt)
-          handle_neurophoto_command(state, chat_id, message_id, prompt)
+          handle_neurophoto_command(updated_state, chat_id, message_id, prompt)
         }
         Some(#("start", _)) -> {
           io.println("[CMD] /start detected!")
           let welcome = "Privet! Ya VIBEE - AI agent dlya generacii izobrazhenij.\n\nKomandy:\n/neurophoto <prompt> - generaciya izobrazheniya\n/neuro <prompt> - korotkaya versiya\n\nPrimer: /neurophoto cyberpunk portrait neon lights"
-          let _ = send_message(state.config, chat_id, welcome, Some(message_id))
-          AgentState(..state, total_messages: state.total_messages + 1)
+          let _ = send_message(updated_state.config, chat_id, welcome, Some(message_id))
+          AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
         }
         Some(#("help", _)) -> {
           io.println("[CMD] /help detected!")
           let help_text = "VIBEE Bot - Komandy:\n\n/neurophoto <prompt> - Generaciya izobrazheniya s FLUX LoRA\n/neuro <prompt> - Korotkaya versiya\n\nTrigger slovo NEURO_SAGE dobavlyaetsya avtomaticheski."
-          let _ = send_message(state.config, chat_id, help_text, Some(message_id))
-          AgentState(..state, total_messages: state.total_messages + 1)
+          let _ = send_message(updated_state.config, chat_id, help_text, Some(message_id))
+          AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
         }
         _ -> {
-          // Digital Twin Mode - отвечаем на ВСЕ сообщения (личные + группы)
-          case state.config.digital_twin_enabled {
+          // Проверяем, является ли это триггерным чатом (Sniper Mode)
+          case trigger_chats.is_trigger_chat_active(chat_id) {
             True -> {
-              // Digital Twin отвечает на ВСЕ сообщения
-              io.println("[DIGITAL_TWIN] Responding to message in chat " <> chat_id)
-              process_with_digital_twin(state, chat_id, message_id, text, from_name)
+              // SNIPER MODE: отвечаем ТОЛЬКО на триггеры
+              io.println("[SNIPER] 🎯 Chat " <> chat_id <> " is in SNIPER MODE")
+              io.println("[SNIPER] Message text: " <> text)
+              case trigger_chats.should_respond_to_trigger(chat_id, text) {
+                True -> {
+                  io.println("[SNIPER] 🔥 TRIGGER FOUND! Generating response...")
+                  process_with_digital_twin(updated_state, chat_id, message_id, text, from_name)
+                }
+                False -> {
+                  io.println("[SNIPER] 🤫 No trigger detected, staying silent")
+                  AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
+                }
+              }
             }
             False -> {
-              // Обычный режим - проверяем target_chats и триггеры
-              handle_normal_mode(state, chat_id, message_id, text)
+              // Обычный режим - Digital Twin или normal mode
+              case updated_state.config.digital_twin_enabled {
+                True -> {
+                  // Digital Twin отвечает на ВСЕ сообщения (кроме sniper чатов)
+                  io.println("[DIGITAL_TWIN] Responding to message in chat " <> chat_id)
+                  process_with_digital_twin(updated_state, chat_id, message_id, text, from_name)
+                }
+                False -> {
+                  // Обычный режим - проверяем target_chats и триггеры
+                  handle_normal_mode(updated_state, chat_id, message_id, text)
+                }
+              }
             }
           }
         }
@@ -238,33 +411,123 @@ fn handle_normal_mode(state: AgentState, chat_id: String, message_id: Int, text:
 /// Digital Twin обработка - отвечает в стиле владельца аккаунта
 fn process_with_digital_twin(state: AgentState, chat_id: String, message_id: Int, text: String, from_name: String) -> AgentState {
   io.println("[TWIN] Processing message from " <> from_name <> " in chat " <> chat_id)
-  case generate_digital_twin_reply(state.config, text, from_name, chat_id) {
-    Ok(reply) -> {
-      io.println("[TWIN] Generated reply: " <> string.slice(reply, 0, 80) <> "...")
-      case send_message(state.config, chat_id, reply, Some(message_id)) {
-        Ok(msg_id) -> {
-          io.println("[TWIN] Message sent OK, id=" <> int.to_string(msg_id))
-          // Сохраняем ответ Digital Twin в БД для RAG памяти
-          let dialog_id = case int.parse(chat_id) {
-            Ok(id) -> id
-            Error(_) -> 0
+  
+  // Проверяем триггерные слова для этого чата
+  let has_trigger = trigger_chats.should_respond_to_trigger(chat_id, text)
+  
+  case has_trigger {
+    True -> {
+      io.println("[TRIGGER] Found trigger word in chat " <> chat_id)
+      
+      // Генерируем ответ с учетом шаблона для триггерного чата
+      case generate_trigger_reply(state.config, text, from_name, chat_id) {
+        Ok(reply) -> {
+          io.println("[TWIN] Generated reply: " <> string.slice(reply, 0, 80) <> "...")
+          
+          // Отправляем ответ
+          case send_message(state.config, chat_id, reply, Some(message_id)) {
+            Ok(msg_id) -> {
+              io.println("[TWIN] Message sent OK, id=" <> int.to_string(msg_id))
+              
+              // Сохраняем ответ в БД
+              let dialog_id = case int.parse(chat_id) {
+                Ok(id) -> id
+                Error(_) -> 0
+              }
+              io.println("[DB] Saving reply to dialog=" <> int.to_string(dialog_id) <> " msg_id=" <> int.to_string(msg_id))
+              case postgres.insert_message_simple(dialog_id, msg_id, state.config.owner_id, "Я", reply) {
+                Ok(_) -> io.println("[DB] Reply saved OK")
+                Error(e) -> io.println("[DB] ERROR saving reply: " <> e)
+              }
+              
+              // Пересылаем диалог в целевую группу
+              case trigger_chats.get_forward_chat_id(chat_id) {
+                Ok(forward_chat_id) -> {
+                  io.println("[FORWARD] Forwarding dialog to " <> forward_chat_id)
+                  
+                  let original_msg = dialog_forwarder.MessageInfo(
+                    chat_id: chat_id,
+                    message_id: message_id,
+                    from_name: from_name,
+                    text: text,
+                    timestamp: 0,
+                  )
+                  
+                  let agent_msg = dialog_forwarder.MessageInfo(
+                    chat_id: chat_id,
+                    message_id: msg_id,
+                    from_name: "Федор (Agent)",
+                    text: reply,
+                    timestamp: 0,
+                  )
+                  
+                  case dialog_forwarder.forward_dialog(
+                    state.config.session_id,
+                    original_msg,
+                    agent_msg,
+                    forward_chat_id,
+                  ) {
+                    dialog_forwarder.ForwardSuccess(fwd_id) -> {
+                      io.println("[FORWARD] Dialog forwarded successfully, msg_id=" <> int.to_string(fwd_id))
+                      
+                      // TODO: Сохранить лид в базу данных
+                      // Нужен from_id из контекста
+                      io.println("[LEAD] 💾 Lead would be saved here")
+                    }
+                    dialog_forwarder.ForwardError(reason) -> {
+                      io.println("[FORWARD] Failed to forward: " <> reason)
+                    }
+                  }
+                }
+                Error(_) -> {
+                  io.println("[FORWARD] No forward target configured for chat " <> chat_id)
+                }
+              }
+              
+              AgentState(..state, total_messages: state.total_messages + 1)
+            }
+            Error(send_err) -> {
+              io.println("[TWIN] SEND FAILED: " <> send_err)
+              AgentState(..state, total_messages: state.total_messages + 1)
+            }
           }
-          io.println("[DB] Saving reply to dialog=" <> int.to_string(dialog_id) <> " msg_id=" <> int.to_string(msg_id))
-          case postgres.insert_message_simple(dialog_id, msg_id, state.config.owner_id, "Я", reply) {
-            Ok(_) -> io.println("[DB] Reply saved OK")
-            Error(e) -> io.println("[DB] ERROR saving reply: " <> e)
-          }
-          AgentState(..state, total_messages: state.total_messages + 1)
         }
-        Error(send_err) -> {
-          io.println("[TWIN] SEND FAILED: " <> send_err)
-          AgentState(..state, total_messages: state.total_messages + 1)
+        Error(err) -> {
+          io.println("[TWIN] GENERATE FAILED: " <> err)
+          state
         }
       }
     }
-    Error(err) -> {
-      io.println("[TWIN] GENERATE FAILED: " <> err)
-      state
+    False -> {
+      // Нет триггера - обычная обработка Digital Twin
+      case generate_digital_twin_reply(state.config, text, from_name, chat_id) {
+        Ok(reply) -> {
+          io.println("[TWIN] Generated reply: " <> string.slice(reply, 0, 80) <> "...")
+          case send_message(state.config, chat_id, reply, Some(message_id)) {
+            Ok(msg_id) -> {
+              io.println("[TWIN] Message sent OK, id=" <> int.to_string(msg_id))
+              let dialog_id = case int.parse(chat_id) {
+                Ok(id) -> id
+                Error(_) -> 0
+              }
+              io.println("[DB] Saving reply to dialog=" <> int.to_string(dialog_id) <> " msg_id=" <> int.to_string(msg_id))
+              case postgres.insert_message_simple(dialog_id, msg_id, state.config.owner_id, "Я", reply) {
+                Ok(_) -> io.println("[DB] Reply saved OK")
+                Error(e) -> io.println("[DB] ERROR saving reply: " <> e)
+              }
+              AgentState(..state, total_messages: state.total_messages + 1)
+            }
+            Error(send_err) -> {
+              io.println("[TWIN] SEND FAILED: " <> send_err)
+              AgentState(..state, total_messages: state.total_messages + 1)
+            }
+          }
+        }
+        Error(err) -> {
+          io.println("[TWIN] GENERATE FAILED: " <> err)
+          state
+        }
+      }
     }
   }
 }
@@ -645,6 +908,8 @@ fn call_openrouter_with_system(
 ) -> Result(String, String) {
   let body = json.object([
     #("model", json.string(model)),
+    #("temperature", json.float(0.9)),  // High temperature for variety
+    #("max_tokens", json.int(150)),
     #("messages", json.array([
       json.object([
         #("role", json.string("system")),
@@ -994,5 +1259,83 @@ pub fn get_dialogs(config: TelegramAgentConfig, limit: Int) -> Result(String, St
   case httpc.send(req) {
     Ok(response) -> Ok(response.body)
     Error(_) -> Error("Failed to get dialogs")
+  }
+}
+
+/// Генерирует ответ для триггерного чата с вариациями
+fn generate_trigger_reply(
+  config: TelegramAgentConfig,
+  user_message: String,
+  from_name: String,
+  chat_id: String,
+) -> Result(String, String) {
+  // Получаем конфигурацию триггерного чата
+  case trigger_chats.find_chat_config(chat_id) {
+    Ok(chat_config) -> {
+      // Используем AI для генерации вариации на основе шаблона
+      let system_prompt =
+        "Ты дружелюбный человек, который помогает людям покупать криптовалюту. Отвечай тепло и по-человечески.\n\n"
+        <> "ВАЖНО: Каждый раз отвечай по-разному! Будь дружелюбным и естественным!\n\n"
+        <> "Примеры дружелюбных ответов:\n"
+        <> "1. \"Привет! Могу помочь с покупкой крипты. Пиши в личку, всё расскажу.\"\n"
+        <> "2. \"Здарова! Помогу купить. Напиши в личные сообщения, обсудим.\"\n"
+        <> "3. \"Привет! Могу помочь. Пиши в ЛС, подскажу как лучше.\"\n"
+        <> "4. \"Хей! С покупкой помогу. Пиши в личку.\"\n"
+        <> "5. \"Привет! Помогу разобраться с покупкой. Напиши в личные сообщения.\"\n"
+        <> "6. \"Могу помочь купить. Пиши в личку, всё объясню.\"\n"
+        <> "7. \"Привет! Помогу с криптой. Напиши в ЛС.\"\n"
+        <> "8. \"Хай! Могу помочь. Пиши в личку, обсудим детали.\"\n\n"
+        <> "Правила:\n"
+        <> "- БЕЗ эмодзи\n"
+        <> "- 1-2 предложения\n"
+        <> "- Дружелюбный тон (привет/хей/здарова)\n"
+        <> "- Неформальный стиль: пиши/напиши (не \"пишите\")\n"
+        <> "- Варьируй: помогу/могу помочь/подскажу/разберёмся\n"
+        <> "- Варьируй: в личку/в ЛС/в личные сообщения\n"
+        <> "- Добавляй: всё расскажу/обсудим/объясню/подскажу\n"
+        <> "- НЕ используй username\n"
+        <> "- Звучи как друг, который хочет помочь\n\n"
+        <> "Вопрос пользователя: \"" <> user_message <> "\""
+      
+      let user_prompt = "Ответь дружелюбно и естественно. Каждый раз по-разному!"
+      
+      // Получаем API key из конфига
+      let api_key = case config.llm_api_key {
+        Some(key) -> key
+        None -> ""
+      }
+      
+      // Проверяем API key
+      case api_key {
+        "" -> {
+          io.println("[TRIGGER_REPLY] ❌ No API key, using template")
+          Ok(chat_config.response_template)
+        }
+        key -> {
+          io.println("[TRIGGER_REPLY] 🤖 Calling AI to generate variation...")
+          // Вызываем OpenRouter для генерации
+          case call_openrouter_with_system(
+            key,
+            config.llm_model,
+            system_prompt,
+            user_prompt,
+          ) {
+            Ok(reply) -> {
+              io.println("[TRIGGER_REPLY] ✅ Generated variation: " <> string.slice(reply, 0, 60) <> "...")
+              Ok(reply)
+            }
+            Error(err) -> {
+              // Fallback на шаблон если AI не сработал
+              io.println("[TRIGGER_REPLY] ❌ AI failed, using template: " <> err)
+              Ok(chat_config.response_template)
+            }
+          }
+        }
+      }
+    }
+    Error(_) -> {
+      // Если нет конфигурации, используем обычный Digital Twin
+      generate_digital_twin_reply(config, user_message, from_name, chat_id)
+    }
   }
 }
