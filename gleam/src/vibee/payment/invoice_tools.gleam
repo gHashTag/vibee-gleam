@@ -199,7 +199,7 @@ pub fn handle_invoice_create(args: json.Json) -> ToolResult {
 
   case amount_opt, currency_opt, description_opt {
     Some(amount), Some(currency_str), Some(description) -> {
-      logging.info("[INVOICE] Creating invoice: " <> float.to_string(amount) <> " " <> currency_str)
+      logging.quick_info("[INVOICE] Creating invoice: " <> float.to_string(amount) <> " " <> currency_str)
 
       let currency = parse_currency(currency_str)
       let provider = case provider_opt {
@@ -253,7 +253,7 @@ pub fn handle_invoice_send(args: json.Json) -> ToolResult {
 
   case telegram_id_opt, amount_opt, currency_opt {
     Some(telegram_id), Some(amount), Some(currency_str) -> {
-      logging.info("[INVOICE] Sending " <> float.to_string(amount) <> " " <> currency_str <> " to user " <> int.to_string(telegram_id))
+      logging.quick_info("[INVOICE] Sending " <> float.to_string(amount) <> " " <> currency_str <> " to user " <> int.to_string(telegram_id))
 
       let currency = parse_currency(currency_str)
       let provider = case provider_opt {
@@ -291,7 +291,7 @@ pub fn handle_invoice_cheque(args: json.Json) -> ToolResult {
 
   case amount_opt, currency_opt, users_opt {
     Some(amount), Some(currency_str), Some(total_users) -> {
-      logging.info("[INVOICE] Creating multi-cheque: " <> float.to_string(amount) <> " " <> currency_str <> " x " <> int.to_string(total_users))
+      logging.quick_info("[INVOICE] Creating multi-cheque: " <> float.to_string(amount) <> " " <> currency_str <> " x " <> int.to_string(total_users))
 
       let currency = parse_currency(currency_str)
 

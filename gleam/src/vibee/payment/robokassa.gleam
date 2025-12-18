@@ -55,15 +55,15 @@ pub fn validate_signature(
 
   case config.password2 {
     "" -> {
-      logging.warn("[ROBOKASSA] Password2 not configured")
+      logging.quick_warn("[ROBOKASSA] Password2 not configured")
       False
     }
     password2 -> {
       let is_valid = validate_signature_ffi(out_sum, inv_id, password2, signature)
 
       case is_valid {
-        True -> logging.info("[ROBOKASSA] Signature valid for inv_id: " <> inv_id)
-        False -> logging.warn("[ROBOKASSA] Invalid signature for inv_id: " <> inv_id)
+        True -> logging.quick_info("[ROBOKASSA] Signature valid for inv_id: " <> inv_id)
+        False -> logging.quick_warn("[ROBOKASSA] Invalid signature for inv_id: " <> inv_id)
       }
 
       is_valid
@@ -103,7 +103,7 @@ pub fn generate_payment_url(
         password1,
       )
 
-      logging.info("[ROBOKASSA] Generated payment URL for inv_id: " <> inv_id <> ", amount: " <> amount_str)
+      logging.quick_info("[ROBOKASSA] Generated payment URL for inv_id: " <> inv_id <> ", amount: " <> amount_str)
 
       Ok(url)
     }

@@ -119,7 +119,7 @@ pub fn run_onboarding(
   )
 
   let _ = io.println_error("[ONBOARDING] run_onboarding called for user " <> int.to_string(user_telegram_id))
-  logging.info("Starting onboarding for user " <> int.to_string(user_telegram_id))
+  logging.quick_info("Starting onboarding for user " <> int.to_string(user_telegram_id))
 
   // Initialize status in DB
   let _ = io.println_error("[ONBOARDING] Initializing status in DB...")
@@ -130,7 +130,7 @@ pub fn run_onboarding(
     }
     Error(e) -> {
       let _ = io.println_error("[ONBOARDING] Failed to init status: " <> e)
-      logging.error("Failed to init status: " <> e)
+      logging.quick_error("Failed to init status: " <> e)
       Nil
     }
   }
@@ -140,12 +140,12 @@ pub fn run_onboarding(
   case run_onboarding_pipeline(cfg) {
     Ok(status) -> {
       let _ = io.println_error("[ONBOARDING] Pipeline completed: " <> int.to_string(status.tasks_extracted) <> " tasks")
-      logging.info("Onboarding completed: " <> int.to_string(status.tasks_extracted) <> " tasks")
+      logging.quick_info("Onboarding completed: " <> int.to_string(status.tasks_extracted) <> " tasks")
       Ok(status)
     }
     Error(e) -> {
       let _ = io.println_error("[ONBOARDING] Pipeline failed: " <> e)
-      logging.error("Onboarding failed: " <> e)
+      logging.quick_error("Onboarding failed: " <> e)
       let _ = update_status_error(cfg, e)
       Error(e)
     }
@@ -161,14 +161,14 @@ fn run_onboarding_pipeline(cfg: OnboardingConfig) -> Result(OnboardingStatus, St
   let _ = io.println_error("[ONBOARDING] Step 1: Fetching all dialogs...")
   use dialogs <- result.try(fetch_all_dialogs(cfg))
   let _ = io.println_error("[ONBOARDING] Fetched " <> int.to_string(list.length(dialogs)) <> " dialogs")
-  logging.info("Fetched " <> int.to_string(list.length(dialogs)) <> " dialogs")
+  logging.quick_info("Fetched " <> int.to_string(list.length(dialogs)) <> " dialogs")
 
   // Step 2: Filter personal dialogs only
   let personal_dialogs = list.filter(dialogs, fn(d) {
     d.dialog_type == "user"
   })
   let _ = io.println_error("[ONBOARDING] Found " <> int.to_string(list.length(personal_dialogs)) <> " personal dialogs")
-  logging.info("Found " <> int.to_string(list.length(personal_dialogs)) <> " personal dialogs")
+  logging.quick_info("Found " <> int.to_string(list.length(personal_dialogs)) <> " personal dialogs")
 
   // Step 3: Get DB pool
   use pool <- result.try(get_db_pool())
@@ -189,7 +189,7 @@ fn run_onboarding_pipeline(cfg: OnboardingConfig) -> Result(OnboardingStatus, St
     case process_dialog(cfg, pool, dialog, status) {
       Ok(new_status) -> new_status
       Error(e) -> {
-        logging.error("Failed to process dialog " <> int.to_string(dialog.id) <> ": " <> e)
+        logging.quick_error("Failed to process dialog " <> int.to_string(dialog.id) <> ": " <> e)
         status
       }
     }
@@ -319,7 +319,7 @@ fn process_dialog(
   // Check if dialog was already processed (deduplication)
   case is_dialog_already_processed(pool, dialog.id) {
     True -> {
-      logging.info("Skipping already processed dialog: " <> contact_name <> " (id: " <> int.to_string(dialog.id) <> ")")
+      logging.quick_info("Skipping already processed dialog: " <> contact_name <> " (id: " <> int.to_string(dialog.id) <> ")")
       Ok(status)  // Skip, return unchanged status
     }
     False -> process_new_dialog(cfg, pool, dialog, contact_name, status)
@@ -350,7 +350,7 @@ fn process_new_dialog(
   contact_name: String,
   status: OnboardingStatus,
 ) -> Result(OnboardingStatus, String) {
-  logging.info("Processing dialog: " <> contact_name <> " (id: " <> int.to_string(dialog.id) <> ")")
+  logging.quick_info("Processing dialog: " <> contact_name <> " (id: " <> int.to_string(dialog.id) <> ")")
 
   // Parse chat messages (uses existing rag_tools parsing)
   case parse_dialog_messages(cfg, dialog.id) {

@@ -43,43 +43,43 @@ pub type WebSession {
 /// Request: { "phone": "+66624014170" }
 /// Response: { "session_id": "sess_xxx", "phone_code_hash": "abc123" }
 pub fn send_code_handler(req: Request(Connection)) -> Response(ResponseData) {
-  logging.info("[WEB AUTH] Send code request received")
+  logging.quick_info("[WEB AUTH] Send code request received")
 
   case mist.read_body(req, 1024 * 64) {
     Ok(req_with_body) -> {
       let body_str = bit_array_to_string(req_with_body.body)
-      logging.info("[WEB AUTH] Request body: " <> body_str)
+      logging.quick_info("[WEB AUTH] Request body: " <> body_str)
 
       // Parse phone from request
       case parse_phone(body_str) {
         Error(_) -> {
-          logging.error("[WEB AUTH] Failed to parse phone from: " <> body_str)
+          logging.quick_error("[WEB AUTH] Failed to parse phone from: " <> body_str)
           json_response(400, json.object([
             #("error", json.string("Invalid request. Required: phone")),
           ]))
         }
         Ok(phone) -> {
-          logging.info("[WEB AUTH] Parsed phone: " <> phone)
+          logging.quick_info("[WEB AUTH] Parsed phone: " <> phone)
           // First create a session with phone for proper DB storage
           case create_bridge_session(phone) {
             Error(e) -> {
-              logging.error("[WEB AUTH] Bridge session creation failed: " <> e)
+              logging.quick_error("[WEB AUTH] Bridge session creation failed: " <> e)
               json_response(500, json.object([
                 #("error", json.string("Failed to create session: " <> e)),
               ]))
             }
             Ok(session_id) -> {
-              logging.info("[WEB AUTH] Created session: " <> session_id)
+              logging.quick_info("[WEB AUTH] Created session: " <> session_id)
               // Then send code
               case send_code_to_bridge(phone, session_id) {
                 Error(e) -> {
-                  logging.error("[WEB AUTH] Send code failed: " <> e)
+                  logging.quick_error("[WEB AUTH] Send code failed: " <> e)
                   json_response(400, json.object([
                     #("error", json.string(e)),
                   ]))
                 }
                 Ok(phone_code_hash) -> {
-                  logging.info("[WEB AUTH] Code sent successfully, hash: " <> phone_code_hash)
+                  logging.quick_info("[WEB AUTH] Code sent successfully, hash: " <> phone_code_hash)
                   json_response(200, json.object([
                     #("success", json.bool(True)),
                     #("session_id", json.string(session_id)),
@@ -94,7 +94,7 @@ pub fn send_code_handler(req: Request(Connection)) -> Response(ResponseData) {
       }
     }
     Error(_) -> {
-      logging.error("[WEB AUTH] Failed to read request body")
+      logging.quick_error("[WEB AUTH] Failed to read request body")
       json_response(400, json.object([
         #("error", json.string("Failed to read request body")),
       ]))
@@ -106,36 +106,36 @@ pub fn send_code_handler(req: Request(Connection)) -> Response(ResponseData) {
 /// Request: { "phone": "...", "code": "12345", "phone_code_hash": "...", "session_id": "..." }
 /// Response: { "user": {...} } + Set-Cookie
 pub fn verify_code_handler(req: Request(Connection)) -> Response(ResponseData) {
-  logging.info("[WEB AUTH] Verify code request")
+  logging.quick_info("[WEB AUTH] Verify code request")
 
   case mist.read_body(req, 1024 * 64) {
     Ok(req_with_body) -> {
       let body_str = bit_array_to_string(req_with_body.body)
-      logging.info("[WEB AUTH] Verify body: " <> body_str)
+      logging.quick_info("[WEB AUTH] Verify body: " <> body_str)
 
       // Parse all required fields
       case parse_verify_request(body_str) {
         Error(e) -> {
-          logging.error("[WEB AUTH] Parse error: " <> e)
+          logging.quick_error("[WEB AUTH] Parse error: " <> e)
           json_response(400, json.object([
             #("error", json.string("Invalid request: " <> e)),
           ]))
         }
         Ok(#(phone, code, phone_code_hash, session_id)) -> {
-          logging.info("[WEB AUTH] Verifying code for phone: " <> phone)
+          logging.quick_info("[WEB AUTH] Verifying code for phone: " <> phone)
           // Verify code via bridge
           case verify_code_on_bridge(phone, code, phone_code_hash, session_id) {
             Error(e) -> {
-              logging.error("[WEB AUTH] Bridge verify error: " <> e)
+              logging.quick_error("[WEB AUTH] Bridge verify error: " <> e)
               json_response(400, json.object([
                 #("error", json.string(e)),
               ]))
             }
             Ok(#(telegram_id, first_name, username)) -> {
-              logging.info("[WEB AUTH] Verified! telegram_id=" <> int.to_string(telegram_id))
+              logging.quick_info("[WEB AUTH] Verified! telegram_id=" <> int.to_string(telegram_id))
               // Create session token
               let token = generate_session_token()
-              logging.info("[WEB AUTH] Token generated: " <> string.slice(token, 0, 10) <> "...")
+              logging.quick_info("[WEB AUTH] Token generated: " <> string.slice(token, 0, 10) <> "...")
 
               // Store session in ETS
               let session = WebSession(
@@ -148,7 +148,7 @@ pub fn verify_code_handler(req: Request(Connection)) -> Response(ResponseData) {
                 wallet: None,
               )
               store_session(session)
-              logging.info("[WEB AUTH] Session stored")
+              logging.quick_info("[WEB AUTH] Session stored")
 
               // Return with Set-Cookie header
               let body = json.object([
@@ -160,7 +160,7 @@ pub fn verify_code_handler(req: Request(Connection)) -> Response(ResponseData) {
                 ])),
               ])
 
-              logging.info("[WEB AUTH] Sending success response")
+              logging.quick_info("[WEB AUTH] Sending success response")
               json_response_with_cookie(200, body, token)
             }
           }
@@ -168,7 +168,7 @@ pub fn verify_code_handler(req: Request(Connection)) -> Response(ResponseData) {
       }
     }
     Error(_) -> {
-      logging.error("[WEB AUTH] Failed to read request body")
+      logging.quick_error("[WEB AUTH] Failed to read request body")
       json_response(400, json.object([
         #("error", json.string("Failed to read request body")),
       ]))
@@ -202,7 +202,7 @@ pub fn me_handler(req: Request(Connection)) -> Response(ResponseData) {
 /// POST /api/v1/auth/web/logout
 /// Clears session cookie
 pub fn logout_handler(_req: Request(Connection)) -> Response(ResponseData) {
-  logging.info("[WEB AUTH] Logout request")
+  logging.quick_info("[WEB AUTH] Logout request")
 
   // Clear cookie by setting expired date
   let body = json.object([
@@ -225,10 +225,10 @@ fn create_bridge_session(phone: String) -> Result(String, String) {
   let api_id = config.get_env("TELEGRAM_API_ID")
   let api_hash = config.get_env("TELEGRAM_API_HASH")
 
-  logging.info("[WEB AUTH] Bridge URL: " <> base)
-  logging.info("[WEB AUTH] API_KEY present: " <> case api_key { "" -> "NO" _ -> "YES (len=" <> int.to_string(string.length(api_key)) <> ")" })
-  logging.info("[WEB AUTH] API_ID: " <> api_id)
-  logging.info("[WEB AUTH] API_HASH present: " <> case api_hash { "" -> "NO" _ -> "YES" })
+  logging.quick_info("[WEB AUTH] Bridge URL: " <> base)
+  logging.quick_info("[WEB AUTH] API_KEY present: " <> case api_key { "" -> "NO" _ -> "YES (len=" <> int.to_string(string.length(api_key)) <> ")" })
+  logging.quick_info("[WEB AUTH] API_ID: " <> api_id)
+  logging.quick_info("[WEB AUTH] API_HASH present: " <> case api_hash { "" -> "NO" _ -> "YES" })
 
   let body = json.object([
     #("app_id", json.int(result.unwrap(int.parse(api_id), 0))),
@@ -237,7 +237,7 @@ fn create_bridge_session(phone: String) -> Result(String, String) {
   ])
   |> json.to_string()
 
-  logging.info("[WEB AUTH] Creating bridge session with body: " <> body)
+  logging.quick_info("[WEB AUTH] Creating bridge session with body: " <> body)
 
   let req = request.new()
     |> request.set_method(http.Post)
@@ -251,11 +251,11 @@ fn create_bridge_session(phone: String) -> Result(String, String) {
 
   case httpc.send(req) {
     Error(e) -> {
-      logging.error("[WEB AUTH] HTTP error connecting to bridge: " <> string.inspect(e))
+      logging.quick_error("[WEB AUTH] HTTP error connecting to bridge: " <> string.inspect(e))
       Error("Failed to connect to bridge: " <> string.inspect(e))
     }
     Ok(resp) -> {
-      logging.info("[WEB AUTH] Bridge /connect response: " <> int.to_string(resp.status) <> " - " <> resp.body)
+      logging.quick_info("[WEB AUTH] Bridge /connect response: " <> int.to_string(resp.status) <> " - " <> resp.body)
       case resp.status {
         200 | 201 -> {
           // Parse session_id from response
@@ -283,7 +283,7 @@ fn send_code_to_bridge(phone: String, session_id: String) -> Result(String, Stri
   ])
   |> json.to_string()
 
-  logging.info("[WEB AUTH] Sending code to bridge for session: " <> session_id)
+  logging.quick_info("[WEB AUTH] Sending code to bridge for session: " <> session_id)
 
   let req = request.new()
     |> request.set_method(http.Post)
@@ -298,11 +298,11 @@ fn send_code_to_bridge(phone: String, session_id: String) -> Result(String, Stri
 
   case httpc.send(req) {
     Error(e) -> {
-      logging.error("[WEB AUTH] HTTP error sending code: " <> string.inspect(e))
+      logging.quick_error("[WEB AUTH] HTTP error sending code: " <> string.inspect(e))
       Error("Failed to send code: " <> string.inspect(e))
     }
     Ok(resp) -> {
-      logging.info("[WEB AUTH] Bridge /auth/phone response: " <> int.to_string(resp.status) <> " - " <> resp.body)
+      logging.quick_info("[WEB AUTH] Bridge /auth/phone response: " <> int.to_string(resp.status) <> " - " <> resp.body)
       case resp.status {
         200 -> {
           case parse_code_hash(resp.body) {
@@ -329,8 +329,8 @@ fn verify_code_on_bridge(
   let #(scheme, host, port) = parse_bridge_url(base)
   let api_key = config.get_env("VIBEE_API_KEY")
 
-  logging.info("[WEB AUTH BRIDGE] Verifying with session_id=" <> session_id)
-  logging.info("[WEB AUTH BRIDGE] API key present: " <> case string.length(api_key) > 0 {
+  logging.quick_info("[WEB AUTH BRIDGE] Verifying with session_id=" <> session_id)
+  logging.quick_info("[WEB AUTH BRIDGE] API key present: " <> case string.length(api_key) > 0 {
     True -> "yes (" <> int.to_string(string.length(api_key)) <> " chars)"
     False -> "NO!"
   })
@@ -342,7 +342,7 @@ fn verify_code_on_bridge(
   ])
   |> json.to_string()
 
-  logging.info("[WEB AUTH BRIDGE] Sending to: " <> base <> "/api/v1/auth/code")
+  logging.quick_info("[WEB AUTH BRIDGE] Sending to: " <> base <> "/api/v1/auth/code")
 
   let req = request.new()
     |> request.set_method(http.Post)
@@ -357,27 +357,27 @@ fn verify_code_on_bridge(
 
   case httpc.send(req) {
     Error(e) -> {
-      logging.error("[WEB AUTH BRIDGE] HTTP request failed: " <> string.inspect(e))
+      logging.quick_error("[WEB AUTH BRIDGE] HTTP request failed: " <> string.inspect(e))
       Error("Failed to verify code: HTTP error")
     }
     Ok(resp) -> {
-      logging.info("[WEB AUTH BRIDGE] Response status: " <> int.to_string(resp.status))
-      logging.info("[WEB AUTH BRIDGE] Response body: " <> string.slice(resp.body, 0, 500))
+      logging.quick_info("[WEB AUTH BRIDGE] Response status: " <> int.to_string(resp.status))
+      logging.quick_info("[WEB AUTH BRIDGE] Response body: " <> string.slice(resp.body, 0, 500))
       case resp.status {
         200 -> {
           case parse_user_response(resp.body) {
             Ok(user) -> {
-              logging.info("[WEB AUTH BRIDGE] Parsed user successfully")
+              logging.quick_info("[WEB AUTH BRIDGE] Parsed user successfully")
               Ok(user)
             }
             Error(_) -> {
-              logging.error("[WEB AUTH BRIDGE] Failed to parse user from: " <> string.slice(resp.body, 0, 200))
+              logging.quick_error("[WEB AUTH BRIDGE] Failed to parse user from: " <> string.slice(resp.body, 0, 200))
               Error("Failed to parse user response")
             }
           }
         }
         _ -> {
-          logging.error("[WEB AUTH BRIDGE] Non-200 status: " <> int.to_string(resp.status))
+          logging.quick_error("[WEB AUTH BRIDGE] Non-200 status: " <> int.to_string(resp.status))
           Error("Verification failed: " <> resp.body)
         }
       }
@@ -522,20 +522,20 @@ fn json_response(status: Int, body: json.Json) -> Response(ResponseData) {
 }
 
 fn json_response_with_cookie(status: Int, body: json.Json, token: String) -> Response(ResponseData) {
-  logging.info("[WEB AUTH] json_response_with_cookie called")
+  logging.quick_info("[WEB AUTH] json_response_with_cookie called")
   let body_string = json.to_string(body)
-  logging.info("[WEB AUTH] Body string created, length=" <> int.to_string(string.length(body_string)))
+  logging.quick_info("[WEB AUTH] Body string created, length=" <> int.to_string(string.length(body_string)))
   let body_bytes = bytes_tree.from_string(body_string)
-  logging.info("[WEB AUTH] Body bytes created")
+  logging.quick_info("[WEB AUTH] Body bytes created")
   let origin = get_allowed_origin()
-  logging.info("[WEB AUTH] Origin: " <> origin)
+  logging.quick_info("[WEB AUTH] Origin: " <> origin)
 
-  logging.info("[WEB AUTH] Token length: " <> int.to_string(string.length(token)))
+  logging.quick_info("[WEB AUTH] Token length: " <> int.to_string(string.length(token)))
   // Cookie valid for 7 days, SameSite=Lax for better compatibility
   let cookie = "vibee_session=" <> token <> "; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800"
-  logging.info("[WEB AUTH] Cookie created, length=" <> int.to_string(string.length(cookie)))
+  logging.quick_info("[WEB AUTH] Cookie created, length=" <> int.to_string(string.length(cookie)))
 
-  logging.info("[WEB AUTH] Building response with status " <> int.to_string(status))
+  logging.quick_info("[WEB AUTH] Building response with status " <> int.to_string(status))
   response.new(status)
   |> response.set_header("content-type", "application/json")
   |> response.set_header("access-control-allow-origin", origin)
@@ -721,7 +721,7 @@ pub fn save_wallet_handler(req: Request(Connection)) -> Response(ResponseData) {
                 wallet: Some(wallet),
               )
               store_session(updated_session)
-              logging.info("[WEB AUTH] Wallet saved: " <> wallet)
+              logging.quick_info("[WEB AUTH] Wallet saved: " <> wallet)
 
               json_response(200, json.object([
                 #("success", json.bool(True)),
@@ -749,7 +749,7 @@ pub fn delete_wallet_handler(req: Request(Connection)) -> Response(ResponseData)
         wallet: None,
       )
       store_session(updated_session)
-      logging.info("[WEB AUTH] Wallet disconnected")
+      logging.quick_info("[WEB AUTH] Wallet disconnected")
 
       json_response(200, json.object([
         #("success", json.bool(True)),

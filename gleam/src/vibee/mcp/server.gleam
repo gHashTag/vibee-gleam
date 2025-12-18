@@ -27,23 +27,23 @@ type LogLevel {
 
 /// Start MCP server on stdio
 pub fn start(registry: ToolRegistry) -> Result(Nil, String) {
-  logging.info("[MCP] Server starting...")
+  logging.quick_info("[MCP] Server starting...")
 
   // Load configuration
   let cfg = config.get_config()
-  logging.info("[MCP] Bridge URL: " <> config.bridge_host(cfg) <> ":" <> int_to_string(config.bridge_port(cfg)))
+  logging.quick_info("[MCP] Bridge URL: " <> config.bridge_host(cfg) <> ":" <> int_to_string(config.bridge_port(cfg)))
 
   // Initialize cache
   cache.init()
-  logging.info("[MCP] Cache initialized")
+  logging.quick_info("[MCP] Cache initialized")
 
   // Initialize Event Bus
   events.init()
-  logging.info("[MCP] Event Bus initialized")
+  logging.quick_info("[MCP] Event Bus initialized")
 
   // Initialize Telemetry
   telemetry.init()
-  logging.info("[MCP] Telemetry initialized")
+  logging.quick_info("[MCP] Telemetry initialized")
 
   // Run the main loop
   main_loop(registry, LogInfo)
@@ -65,7 +65,7 @@ fn main_loop(registry: ToolRegistry, log_level: LogLevel) -> Nil {
       }
     }
     Error(_) -> {
-      logging.info("[MCP] EOF received, shutting down")
+      logging.quick_info("[MCP] EOF received, shutting down")
       Nil
     }
   }
@@ -73,17 +73,17 @@ fn main_loop(registry: ToolRegistry, log_level: LogLevel) -> Nil {
 
 /// Handle a single JSON-RPC request
 fn handle_request(registry: ToolRegistry, input: String, log_level: LogLevel) -> #(String, LogLevel) {
-  logging.debug("[MCP] Request: " <> string.slice(input, 0, 100) <> "...")
+  logging.quick_info("[MCP] Request: " <> string.slice(input, 0, 100) <> "...")
 
   case protocol.parse_request(input) {
     Ok(req) -> {
       let #(response, new_level) = dispatch_method(registry, req, log_level)
       let encoded = protocol.encode_response(response)
-      logging.debug("[MCP] Response: " <> string.slice(encoded, 0, 100) <> "...")
+      logging.quick_info("[MCP] Response: " <> string.slice(encoded, 0, 100) <> "...")
       #(encoded, new_level)
     }
     Error(err) -> {
-      logging.error("[MCP] Parse error: " <> err)
+      logging.quick_error("[MCP] Parse error: " <> err)
       #(protocol.encode_response(
         protocol.error_response(None, types.parse_error, err)
       ), log_level)
@@ -93,7 +93,7 @@ fn handle_request(registry: ToolRegistry, input: String, log_level: LogLevel) ->
 
 /// Dispatch request to appropriate handler
 fn dispatch_method(registry: ToolRegistry, req: JsonRpcRequest, log_level: LogLevel) -> #(types.JsonRpcResponse, LogLevel) {
-  logging.info("[MCP] Method: " <> req.method)
+  logging.quick_info("[MCP] Method: " <> req.method)
 
   case req.method {
     // Core protocol
@@ -118,7 +118,7 @@ fn dispatch_method(registry: ToolRegistry, req: JsonRpcRequest, log_level: LogLe
 
     // Unknown
     _ -> {
-      logging.warn("[MCP] Unknown method: " <> req.method)
+      logging.quick_warn("[MCP] Unknown method: " <> req.method)
       #(protocol.error_response(req.id, types.method_not_found, "Method not found: " <> req.method), log_level)
     }
   }
@@ -126,7 +126,7 @@ fn dispatch_method(registry: ToolRegistry, req: JsonRpcRequest, log_level: LogLe
 
 /// Handle initialize request
 fn handle_initialize(req: JsonRpcRequest) -> types.JsonRpcResponse {
-  logging.info("[MCP] Initializing...")
+  logging.quick_info("[MCP] Initializing...")
 
   let info = ServerInfo(
     name: "vibee-mcp",
@@ -144,13 +144,13 @@ fn handle_initialize(req: JsonRpcRequest) -> types.JsonRpcResponse {
 
 /// Handle initialized notification
 fn handle_initialized(req: JsonRpcRequest) -> types.JsonRpcResponse {
-  logging.info("[MCP] Client initialized")
+  logging.quick_info("[MCP] Client initialized")
   protocol.success_response(req.id, json.object([]))
 }
 
 /// Handle tools/list request with optional category filtering
 fn handle_tools_list(registry: ToolRegistry, req: JsonRpcRequest) -> types.JsonRpcResponse {
-  logging.info("[MCP] Listing tools...")
+  logging.quick_info("[MCP] Listing tools...")
 
   // Check for category filter in params
   let tools_with_annotations = case req.params {
@@ -161,11 +161,11 @@ fn handle_tools_list(registry: ToolRegistry, req: JsonRpcRequest) -> types.JsonR
         cat_name -> {
           case tools.parse_category(cat_name) {
             Ok(category) -> {
-              logging.info("[MCP] Filtering by category: " <> cat_name)
+              logging.quick_info("[MCP] Filtering by category: " <> cat_name)
               tools.get_tools_by_category_with_annotations(registry, category)
             }
             Error(_) -> {
-              logging.warn("[MCP] Unknown category: " <> cat_name <> ", returning all tools")
+              logging.quick_warn("[MCP] Unknown category: " <> cat_name <> ", returning all tools")
               tools.get_all_tools_with_annotations(registry)
             }
           }
@@ -211,7 +211,7 @@ fn handle_tools_call(registry: ToolRegistry, req: JsonRpcRequest) -> types.JsonR
       let name = protocol.extract_tool_name(params)
       let args = protocol.extract_tool_args(params)
 
-      logging.info("[MCP] Calling tool: " <> name)
+      logging.quick_info("[MCP] Calling tool: " <> name)
 
       // Start timing for audit
       let start_time = audit.start_timer()
@@ -222,7 +222,7 @@ fn handle_tools_call(registry: ToolRegistry, req: JsonRpcRequest) -> types.JsonR
           let cache_key = cache.make_cache_key(name, args)
           case cache.get(cache_key) {
             cache.Hit(cached_value) -> {
-              logging.info("[MCP] Cache hit for: " <> name)
+              logging.quick_info("[MCP] Cache hit for: " <> name)
               // Record cache hit telemetry
               telemetry.metric_cache_access(True)
               // Parse cached JSON and return
@@ -304,7 +304,7 @@ fn execute_tool_with_limits(
         }
         Error(err) -> {
           let msg = validation.rate_limit_error_to_string(err)
-          logging.warn("[MCP] Circuit open: " <> msg)
+          logging.quick_warn("[MCP] Circuit open: " <> msg)
           audit.log_circuit_open(name, args, service)
           // Record telemetry for circuit breaker
           telemetry.metric_circuit_breaker(service, "open")
@@ -315,7 +315,7 @@ fn execute_tool_with_limits(
     validation.RateLimited(retry_after) -> {
       let err = validation.TooManyRequests(name, tool_limit, 60)
       let msg = validation.rate_limit_error_to_string(err) <> ". Retry after " <> int_to_string(retry_after) <> "s"
-      logging.warn("[MCP] Rate limited: " <> msg)
+      logging.quick_warn("[MCP] Rate limited: " <> msg)
       audit.log_rate_limited(name, args)
       // Record telemetry for rate limit hit
       telemetry.metric_rate_limit_hit(name)
@@ -341,7 +341,7 @@ fn get_service_name(tool_name: String) -> String {
 
 /// Handle resources/list request
 fn handle_resources_list(req: JsonRpcRequest) -> types.JsonRpcResponse {
-  logging.info("[MCP] Listing resources...")
+  logging.quick_info("[MCP] Listing resources...")
 
   let cfg = config.get_config()
   let data_dir = config.data_dir(cfg)
@@ -375,7 +375,7 @@ fn handle_resources_list(req: JsonRpcRequest) -> types.JsonRpcResponse {
 
 /// Handle resources/read request (NEW - MCP spec compliance)
 fn handle_resources_read(req: JsonRpcRequest) -> types.JsonRpcResponse {
-  logging.info("[MCP] Reading resource...")
+  logging.quick_info("[MCP] Reading resource...")
 
   case req.params {
     Some(params) -> {
@@ -437,7 +437,7 @@ fn handle_resources_read(req: JsonRpcRequest) -> types.JsonRpcResponse {
 
 /// Handle prompts/list request
 fn handle_prompts_list(req: JsonRpcRequest) -> types.JsonRpcResponse {
-  logging.info("[MCP] Listing prompts...")
+  logging.quick_info("[MCP] Listing prompts...")
 
   let prompts = json.object([
     #("prompts", json.array([
@@ -487,7 +487,7 @@ fn handle_prompts_list(req: JsonRpcRequest) -> types.JsonRpcResponse {
 
 /// Handle prompts/get request (NEW - MCP spec compliance)
 fn handle_prompts_get(req: JsonRpcRequest) -> types.JsonRpcResponse {
-  logging.info("[MCP] Getting prompt...")
+  logging.quick_info("[MCP] Getting prompt...")
 
   case req.params {
     Some(params) -> {
@@ -561,7 +561,7 @@ fn handle_prompts_get(req: JsonRpcRequest) -> types.JsonRpcResponse {
 
 /// Handle logging/setLevel request (NEW - MCP spec compliance)
 fn handle_logging_set_level(req: JsonRpcRequest, current_level: LogLevel) -> #(types.JsonRpcResponse, LogLevel) {
-  logging.info("[MCP] Setting log level...")
+  logging.quick_info("[MCP] Setting log level...")
 
   case req.params {
     Some(params) -> {
@@ -574,7 +574,7 @@ fn handle_logging_set_level(req: JsonRpcRequest, current_level: LogLevel) -> #(t
         _ -> current_level
       }
 
-      logging.info("[MCP] Log level set to: " <> level_str)
+      logging.quick_info("[MCP] Log level set to: " <> level_str)
 
       #(protocol.success_response(req.id, json.object([])), new_level)
     }

@@ -22,7 +22,7 @@ pub fn decide_next_step(task_id: String) -> Result(Decision, String) {
     None -> Error("Task not found: " <> task_id)
     Some(task) -> {
       let decision = analyze_task_and_decide(task)
-      logging.info("[DECISION] Task " <> task_id <> " -> " <> action_to_string(decision.action))
+      logging.quick_info("[DECISION] Task " <> task_id <> " -> " <> action_to_string(decision.action))
       Ok(decision)
     }
   }
@@ -195,7 +195,7 @@ pub fn apply_decision(task_id: String, decision: Decision) -> Result(String, Str
   case task_store.get(task_id) {
     None -> Error("Task not found: " <> task_id)
     Some(task) -> {
-      logging.info("[DECISION] Applying: " <> decision.id)
+      logging.quick_info("[DECISION] Applying: " <> decision.id)
 
       case decision.action {
         MarkComplete -> {

@@ -198,7 +198,7 @@ pub fn create_api(
 
           case tasks.create_task(pool, task) {
             Ok(task_id) -> {
-              logging.info("Task created: " <> int.to_string(task_id))
+              logging.quick_info("Task created: " <> int.to_string(task_id))
               json_response(json.object([
                 #("success", json.bool(True)),
                 #("task_id", json.int(task_id)),

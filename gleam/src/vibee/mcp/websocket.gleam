@@ -41,7 +41,7 @@ pub fn handler(
   registry: ToolRegistry,
 ) -> Response(ResponseData) {
   let session_id = generate_session_id()
-  logging.info("[MCP-WS] New connection: " <> session_id)
+  logging.quick_info("[MCP-WS] New connection: " <> session_id)
 
   let selector = process.new_selector()
   let initial_state = McpWsState(
@@ -53,11 +53,11 @@ pub fn handler(
   mist.websocket(
     request: req,
     on_init: fn(_conn) {
-      logging.info("[MCP-WS] WebSocket initialized for session: " <> session_id)
+      logging.quick_info("[MCP-WS] WebSocket initialized for session: " <> session_id)
       #(initial_state, Some(selector))
     },
     on_close: fn(state) {
-      logging.info("[MCP-WS] Connection closed: " <> state.session_id)
+      logging.quick_info("[MCP-WS] Connection closed: " <> state.session_id)
       Nil
     },
     handler: handle_ws_message,
@@ -72,7 +72,7 @@ fn handle_ws_message(
 ) {
   case message {
     mist.Text(text) -> {
-      logging.debug("[MCP-WS] Received: " <> string.slice(text, 0, 100))
+      logging.quick_info("[MCP-WS] Received: " <> string.slice(text, 0, 100))
 
       // Parse and handle JSON-RPC request
       let #(response, new_state) = handle_jsonrpc_request(state, text)
@@ -85,7 +85,7 @@ fn handle_ws_message(
 
     mist.Binary(_data) -> {
       // Binary not supported for JSON-RPC
-      logging.warn("[MCP-WS] Received binary data, ignoring")
+      logging.quick_warn("[MCP-WS] Received binary data, ignoring")
       mist.continue(state)
     }
 
@@ -94,7 +94,7 @@ fn handle_ws_message(
     }
 
     mist.Closed | mist.Shutdown -> {
-      logging.info("[MCP-WS] Connection closed")
+      logging.quick_info("[MCP-WS] Connection closed")
       mist.stop()
     }
   }
@@ -112,7 +112,7 @@ fn handle_jsonrpc_request(
       #(encoded, new_state)
     }
     Error(err) -> {
-      logging.error("[MCP-WS] Parse error: " <> err)
+      logging.quick_error("[MCP-WS] Parse error: " <> err)
       let response = protocol.encode_response(
         protocol.error_response(None, types.parse_error, err)
       )
@@ -126,7 +126,7 @@ fn dispatch_method(
   state: McpWsState,
   req: types.JsonRpcRequest,
 ) -> #(types.JsonRpcResponse, McpWsState) {
-  logging.info("[MCP-WS] Method: " <> req.method)
+  logging.quick_info("[MCP-WS] Method: " <> req.method)
 
   case req.method {
     // Core protocol
@@ -178,7 +178,7 @@ fn dispatch_method(
 
     // Unknown
     _ -> {
-      logging.warn("[MCP-WS] Unknown method: " <> req.method)
+      logging.quick_warn("[MCP-WS] Unknown method: " <> req.method)
       #(
         protocol.error_response(req.id, types.method_not_found, "Method not found: " <> req.method),
         state,
@@ -189,7 +189,7 @@ fn dispatch_method(
 
 /// Handle initialize request
 fn handle_initialize(req: types.JsonRpcRequest) -> types.JsonRpcResponse {
-  logging.info("[MCP-WS] Initializing...")
+  logging.quick_info("[MCP-WS] Initializing...")
 
   let info = types.ServerInfo(
     name: "vibee-mcp-ws",
@@ -210,7 +210,7 @@ fn handle_tools_list(
   registry: ToolRegistry,
   req: types.JsonRpcRequest,
 ) -> types.JsonRpcResponse {
-  logging.info("[MCP-WS] Listing tools...")
+  logging.quick_info("[MCP-WS] Listing tools...")
 
   let tools_with_annotations = case req.params {
     Some(params) -> {
@@ -220,7 +220,7 @@ fn handle_tools_list(
         cat_name -> {
           case tools.parse_category(cat_name) {
             Ok(category) -> {
-              logging.info("[MCP-WS] Filtering by category: " <> cat_name)
+              logging.quick_info("[MCP-WS] Filtering by category: " <> cat_name)
               tools.get_tools_by_category_with_annotations(registry, category)
             }
             Error(_) -> {
@@ -246,7 +246,7 @@ fn handle_tools_call(
       let name = protocol.extract_tool_name(params)
       let args = protocol.extract_tool_args(params)
 
-      logging.info("[MCP-WS] Calling tool: " <> name)
+      logging.quick_info("[MCP-WS] Calling tool: " <> name)
 
       let start_time = audit.start_timer()
 
@@ -256,7 +256,7 @@ fn handle_tools_call(
           let cache_key = cache.make_cache_key(name, args)
           case cache.get(cache_key) {
             cache.Hit(cached_value) -> {
-              logging.info("[MCP-WS] Cache hit for: " <> name)
+              logging.quick_info("[MCP-WS] Cache hit for: " <> name)
               telemetry.metric_cache_access(True)
               protocol.success_response(req.id, json.string(cached_value))
             }
@@ -326,7 +326,7 @@ fn execute_tool(
         }
         Error(err) -> {
           let msg = validation.rate_limit_error_to_string(err)
-          logging.warn("[MCP-WS] Circuit open: " <> msg)
+          logging.quick_warn("[MCP-WS] Circuit open: " <> msg)
           telemetry.metric_circuit_breaker(service, "open")
           protocol.error_response(req.id, types.internal_error, msg)
         }
@@ -335,7 +335,7 @@ fn execute_tool(
     validation.RateLimited(retry_after) -> {
       let err = validation.TooManyRequests(name, tool_limit, 60)
       let msg = validation.rate_limit_error_to_string(err)
-      logging.warn("[MCP-WS] Rate limited: " <> msg)
+      logging.quick_warn("[MCP-WS] Rate limited: " <> msg)
       telemetry.metric_rate_limit_hit(name)
       protocol.error_response(req.id, types.internal_error, msg)
     }

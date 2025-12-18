@@ -165,11 +165,11 @@ fn handle_message(
 ) -> actor.Next(WsState, WsActorMessage) {
   case message {
     Connect -> {
-      logging.info("[WS] Connecting to " <> state.config.host <> ":" <> int.to_string(state.config.port))
+      logging.quick_info("[WS] Connecting to " <> state.config.host <> ":" <> int.to_string(state.config.port))
 
       case ws_connect_ffi(state.config.host, state.config.port, state.config.path) {
         Ok(conn) -> {
-          logging.info("[WS] Connected successfully")
+          logging.quick_info("[WS] Connected successfully")
           state.handler(WsConnected)
 
           // Start polling for messages
@@ -183,7 +183,7 @@ fn handle_message(
           ))
         }
         Error(_) -> {
-          logging.error("[WS] Connection failed, retrying...")
+          logging.quick_error("[WS] Connection failed, retrying...")
           state.handler(WsError("Connection failed"))
 
           // Retry after delay
@@ -218,7 +218,7 @@ fn handle_message(
           case ws_receive_ffi(conn, 100) {
             Ok(data) -> {
               // Got a message, handle it
-              logging.debug("[WS] Received: " <> string.slice(data, 0, 100))
+              logging.quick_info("[WS] Received: " <> string.slice(data, 0, 100))
               state.handler(WsTextMessage(data))
 
               // Continue polling

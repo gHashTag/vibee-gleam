@@ -54,12 +54,12 @@ pub fn default_oracle_config() -> OracleConfig {
 
 /// Process incoming bank notification (from SMS/email/webhook)
 pub fn process_notification(notification: BankNotification) -> Result(String, String) {
-  logging.info("[ORACLE] Processing notification from " <> notification.bank <> ": " <> float.to_string(notification.amount) <> " " <> fiat_to_string(notification.currency))
+  logging.quick_info("[ORACLE] Processing notification from " <> notification.bank <> ": " <> float.to_string(notification.amount) <> " " <> fiat_to_string(notification.currency))
 
   // Find matching order
   case find_matching_order(notification) {
     Ok(order) -> {
-      logging.info("[ORACLE] Found matching order: " <> order.id)
+      logging.quick_info("[ORACLE] Found matching order: " <> order.id)
 
       // Verify amount matches (with tolerance)
       case verify_amount(notification.amount, order.fiat_amount) {
@@ -187,7 +187,7 @@ fn auto_confirm_order(order_id: String) -> Result(String, String) {
 
   case escrow_client.oracle_confirm(order_id, signature) {
     Ok(order) -> {
-      logging.info("[ORACLE] Auto-confirmed order " <> order_id)
+      logging.quick_info("[ORACLE] Auto-confirmed order " <> order_id)
       Ok("Order " <> order_id <> " confirmed automatically")
     }
     Error(e) -> Error(e)
@@ -406,7 +406,7 @@ pub fn manual_confirm(
   confirmer_telegram_id: Int,
   amount_received: Float,
 ) -> Result(String, String) {
-  logging.info("[ORACLE] Manual confirmation for order " <> order_id <> " by user " <> int.to_string(confirmer_telegram_id))
+  logging.quick_info("[ORACLE] Manual confirmation for order " <> order_id <> " by user " <> int.to_string(confirmer_telegram_id))
 
   // In production, verify the confirmer is authorized (admin or seller)
   auto_confirm_order(order_id)

@@ -134,7 +134,7 @@ fn handle_message(
 ) -> actor.Next(BotState, BotMessage) {
   case message {
     Start -> {
-      logging.info("[BOT] Starting bot with WebSocket connection...")
+      logging.quick_info("[BOT] Starting bot with WebSocket connection...")
 
       // Create WebSocket config
       let ws_config =
@@ -168,14 +168,14 @@ fn handle_message(
           ))
         }
         Error(_) -> {
-          logging.error("[BOT] Failed to start WebSocket client")
+          logging.quick_error("[BOT] Failed to start WebSocket client")
           actor.continue(BotState(..state, error_count: state.error_count + 1))
         }
       }
     }
 
     Stop -> {
-      logging.info("[BOT] Stopping bot...")
+      logging.quick_info("[BOT] Stopping bot...")
       case state.ws_client {
         Some(ws) -> ws_client.disconnect(ws)
         None -> Nil
@@ -184,16 +184,16 @@ fn handle_message(
     }
 
     BotWsConnected -> {
-      logging.info("[BOT] WebSocket connected to telegram-bridge")
+      logging.quick_info("[BOT] WebSocket connected to telegram-bridge")
       actor.continue(state)
     }
 
     BotWsDisconnected(reason) -> {
-      logging.warn("[BOT] WebSocket disconnected: " <> reason)
+      logging.quick_warn("[BOT] WebSocket disconnected: " <> reason)
       // Auto-reconnect
       case state.is_running, state.ws_client {
         True, Some(ws) -> {
-          logging.info("[BOT] Attempting to reconnect...")
+          logging.quick_info("[BOT] Attempting to reconnect...")
           ws_client.connect(ws)
         }
         _, _ -> Nil
@@ -202,7 +202,7 @@ fn handle_message(
     }
 
     BotWsError(error) -> {
-      logging.error("[BOT] WebSocket error: " <> error)
+      logging.quick_error("[BOT] WebSocket error: " <> error)
       actor.continue(BotState(..state, error_count: state.error_count + 1))
     }
 
@@ -225,7 +225,7 @@ fn handle_message(
           }
         }
         Error(err) -> {
-          logging.warn("[BOT] Failed to parse update: " <> err)
+          logging.quick_warn("[BOT] Failed to parse update: " <> err)
           actor.continue(state)
         }
       }
@@ -417,7 +417,7 @@ fn process_update(state: BotState, update: Update) -> Nil {
     }
   }
 
-  logging.info("[BOT] Processing message from user " <> int.to_string(user_id))
+  logging.quick_info("[BOT] Processing message from user " <> int.to_string(user_id))
 
   // Route message through scene system
   case router.route_message(state.db_pool, user_id, chat_id, username, incoming_msg) {
@@ -431,7 +431,7 @@ fn process_update(state: BotState, update: Update) -> Nil {
       }
     }
     Error(err) -> {
-      logging.error("[BOT] Router error")
+      logging.quick_error("[BOT] Router error")
       let _ =
         send_response(
           state.config,

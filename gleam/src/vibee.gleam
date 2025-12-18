@@ -148,13 +148,6 @@ fn run_telegram_agent() {
         owner_id: 144_022_504,
       )
 
-      // Start health check server
-      io.println("[HEALTH] Starting health check server on port 8080...")
-      case health.start(8080) {
-        Ok(_) -> io.println("[HEALTH] ✓ Health check server started")
-        Error(_) -> io.println("[HEALTH] ⚠️  Failed to start health check server")
-      }
-
       // Запускаем Polling Actor (Telegram Agent) with event bus
       io.println("[AGENT] Starting VIBEE Telegram Agent...")
       case polling_actor.start_with_events(agent_config, event_bus_subject) {
