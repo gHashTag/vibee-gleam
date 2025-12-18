@@ -33,15 +33,15 @@
             background: var(--bg-primary);
             color: var(--text-primary);
             font-size: 14px;
-            height: 100vh;
-            overflow: hidden;
+            margin: 0;
+            padding: 0;
         }
 
         .container {
             display: grid;
             grid-template-columns: 400px 1fr 350px;
-            grid-template-rows: 60px 1fr;
-            height: 100vh;
+            grid-template-rows: 60px calc(100vh - 60px);
+            min-height: 100vh;
             gap: 0;
         }
 
@@ -688,23 +688,23 @@
             <div class="dashboard-grid">
                 <div class="metric-card">
                     <div class="metric-label">Messages Processed</div>
-                    <div class="metric-value" id="messagesProcessed">1,234</div>
-                    <div class="metric-change">+12% from yesterday</div>
+                    <div class="metric-value" id="messagesProcessed">0</div>
+                    <div class="metric-change">Loading...</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Messages Sent</div>
-                    <div class="metric-value" id="messagesSent">567</div>
-                    <div class="metric-change">+8% from yesterday</div>
+                    <div class="metric-value" id="messagesSent">0</div>
+                    <div class="metric-change">Loading...</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Response Rate</div>
-                    <div class="metric-value" id="responseRate">85%</div>
-                    <div class="metric-change">+3% from yesterday</div>
+                    <div class="metric-value" id="responseRate">0%</div>
+                    <div class="metric-change">Loading...</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Avg Confidence</div>
-                    <div class="metric-value" id="avgConfidence">78%</div>
-                    <div class="metric-change">+5% from yesterday</div>
+                    <div class="metric-value" id="avgConfidence">0%</div>
+                    <div class="metric-change">Loading...</div>
                 </div>
             </div>
 
@@ -1054,9 +1054,9 @@
             charts.chat = new Chart(chatCtx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['VIBEE AGENT', 'Leela Chakra Ai', 'GAIA', 'Private Chats', 'Others'],
+                    labels: [],
                     datasets: [{
-                        data: [35, 25, 20, 15, 5],
+                        data: [],
                         backgroundColor: [
                             '#00ff88',
                             '#00d4ff',
@@ -1091,7 +1091,7 @@
                     labels: ['Code Gen', 'Refactor', 'Test Run', 'Test Create', 'Debug', 'Analyze', 'Fix'],
                     datasets: [{
                         label: 'Confidence Score',
-                        data: [80, 75, 85, 70, 90, 75, 65],
+                        data: [0, 0, 0, 0, 0, 0, 0],
                         backgroundColor: [
                             '#00ff88',
                             '#00ff88',
@@ -1242,6 +1242,11 @@
                     ? Math.round((data.stats.messages_sent / data.stats.events_processed) * 100)
                     : 0;
                 document.getElementById('responseRate').textContent = responseRate + '%';
+                
+                // Update metric changes
+                document.querySelectorAll('.metric-change').forEach(el => {
+                    el.textContent = 'Real-time data';
+                });
             }
 
             // Update confidence scores
@@ -1250,6 +1255,22 @@
                     .reduce((a, b) => a + b, 0) / Object.values(data.confidence_scores).length;
                 document.getElementById('avgConfidence').textContent = 
                     Math.round(avgConfidence * 100) + '%';
+                
+                // Update confidence chart
+                if (charts.confidence) {
+                    const scores = [
+                        data.confidence_scores.code_generate || 0,
+                        data.confidence_scores.code_refactor || 0,
+                        data.confidence_scores.test_run || 0,
+                        data.confidence_scores.test_create || 0,
+                        data.confidence_scores.debug_build || 0,
+                        data.confidence_scores.debug_analyze || 0,
+                        data.confidence_scores.debug_fix || 0
+                    ].map(v => Math.round(v * 100));
+                    
+                    charts.confidence.data.datasets[0].data = scores;
+                    charts.confidence.update('none');
+                }
             }
         }
 
