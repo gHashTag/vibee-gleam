@@ -315,7 +315,8 @@ func (r *Router) handleConnect(w http.ResponseWriter, req *http.Request) {
 
 // AuthPhoneRequest is the request for /auth/phone
 type AuthPhoneRequest struct {
-	Phone string `json:"phone"`
+	SessionID string `json:"session_id,omitempty"`
+	Phone     string `json:"phone"`
 }
 
 func (r *Router) handleAuthPhone(w http.ResponseWriter, req *http.Request) {
@@ -324,16 +325,21 @@ func (r *Router) handleAuthPhone(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	sessionID := req.Header.Get("X-Session-ID")
-	client := r.getClient(sessionID)
-	if client == nil {
-		respondError(w, http.StatusUnauthorized, "Invalid or missing session")
-		return
-	}
-
 	var body AuthPhoneRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+
+	// Get session ID from header (preferred) or body (fallback)
+	sessionID := req.Header.Get("X-Session-ID")
+	if sessionID == "" {
+		sessionID = body.SessionID
+	}
+
+	client := r.getClient(sessionID)
+	if client == nil {
+		respondError(w, http.StatusUnauthorized, "Invalid or missing session")
 		return
 	}
 
@@ -389,7 +395,8 @@ func (r *Router) handleAuthPhone(w http.ResponseWriter, req *http.Request) {
 
 // AuthCodeRequest is the request for /auth/code
 type AuthCodeRequest struct {
-	Code string `json:"code"`
+	SessionID string `json:"session_id,omitempty"`
+	Code      string `json:"code"`
 }
 
 func (r *Router) handleAuthCode(w http.ResponseWriter, req *http.Request) {
@@ -398,16 +405,21 @@ func (r *Router) handleAuthCode(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	sessionID := req.Header.Get("X-Session-ID")
-	client := r.getClient(sessionID)
-	if client == nil {
-		respondError(w, http.StatusUnauthorized, "Invalid or missing session")
-		return
-	}
-
 	var body AuthCodeRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+
+	// Get session ID from header (preferred) or body (fallback)
+	sessionID := req.Header.Get("X-Session-ID")
+	if sessionID == "" {
+		sessionID = body.SessionID
+	}
+
+	client := r.getClient(sessionID)
+	if client == nil {
+		respondError(w, http.StatusUnauthorized, "Invalid or missing session")
 		return
 	}
 
@@ -449,7 +461,8 @@ func (r *Router) handleAuthCode(w http.ResponseWriter, req *http.Request) {
 
 // Auth2FARequest is the request for /auth/2fa
 type Auth2FARequest struct {
-	Password string `json:"password"`
+	SessionID string `json:"session_id,omitempty"`
+	Password  string `json:"password"`
 }
 
 func (r *Router) handleAuth2FA(w http.ResponseWriter, req *http.Request) {
@@ -458,16 +471,21 @@ func (r *Router) handleAuth2FA(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	sessionID := req.Header.Get("X-Session-ID")
-	client := r.getClient(sessionID)
-	if client == nil {
-		respondError(w, http.StatusUnauthorized, "Invalid or missing session")
-		return
-	}
-
 	var body Auth2FARequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+
+	// Get session ID from header (preferred) or body (fallback)
+	sessionID := req.Header.Get("X-Session-ID")
+	if sessionID == "" {
+		sessionID = body.SessionID
+	}
+
+	client := r.getClient(sessionID)
+	if client == nil {
+		respondError(w, http.StatusUnauthorized, "Invalid or missing session")
 		return
 	}
 

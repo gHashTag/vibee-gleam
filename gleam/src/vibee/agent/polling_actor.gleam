@@ -16,6 +16,7 @@ import gleam/string
 import vibee/config/target_chats
 import vibee/db/postgres
 import vibee/events/event_bus
+import vibee/http_retry
 import vibee/logging
 import vibee/telegram/telegram_agent
 
@@ -203,13 +204,15 @@ fn get_dialogs(config: telegram_agent.TelegramAgentConfig) -> Result(String, Str
     |> request.set_host(host)
     |> request.set_port(port)
     |> request.set_path("/api/v1/dialogs")
-    |> request.set_query([#("limit", "20")])
+    |> request.set_query([#("limit", "50")])  // Увеличено для мониторинга всех групп
     |> request.set_header("X-Session-ID", config.session_id)
     |> request.set_header("Authorization", "Bearer " <> api_key)
 
-  case httpc.send(req) {
+  // Use retry logic for resilience
+  let retry_config = http_retry.default_config()
+  case http_retry.send_with_retry(req, retry_config) {
     Ok(response) -> Ok(response.body)
-    Error(_) -> Error("HTTP request failed")
+    Error(_) -> Error("HTTP request failed after retries")
   }
 }
 
@@ -263,7 +266,9 @@ fn get_history(config: telegram_agent.TelegramAgentConfig, chat_id: String) -> R
     |> request.set_header("X-Session-ID", config.session_id)
     |> request.set_header("Authorization", "Bearer " <> api_key)
 
-  case httpc.send(req) {
+  // Use retry logic for resilience
+  let retry_config = http_retry.default_config()
+  case http_retry.send_with_retry(req, retry_config) {
     Ok(response) -> {
       // Проверяем на FLOOD_WAIT и другие ошибки
       case string.contains(response.body, "\"error\"") {
@@ -271,7 +276,7 @@ fn get_history(config: telegram_agent.TelegramAgentConfig, chat_id: String) -> R
         False -> Ok(response.body)
       }
     }
-    Error(_) -> Error("HTTP request failed")
+    Error(_) -> Error("HTTP request failed after retries")
   }
 }
 
@@ -285,18 +290,24 @@ fn process_dialogs_with_events(
   // Находим все ID групп из JSON
   let group_ids = extract_group_ids(dialogs_json)
 
-  // Фильтруем через should_process_chat который учитывает:
-  // - целевые чаты
-  // - личные чаты (положительные ID < 1.5B)
+  // Фильтруем через should_process_chat_with_mode который учитывает:
+  // - целевые чаты (всегда)
+  // - личные чаты (только в Digital Twin режиме)
   // - исключает self-chat (owner_id)
+  let digital_twin_enabled = state.config.digital_twin_enabled
   let filtered_ids = list.filter(group_ids, fn(id) {
-    target_chats.should_process_chat(id)
+    target_chats.should_process_chat_with_mode(id, digital_twin_enabled)
   })
 
   // Логируем количество отфильтрованных чатов
   case list.length(filtered_ids) {
-    0 -> io.println("[POLL] No chats to process")
-    n -> io.println("[POLL] Processing " <> int.to_string(n) <> " chats")
+    0 -> io.println("[POLL] No chats to process (Digital Twin: " <> case digital_twin_enabled { True -> "ON" False -> "OFF" } <> ")")
+    n -> {
+      io.println("[POLL] Processing " <> int.to_string(n) <> " chats (Digital Twin: " <> case digital_twin_enabled { True -> "ON" False -> "OFF" } <> ")")
+      // Показываем первые 5 чатов для отладки
+      let preview = list.take(filtered_ids, 5)
+      io.println("[POLL] Chats: " <> string.join(preview, ", "))
+    }
   }
 
   // Обрабатываем только отфильтрованные чаты
