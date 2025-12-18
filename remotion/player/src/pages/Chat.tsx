@@ -27,7 +27,7 @@ export function ChatPage() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Initial message
+    // Show initial welcome message
     addAgentMessage(
       "Привет! Я помогу создать крутой рилс. Что будем делать?\n\n" +
       "1. 🎤 Talking head с аватаром\n" +
