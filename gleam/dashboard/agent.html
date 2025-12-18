@@ -764,7 +764,22 @@
         <div class="logs-panel-center">
             <div class="logs-header">
                 <div class="logs-title">📨 Telegram Logs</div>
-                <input type="text" class="logs-search" id="logsSearch" placeholder="Search logs...">
+                <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+                    <input type="text" class="logs-search" id="logsSearch" placeholder="Search: text, user:name, chat:id" style="flex: 1; min-width: 200px;">
+                    <select id="chatTypeFilter" style="padding: 8px 12px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 12px;">
+                        <option value="all">All Chats</option>
+                        <option value="groups">Groups Only</option>
+                        <option value="private">Private Only</option>
+                        <option value="system">System Only</option>
+                    </select>
+                    <select id="timeRangeFilter" style="padding: 8px 12px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 12px;">
+                        <option value="all">All Time</option>
+                        <option value="5m">Last 5 min</option>
+                        <option value="15m">Last 15 min</option>
+                        <option value="1h">Last 1 hour</option>
+                        <option value="6h">Last 6 hours</option>
+                    </select>
+                </div>
             </div>
             <div class="logs-container" id="logsContainer">
                 <!-- Logs will be added here dynamically -->
@@ -839,6 +854,8 @@
         const confidenceValue = document.getElementById('confidenceValue');
         const logsContainer = document.getElementById('logsContainer');
         const logsSearch = document.getElementById('logsSearch');
+        const chatTypeFilterEl = document.getElementById('chatTypeFilter');
+        const timeRangeFilterEl = document.getElementById('timeRangeFilter');
         const strategyBtns = document.querySelectorAll('.strategy-btn');
         const startBtn = document.getElementById('startBtn');
         const pauseBtn = document.getElementById('pauseBtn');
@@ -847,6 +864,26 @@
 
         // API base URL
         const API_URL = 'https://vibee-mcp.fly.dev/api';
+        
+        // Filter state
+        let searchTerm = '';
+        let chatTypeFilter = 'all';
+        let timeRangeFilter = 'all';
+        let allLogs = [];
+        
+        // Chat names mapping
+        const chatNames = {
+            '144022504': 'Dmitrii (Owner)',
+            '2737186844': 'VIBEE AGENT',
+            '2298297094': 'Test Channel',
+            '693774948': 'Test Chat',
+            '-1002090264748': 'Leela Chakra Ai',
+            '-1002737186844': 'VIBEE AGENT',
+            '-1001168690993': 'GAIA',
+            '-1002298297094': 'НейроМентор',
+            '-5082217642': 'Aimly.io dev',
+            '6579515876': 'vibee_agent bot',
+        };
 
         // Strategy buttons
         strategyBtns.forEach(btn => {
@@ -926,48 +963,113 @@
         }
 
         // Add log entry
+        function matchesFilters(log) {
+            // Search filter
+            if (searchTerm) {
+                const term = searchTerm.toLowerCase();
+                const searchText = `${log.chat} ${log.user} ${log.message}`.toLowerCase();
+                
+                // Field-specific search
+                if (searchTerm.includes(':')) {
+                    const [field, value] = searchTerm.split(':');
+                    const lowerValue = value.toLowerCase();
+                    if (field === 'user' && !log.user.toLowerCase().includes(lowerValue)) return false;
+                    if (field === 'chat' && !log.chat.toLowerCase().includes(lowerValue)) return false;
+                    if (field === 'message' && !log.message.toLowerCase().includes(lowerValue)) return false;
+                } else if (!searchText.includes(term)) {
+                    return false;
+                }
+            }
+            
+            // Chat type filter
+            if (chatTypeFilter !== 'all') {
+                if (chatTypeFilter === 'groups' && log.type !== 'incoming') return false;
+                if (chatTypeFilter === 'private' && log.type !== 'incoming') return false;
+                if (chatTypeFilter === 'system' && log.type !== 'system') return false;
+            }
+            
+            // Time range filter
+            if (timeRangeFilter !== 'all') {
+                const now = Date.now();
+                const logTime = new Date(log.timestamp).getTime();
+                const ranges = {
+                    '5m': 5 * 60 * 1000,
+                    '15m': 15 * 60 * 1000,
+                    '1h': 60 * 60 * 1000,
+                    '6h': 6 * 60 * 60 * 1000,
+                };
+                if (now - logTime > ranges[timeRangeFilter]) return false;
+            }
+            
+            return true;
+        }
+        
+        function refreshLogs() {
+            logsContainer.innerHTML = '';
+            allLogs.filter(matchesFilters).forEach(log => {
+                const entry = createLogEntry(log);
+                logsContainer.appendChild(entry);
+            });
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
         function addLog(data) {
             const message = data.message || '';
             
             // Parse Telegram message
             const match = message.match(/📨 TG: ([-\d]+) ([^:]+): (.+)/);
             
+            let logData;
             if (match) {
                 const [, chatId, userName, text] = match;
                 const chatName = getChatName(chatId);
                 
-                const entry = createLogEntry({
+                logData = {
                     timestamp: data.timestamp,
                     type: 'incoming',
                     chat: chatName,
+                    chatId: chatId,
                     user: userName,
                     message: text
-                });
-                logsContainer.appendChild(entry);
+                };
 
                 // Update analytics
                 updateActivityData('incoming');
                 updateChatDistribution(chatName);
             } else if (message.includes('📤') || message.includes('OUT')) {
-                const entry = createLogEntry({
+                logData = {
                     timestamp: data.timestamp,
                     type: 'outgoing',
                     chat: 'Unknown',
+                    chatId: '',
                     user: 'Agent',
                     message: message
-                });
-                logsContainer.appendChild(entry);
+                };
 
                 // Update analytics
                 updateActivityData('outgoing');
             } else {
-                const entry = createLogEntry({
+                logData = {
                     timestamp: data.timestamp,
                     type: 'system',
                     chat: 'System',
+                    chatId: '',
                     user: data.logger || 'system',
                     message: message
-                });
+                };
+            }
+            
+            // Add to all logs
+            allLogs.push(logData);
+            
+            // Keep only last 500
+            if (allLogs.length > 500) {
+                allLogs.shift();
+            }
+            
+            // Add to DOM if matches filters
+            if (matchesFilters(logData)) {
+                const entry = createLogEntry(logData);
                 logsContainer.appendChild(entry);
             }
 
@@ -1034,14 +1136,6 @@
 
         // Get chat name from ID
         function getChatName(chatId) {
-            const chatNames = {
-                '144022504': 'Dmitrii',
-                '2737186844': 'VIBEE AGENT',
-                '2298297094': 'Test Channel',
-                '-1002090264748': 'Leela Chakra Ai',
-                '-1002737186844': 'VIBEE AGENT',
-                '-1001168690993': 'GAIA',
-            };
             return chatNames[chatId] || `Chat ${chatId}`;
         }
 
@@ -1385,6 +1479,22 @@
 
         // Poll agent status every 5 seconds
         setInterval(getAgentStatus, 5000);
+
+        // Filter event listeners
+        logsSearch.addEventListener('input', (e) => {
+            searchTerm = e.target.value;
+            refreshLogs();
+        });
+        
+        chatTypeFilterEl.addEventListener('change', (e) => {
+            chatTypeFilter = e.target.value;
+            refreshLogs();
+        });
+        
+        timeRangeFilterEl.addEventListener('change', (e) => {
+            timeRangeFilter = e.target.value;
+            refreshLogs();
+        });
 
         // Initialize
         connectWebSocket();
