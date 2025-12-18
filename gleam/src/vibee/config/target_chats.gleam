@@ -10,6 +10,7 @@ import gleam/string
 pub const target_chats = [
   "693774948",    // Личный чат для тестов
   "2737186844",   // VIBEE AGENT (supergroup, -1002737186844) - Lead group
+  "2298297094",   // Тестовый канал (supergroup, -1002298297094)
   "6579515876",   // vibee_agent bot для тестов
   "-5082217642",  // Aimly.io dev (group) - SNIPER MODE trigger chat
 ]
@@ -36,6 +37,7 @@ pub fn get_target_chats() -> List(TargetChat) {
   [
     TargetChat(id: "693774948", name: "Личный чат для тестов", chat_type: Private),
     TargetChat(id: "2737186844", name: "VIBEE AGENT", chat_type: Supergroup),
+    TargetChat(id: "2298297094", name: "Тестовый канал", chat_type: Supergroup),
     TargetChat(id: "6579515876", name: "vibee_agent bot", chat_type: Private),
     TargetChat(id: "-5082217642", name: "Aimly.io dev", chat_type: Group),
   ]
