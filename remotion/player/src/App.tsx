@@ -3,6 +3,7 @@ import { LanguageProvider } from '@/hooks/useLanguage';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { HomePage } from '@/pages/Home';
 import { EditorPage } from '@/pages/Editor';
+import { ChatPage } from '@/pages/Chat';
 import './App.css';
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/editor" element={<EditorPage />} />
+            <Route path="/chat" element={<ChatPage />} />
           </Routes>
         </BrowserRouter>
       </LanguageProvider>
