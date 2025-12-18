@@ -1,6 +1,10 @@
-# React + TypeScript + Vite
+# VIBEE Player - Video Editor & Reels Chat
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite application for video editing and AI-powered reels creation.
+
+## Features
+- Video Editor at `/editor`
+- AI Reels Chat at `/chat`
 
 Currently, two official plugins are available:
 
