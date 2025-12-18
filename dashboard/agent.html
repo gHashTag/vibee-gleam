@@ -762,6 +762,17 @@
 
         <!-- Logs Panel (Center) -->
         <div class="logs-panel-center">
+            <div class="logs-header">
+                <div class="logs-title">📨 Telegram Logs</div>
+                <input type="text" class="logs-search" id="logsSearch" placeholder="Search logs...">
+            </div>
+            <div class="logs-container" id="logsContainer">
+                <!-- Logs will be added here dynamically -->
+            </div>
+        </div>
+
+        <!-- Analytics Panel (Right) -->
+        <div class="analytics-panel">
             <!-- Metrics -->
             <div class="dashboard-grid">
                 <div class="metric-card">
@@ -802,17 +813,6 @@
             <div class="chart-container">
                 <div class="chart-title">🎯 Confidence by Capability</div>
                 <canvas id="confidenceChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Analytics Panel (Right) -->
-        <div class="analytics-panel">
-            <div class="logs-header">
-                <div class="logs-title">📨 Telegram Logs</div>
-                <input type="text" class="logs-search" id="logsSearch" placeholder="Search logs...">
-            </div>
-            <div class="logs-container" id="logsContainer">
-                <!-- Logs will be added here dynamically -->
             </div>
         </div>
     </div>
