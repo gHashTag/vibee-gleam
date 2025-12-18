@@ -28,19 +28,11 @@ COPY telegram-bridge/ ./
 # Build static binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o telegram-bridge cmd/server/main.go
 
-# Stage 3: Runtime image
-FROM alpine:3.19
+# Stage 3: Runtime image (use Gleam image with Erlang already installed)
+FROM ghcr.io/gleam-lang/gleam:v1.5.0-erlang-alpine
 
-# Install runtime dependencies
+# Install additional dependencies
 RUN apk add --no-cache \
-    erlang \
-    erlang-crypto \
-    erlang-ssl \
-    erlang-public-key \
-    erlang-asn1 \
-    erlang-sasl \
-    erlang-eunit \
-    erlang-dev \
     ca-certificates \
     tzdata
 
