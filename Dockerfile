@@ -6,6 +6,9 @@ WORKDIR /build
 # Copy entire Gleam project
 COPY gleam/ ./
 
+# Copy dashboard to gleam directory (where app runs from)
+COPY dashboard/ /build/dashboard/
+
 # Build
 RUN gleam build
 
@@ -14,7 +17,7 @@ RUN mkdir -p /build/sessions /build/data
 
 # Environment
 ENV PORT=8080
-ENV VIBEE_BRIDGE_URL=http://localhost:8081
+ENV VIBEE_BRIDGE_URL=https://vibee-telegram-bridge.fly.dev
 ENV VIBEE_LOG_LEVEL=info
 
 EXPOSE 8080
