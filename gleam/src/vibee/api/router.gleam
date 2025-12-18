@@ -166,6 +166,9 @@ fn handle_request(
     // Digital Clone Control Dashboard
     http.Get, ["dashboard", "agent"] -> serve_agent_dashboard()
     
+    // Test dashboard
+    http.Get, ["dashboard", "test"] -> serve_test_dashboard()
+    
     // Crypto-style logs page
     http.Get, ["logs"] -> serve_logs_file()
 
@@ -895,6 +898,16 @@ fn serve_agent_dashboard() -> Response(ResponseData) {
     Ok(content) -> html_response(200, content)
     Error(_) -> {
       let body = "<html><body><h1>Agent Dashboard not found</h1><p>Run from project root</p></body></html>"
+      html_response(404, body)
+    }
+  }
+}
+
+fn serve_test_dashboard() -> Response(ResponseData) {
+  case simplifile.read("dashboard/test.html") {
+    Ok(content) -> html_response(200, content)
+    Error(_) -> {
+      let body = "<html><body><h1>Test not found</h1></body></html>"
       html_response(404, body)
     }
   }
