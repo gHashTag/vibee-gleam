@@ -169,6 +169,9 @@ fn handle_request(
     // Test dashboard
     http.Get, ["dashboard", "test"] -> serve_test_dashboard()
     
+    // Test simple route
+    http.Get, ["test"] -> serve_test_dashboard()
+    
     // Crypto-style logs page
     http.Get, ["logs"] -> serve_logs_file()
 
