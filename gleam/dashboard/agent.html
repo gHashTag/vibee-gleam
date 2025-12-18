@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIBEE - Digital Clone Control</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #111111;
+            --bg-card: #1a1a2e;
+            --bg-hover: #252550;
+            --text-primary: #e0e0e0;
+            --text-secondary: #8b8b8b;
+            --text-muted: #555555;
+            --accent-green: #00ff88;
+            --accent-red: #ff4444;
+            --accent-blue: #00d4ff;
+            --accent-orange: #ff9800;
+            --accent-purple: #aa00ff;
+            --border-color: #2d3748;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 400px 1fr 350px;
+            grid-template-rows: 60px 1fr;
+            height: 100vh;
+            gap: 0;
+        }
+
+        /* Header */
+        .header {
+            grid-column: 1 / -1;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            gap: 16px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-icon {
+            font-size: 24px;
+        }
+
+        .logo-text {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--accent-green);
+        }
+
+        .header-title {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-left: auto;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-badge.online {
+            background: var(--accent-green);
+            color: var(--bg-primary);
+        }
+
+        .status-badge.offline {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Control Panel (Left) */
+        .control-panel {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border-color);
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--accent-green);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .stat-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent-green);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px 16px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            margin-bottom: 8px;
+        }
+
+        .btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent-green);
+        }
+
+        .btn.primary {
+            background: var(--accent-green);
+            color: var(--bg-primary);
+            border-color: var(--accent-green);
+        }
+
+        .btn.primary:hover {
+            background: #00dd77;
+        }
+
+        .btn.danger {
+            background: var(--accent-red);
+            color: white;
+            border-color: var(--accent-red);
+        }
+
+        .btn.danger:hover {
+            background: #dd3333;
+        }
+
+        .strategy-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .strategy-btn {
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .strategy-btn:hover {
+            border-color: var(--accent-green);
+        }
+
+        .strategy-btn.active {
+            background: var(--accent-green);
+            color: var(--bg-primary);
+            border-color: var(--accent-green);
+        }
+
+        .slider-container {
+            margin-bottom: 16px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .slider-label-text {
+            color: var(--text-secondary);
+        }
+
+        .slider-label-value {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--border-color);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            cursor: pointer;
+            border: none;
+        }
+
+        .chat-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .chat-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            background: var(--bg-secondary);
+        }
+
+        .chat-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .chat-name {
+            font-size: 12px;
+            color: var(--text-primary);
+        }
+
+        .chat-remove {
+            color: var(--accent-red);
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        /* Main Content (Center) */
+        .main-content {
+            background: var(--bg-primary);
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: var(--accent-green);
+        }
+
+        .metric-change {
+            font-size: 12px;
+            color: var(--accent-green);
+            margin-top: 4px;
+        }
+
+        .chart-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .chart-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .chart-placeholder {
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            border: 1px dashed var(--border-color);
+            border-radius: 4px;
+        }
+
+        /* Logs Panel (Right) */
+        .logs-panel {
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .logs-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .logs-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .logs-search {
+            width: 100%;
+            padding: 8px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 12px;
+            font-family: inherit;
+        }
+
+        .logs-search:focus {
+            outline: none;
+            border-color: var(--accent-green);
+        }
+
+        .logs-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .log-entry {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+
+        .log-entry:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent-green);
+        }
+
+        .log-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .log-time {
+            color: var(--text-muted);
+            font-size: 10px;
+        }
+
+        .log-type {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .log-type.incoming {
+            background: var(--accent-blue);
+            color: var(--bg-primary);
+        }
+
+        .log-type.outgoing {
+            background: var(--accent-green);
+            color: var(--bg-primary);
+        }
+
+        .log-type.system {
+            background: var(--text-muted);
+            color: white;
+        }
+
+        .log-chat {
+            color: var(--accent-orange);
+            font-weight: 500;
+        }
+
+        .log-message {
+            color: var(--text-primary);
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-green);
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 350px 1fr 300px;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 60px auto auto auto;
+            }
+
+            .logs-panel {
+                border-left: none;
+                border-top: 1px solid var(--border-color);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <span class="logo-icon">🤖</span>
+                <span class="logo-text">VIBEE</span>
+            </div>
+            <span class="header-title">Digital Clone Control Panel</span>
+            <div class="status-badge online" id="agentStatus">
+                <span class="status-dot"></span>
+                <span>ONLINE</span>
+            </div>
+        </div>
+
+        <!-- Control Panel (Left) -->
+        <div class="control-panel">
+            <!-- Agent Status -->
+            <div class="section">
+                <div class="section-title">Agent Status</div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Digital Clone</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="agentToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Status</span>
+                        <span class="stat-value" id="statusText">Running</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Uptime</span>
+                        <span class="stat-value" id="uptime">00:00:00</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Last Activity</span>
+                        <span class="stat-value" id="lastActivity">Just now</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Strategy -->
+            <div class="section">
+                <div class="section-title">Strategy</div>
+                <div class="strategy-grid">
+                    <button class="strategy-btn" data-strategy="passive">
+                        🛑 Passive
+                    </button>
+                    <button class="strategy-btn" data-strategy="selective">
+                        🎯 Selective
+                    </button>
+                    <button class="strategy-btn active" data-strategy="active">
+                        ⚡ Active
+                    </button>
+                    <button class="strategy-btn" data-strategy="aggressive">
+                        🔥 Aggressive
+                    </button>
+                </div>
+            </div>
+
+            <!-- Configuration -->
+            <div class="section">
+                <div class="section-title">Configuration</div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Digital Twin Mode</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="digitalTwinToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="card-header">
+                        <span class="card-title">Auto Reply</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="autoReplyToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span class="slider-label-text">Cooldown</span>
+                            <span class="slider-label-value" id="cooldownValue">30s</span>
+                        </div>
+                        <input type="range" id="cooldownSlider" min="10" max="300" value="30" step="5">
+                    </div>
+
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span class="slider-label-text">Confidence</span>
+                            <span class="slider-label-value" id="confidenceValue">70%</span>
+                        </div>
+                        <input type="range" id="confidenceSlider" min="50" max="95" value="70" step="5">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="section">
+                <div class="section-title">Quick Actions</div>
+                <button class="btn primary" id="startBtn">▶ Start Agent</button>
+                <button class="btn" id="pauseBtn">⏸ Pause Agent</button>
+                <button class="btn danger" id="stopBtn">⏹ Stop Agent</button>
+                <button class="btn" id="resetBtn">🔄 Reset Stats</button>
+            </div>
+        </div>
+
+        <!-- Main Content (Center) -->
+        <div class="main-content">
+            <!-- Metrics -->
+            <div class="dashboard-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Messages Processed</div>
+                    <div class="metric-value" id="messagesProcessed">1,234</div>
+                    <div class="metric-change">+12% from yesterday</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Messages Sent</div>
+                    <div class="metric-value" id="messagesSent">567</div>
+                    <div class="metric-change">+8% from yesterday</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Response Rate</div>
+                    <div class="metric-value" id="responseRate">85%</div>
+                    <div class="metric-change">+3% from yesterday</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Avg Confidence</div>
+                    <div class="metric-value" id="avgConfidence">78%</div>
+                    <div class="metric-change">+5% from yesterday</div>
+                </div>
+            </div>
+
+            <!-- Activity Chart -->
+            <div class="chart-container">
+                <div class="chart-title">📊 Activity Timeline (Last 24h)</div>
+                <canvas id="activityChart"></canvas>
+            </div>
+
+            <!-- Chat Distribution -->
+            <div class="chart-container">
+                <div class="chart-title">💬 Chat Distribution</div>
+                <canvas id="chatChart"></canvas>
+            </div>
+
+            <!-- Confidence Heatmap -->
+            <div class="chart-container">
+                <div class="chart-title">🎯 Confidence by Capability</div>
+                <canvas id="confidenceChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Logs Panel (Right) -->
+        <div class="logs-panel">
+            <div class="logs-header">
+                <div class="logs-title">📨 Telegram Logs</div>
+                <input type="text" class="logs-search" id="logsSearch" placeholder="Search logs...">
+            </div>
+            <div class="logs-container" id="logsContainer">
+                <!-- Logs will be added here dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WebSocket connection
+        const WS_URL = 'wss://vibee-mcp.fly.dev/ws/logs';
+        let ws = null;
+        let logs = [];
+        let activityData = {
+            incoming: Array(24).fill(0),
+            outgoing: Array(24).fill(0)
+        };
+        let chatDistribution = {};
+        let charts = {};
+
+        // Elements
+        const agentToggle = document.getElementById('agentToggle');
+        const digitalTwinToggle = document.getElementById('digitalTwinToggle');
+        const autoReplyToggle = document.getElementById('autoReplyToggle');
+        const cooldownSlider = document.getElementById('cooldownSlider');
+        const confidenceSlider = document.getElementById('confidenceSlider');
+        const cooldownValue = document.getElementById('cooldownValue');
+        const confidenceValue = document.getElementById('confidenceValue');
+        const logsContainer = document.getElementById('logsContainer');
+        const logsSearch = document.getElementById('logsSearch');
+        const strategyBtns = document.querySelectorAll('.strategy-btn');
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // API base URL
+        const API_URL = 'https://vibee-mcp.fly.dev/api';
+
+        // Strategy buttons
+        strategyBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                strategyBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                applyStrategy(btn.dataset.strategy);
+            });
+        });
+
+        // Sliders
+        cooldownSlider.addEventListener('input', (e) => {
+            cooldownValue.textContent = e.target.value + 's';
+        });
+
+        confidenceSlider.addEventListener('input', (e) => {
+            confidenceValue.textContent = e.target.value + '%';
+        });
+
+        // Apply strategy preset
+        function applyStrategy(strategy) {
+            switch(strategy) {
+                case 'passive':
+                    digitalTwinToggle.checked = false;
+                    autoReplyToggle.checked = false;
+                    cooldownSlider.value = 60;
+                    confidenceSlider.value = 80;
+                    break;
+                case 'selective':
+                    digitalTwinToggle.checked = false;
+                    autoReplyToggle.checked = true;
+                    cooldownSlider.value = 60;
+                    confidenceSlider.value = 75;
+                    break;
+                case 'active':
+                    digitalTwinToggle.checked = true;
+                    autoReplyToggle.checked = true;
+                    cooldownSlider.value = 30;
+                    confidenceSlider.value = 70;
+                    break;
+                case 'aggressive':
+                    digitalTwinToggle.checked = true;
+                    autoReplyToggle.checked = true;
+                    cooldownSlider.value = 10;
+                    confidenceSlider.value = 50;
+                    break;
+            }
+            cooldownValue.textContent = cooldownSlider.value + 's';
+            confidenceValue.textContent = confidenceSlider.value + '%';
+        }
+
+        // WebSocket connection
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    addLog(data);
+                } catch (e) {
+                    console.error('Failed to parse message:', e);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                setTimeout(connectWebSocket, 3000);
+            };
+        }
+
+        // Add log entry
+        function addLog(data) {
+            const message = data.message || '';
+            
+            // Parse Telegram message
+            const match = message.match(/📨 TG: ([-\d]+) ([^:]+): (.+)/);
+            
+            if (match) {
+                const [, chatId, userName, text] = match;
+                const chatName = getChatName(chatId);
+                
+                const entry = createLogEntry({
+                    timestamp: data.timestamp,
+                    type: 'incoming',
+                    chat: chatName,
+                    user: userName,
+                    message: text
+                });
+                logsContainer.appendChild(entry);
+
+                // Update analytics
+                updateActivityData('incoming');
+                updateChatDistribution(chatName);
+            } else if (message.includes('📤') || message.includes('OUT')) {
+                const entry = createLogEntry({
+                    timestamp: data.timestamp,
+                    type: 'outgoing',
+                    chat: 'Unknown',
+                    user: 'Agent',
+                    message: message
+                });
+                logsContainer.appendChild(entry);
+
+                // Update analytics
+                updateActivityData('outgoing');
+            } else {
+                const entry = createLogEntry({
+                    timestamp: data.timestamp,
+                    type: 'system',
+                    chat: 'System',
+                    user: data.logger || 'system',
+                    message: message
+                });
+                logsContainer.appendChild(entry);
+            }
+
+            // Auto scroll
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+
+            // Keep only last 100
+            while (logsContainer.children.length > 100) {
+                logsContainer.removeChild(logsContainer.firstChild);
+            }
+        }
+
+        // Update activity data
+        function updateActivityData(type) {
+            const hour = new Date().getHours();
+            if (type === 'incoming') {
+                activityData.incoming[hour]++;
+            } else if (type === 'outgoing') {
+                activityData.outgoing[hour]++;
+            }
+
+            // Update chart
+            if (charts.activity) {
+                charts.activity.data.datasets[0].data = activityData.incoming;
+                charts.activity.data.datasets[1].data = activityData.outgoing;
+                charts.activity.update('none'); // Update without animation
+            }
+        }
+
+        // Update chat distribution
+        function updateChatDistribution(chatName) {
+            chatDistribution[chatName] = (chatDistribution[chatName] || 0) + 1;
+
+            // Update chart
+            if (charts.chat) {
+                const sortedChats = Object.entries(chatDistribution)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5);
+                
+                charts.chat.data.labels = sortedChats.map(([name]) => name);
+                charts.chat.data.datasets[0].data = sortedChats.map(([, count]) => count);
+                charts.chat.update('none');
+            }
+        }
+
+        // Create log entry element
+        function createLogEntry(log) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+
+            const time = new Date(log.timestamp).toLocaleTimeString();
+
+            entry.innerHTML = `
+                <div class="log-header">
+                    <span class="log-time">${time}</span>
+                    <span class="log-type ${log.type}">${log.type.toUpperCase()}</span>
+                    <span class="log-chat">${escapeHtml(log.chat)}</span>
+                </div>
+                <div class="log-message">${escapeHtml(log.user)}: ${escapeHtml(log.message)}</div>
+            `;
+
+            return entry;
+        }
+
+        // Get chat name from ID
+        function getChatName(chatId) {
+            const chatNames = {
+                '144022504': 'Dmitrii',
+                '2737186844': 'VIBEE AGENT',
+                '2298297094': 'Test Channel',
+                '-1002090264748': 'Leela Chakra Ai',
+                '-1002737186844': 'VIBEE AGENT',
+                '-1001168690993': 'GAIA',
+            };
+            return chatNames[chatId] || `Chat ${chatId}`;
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Update uptime
+        let startTime = Date.now();
+        setInterval(() => {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const hours = Math.floor(elapsed / 3600);
+            const minutes = Math.floor((elapsed % 3600) / 60);
+            const seconds = elapsed % 60;
+            document.getElementById('uptime').textContent = 
+                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }, 1000);
+
+        // Initialize charts
+        function initCharts() {
+            // Generate hour labels
+            const hourLabels = Array.from({length: 24}, (_, i) => 
+                `${String(i).padStart(2, '0')}:00`
+            );
+
+            // Activity Timeline Chart
+            const activityCtx = document.getElementById('activityChart').getContext('2d');
+            charts.activity = new Chart(activityCtx, {
+                type: 'line',
+                data: {
+                    labels: hourLabels,
+                    datasets: [
+                        {
+                            label: 'Incoming',
+                            data: activityData.incoming,
+                            borderColor: '#00d4ff',
+                            backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Outgoing',
+                            data: activityData.outgoing,
+                            borderColor: '#00ff88',
+                            backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e0e0e0'
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#8b8b8b'
+                            },
+                            grid: {
+                                color: '#2d3748'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#8b8b8b'
+                            },
+                            grid: {
+                                color: '#2d3748'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Chat Distribution Chart
+            const chatCtx = document.getElementById('chatChart').getContext('2d');
+            charts.chat = new Chart(chatCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['VIBEE AGENT', 'Leela Chakra Ai', 'GAIA', 'Private Chats', 'Others'],
+                    datasets: [{
+                        data: [35, 25, 20, 15, 5],
+                        backgroundColor: [
+                            '#00ff88',
+                            '#00d4ff',
+                            '#aa00ff',
+                            '#ff9800',
+                            '#555555'
+                        ],
+                        borderColor: '#1a1a2e',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#e0e0e0',
+                                padding: 15
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Confidence Chart
+            const confidenceCtx = document.getElementById('confidenceChart').getContext('2d');
+            charts.confidence = new Chart(confidenceCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Code Gen', 'Refactor', 'Test Run', 'Test Create', 'Debug', 'Analyze', 'Fix'],
+                    datasets: [{
+                        label: 'Confidence Score',
+                        data: [80, 75, 85, 70, 90, 75, 65],
+                        backgroundColor: [
+                            '#00ff88',
+                            '#00ff88',
+                            '#00ff88',
+                            '#ff9800',
+                            '#00ff88',
+                            '#ff9800',
+                            '#ff4444'
+                        ],
+                        borderColor: '#1a1a2e',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                color: '#8b8b8b',
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            },
+                            grid: {
+                                color: '#2d3748'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#8b8b8b'
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // API functions
+        async function updateAgentConfig() {
+            const config = {
+                digital_twin_enabled: digitalTwinToggle.checked,
+                auto_reply_enabled: autoReplyToggle.checked,
+                cooldown_ms: parseInt(cooldownSlider.value) * 1000,
+                confidence_threshold: parseInt(confidenceSlider.value) / 100
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/agent/config`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                if (response.ok) {
+                    console.log('Config updated successfully');
+                } else {
+                    console.error('Failed to update config');
+                }
+            } catch (error) {
+                console.error('Error updating config:', error);
+            }
+        }
+
+        async function startAgent() {
+            try {
+                const response = await fetch(`${API_URL}/agent/start`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    agentToggle.checked = true;
+                    document.getElementById('statusText').textContent = 'Running';
+                    document.getElementById('agentStatus').classList.remove('offline');
+                    document.getElementById('agentStatus').classList.add('online');
+                    document.getElementById('agentStatus').querySelector('span:last-child').textContent = 'ONLINE';
+                }
+            } catch (error) {
+                console.error('Error starting agent:', error);
+            }
+        }
+
+        async function stopAgent() {
+            try {
+                const response = await fetch(`${API_URL}/agent/stop`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    agentToggle.checked = false;
+                    document.getElementById('statusText').textContent = 'Stopped';
+                    document.getElementById('agentStatus').classList.remove('online');
+                    document.getElementById('agentStatus').classList.add('offline');
+                    document.getElementById('agentStatus').querySelector('span:last-child').textContent = 'OFFLINE';
+                }
+            } catch (error) {
+                console.error('Error stopping agent:', error);
+            }
+        }
+
+        async function pauseAgent() {
+            try {
+                const response = await fetch(`${API_URL}/agent/pause`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    document.getElementById('statusText').textContent = 'Paused';
+                }
+            } catch (error) {
+                console.error('Error pausing agent:', error);
+            }
+        }
+
+        async function getAgentStatus() {
+            try {
+                const response = await fetch(`${API_URL}/agent/status`);
+                if (response.ok) {
+                    const data = await response.json();
+                    updateDashboard(data);
+                }
+            } catch (error) {
+                console.error('Error getting agent status:', error);
+            }
+        }
+
+        function updateDashboard(data) {
+            // Update metrics
+            if (data.stats) {
+                document.getElementById('messagesProcessed').textContent = 
+                    data.stats.events_processed?.toLocaleString() || '0';
+                document.getElementById('messagesSent').textContent = 
+                    data.stats.messages_sent?.toLocaleString() || '0';
+                
+                const responseRate = data.stats.events_processed > 0 
+                    ? Math.round((data.stats.messages_sent / data.stats.events_processed) * 100)
+                    : 0;
+                document.getElementById('responseRate').textContent = responseRate + '%';
+            }
+
+            // Update confidence scores
+            if (data.confidence_scores) {
+                const avgConfidence = Object.values(data.confidence_scores)
+                    .reduce((a, b) => a + b, 0) / Object.values(data.confidence_scores).length;
+                document.getElementById('avgConfidence').textContent = 
+                    Math.round(avgConfidence * 100) + '%';
+            }
+        }
+
+        // Event listeners
+        agentToggle.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                startAgent();
+            } else {
+                stopAgent();
+            }
+        });
+
+        digitalTwinToggle.addEventListener('change', updateAgentConfig);
+        autoReplyToggle.addEventListener('change', updateAgentConfig);
+        cooldownSlider.addEventListener('change', updateAgentConfig);
+        confidenceSlider.addEventListener('change', updateAgentConfig);
+
+        startBtn.addEventListener('click', startAgent);
+        pauseBtn.addEventListener('click', pauseAgent);
+        stopBtn.addEventListener('click', stopAgent);
+        resetBtn.addEventListener('click', () => {
+            if (confirm('Reset all statistics?')) {
+                // Reset stats via API
+                fetch(`${API_URL}/agent/reset`, { method: 'POST' })
+                    .then(() => {
+                        document.getElementById('messagesProcessed').textContent = '0';
+                        document.getElementById('messagesSent').textContent = '0';
+                        document.getElementById('responseRate').textContent = '0%';
+                        document.getElementById('avgConfidence').textContent = '0%';
+                        startTime = Date.now();
+                    });
+            }
+        });
+
+        // Poll agent status every 5 seconds
+        setInterval(getAgentStatus, 5000);
+
+        // Initialize
+        connectWebSocket();
+        initCharts();
+        getAgentStatus();
+    </script>
+</body>
+</html>

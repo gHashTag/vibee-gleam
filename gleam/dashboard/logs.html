@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIBEE - Telegram Logs</title>
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #111111;
+            --bg-card: #1a1a2e;
+            --bg-hover: #252550;
+            --text-primary: #e0e0e0;
+            --text-secondary: #8b8b8b;
+            --text-muted: #555555;
+            --accent-green: #00ff88;
+            --accent-red: #ff4444;
+            --accent-blue: #00d4ff;
+            --accent-orange: #ff9800;
+            --accent-purple: #aa00ff;
+            --border-color: #2d3748;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: grid;
+            grid-template-rows: 60px 1fr 40px;
+            height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            gap: 16px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-icon {
+            font-size: 24px;
+        }
+
+        .logo-text {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--accent-green);
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            background: var(--accent-green);
+            color: var(--bg-primary);
+        }
+
+        .status-badge.offline {
+            background: var(--accent-red);
+        }
+
+        /* Main content */
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .controls {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 24px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 300px;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 8px 36px 8px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--accent-green);
+        }
+
+        .search-help {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 12px;
+            cursor: help;
+        }
+
+        .filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        select {
+            padding: 8px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--accent-green);
+        }
+
+        select:hover {
+            border-color: var(--accent-green);
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent-green);
+        }
+
+        .btn.active {
+            background: var(--accent-green);
+            color: var(--bg-primary);
+            border-color: var(--accent-green);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 4px;
+        }
+
+        /* Logs container */
+        .logs-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 24px;
+        }
+
+        .log-entry {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            transition: all 0.2s;
+        }
+
+        .log-entry:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent-green);
+        }
+
+        .log-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .log-time {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .log-chat {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .log-chat-icon {
+            font-size: 14px;
+        }
+
+        .log-chat-name {
+            color: var(--accent-blue);
+            font-weight: 500;
+        }
+
+        .log-chat-id {
+            color: var(--text-muted);
+        }
+
+        .log-user {
+            color: var(--accent-orange);
+            font-weight: 500;
+            font-size: 13px;
+        }
+
+        .log-message {
+            color: var(--text-primary);
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        /* Footer stats */
+        .footer {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            font-size: 12px;
+        }
+
+        .stat {
+            display: flex;
+            gap: 8px;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+        }
+
+        .stat-value {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .connection-status {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        .connection-dot.disconnected {
+            background: var(--accent-red);
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-green);
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: var(--text-primary);
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .tooltip.show {
+            opacity: 1;
+        }
+
+        /* Context menu */
+        .context-menu {
+            position: fixed;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 4px;
+            z-index: 1000;
+            display: none;
+            min-width: 180px;
+        }
+
+        .context-menu.show {
+            display: block;
+        }
+
+        .context-menu-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .context-menu-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .context-menu-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 4px 0;
+        }
+
+        /* Export modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            color: var(--accent-green);
+        }
+
+        .modal-body {
+            margin-bottom: 16px;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Highlight */
+        .highlight {
+            background: var(--accent-orange);
+            color: var(--bg-primary);
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <span class="logo-icon">🐝</span>
+                <span class="logo-text">VIBEE</span>
+            </div>
+            <span class="status-badge" id="statusBadge">ONLINE</span>
+        </div>
+
+        <div class="main-content">
+            <div class="controls">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="🔍 Search: text, user:name, chat:id, /regex/">
+                    <span class="search-help" title="Search help: user:Rose, chat:VIBEE, /pattern/i">?</span>
+                </div>
+                
+                <div class="filters">
+                    <select id="chatTypeFilter">
+                        <option value="all">All Chats</option>
+                        <option value="groups">Groups Only</option>
+                        <option value="private">Private Only</option>
+                        <option value="system">System Only</option>
+                    </select>
+                    
+                    <select id="timeRangeFilter">
+                        <option value="all">All Time</option>
+                        <option value="5m">Last 5 min</option>
+                        <option value="15m">Last 15 min</option>
+                        <option value="1h">Last 1 hour</option>
+                        <option value="6h">Last 6 hours</option>
+                        <option value="24h">Last 24 hours</option>
+                    </select>
+                </div>
+                
+                <div class="btn-group">
+                    <button class="btn" id="exportBtn">📥 Export</button>
+                    <button class="btn" id="clearBtn">🗑 Clear</button>
+                    <button class="btn" id="pauseBtn">⏸ Pause</button>
+                </div>
+            </div>
+
+            <div class="logs-container" id="logsContainer">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📡</div>
+                    <p>Connecting to WebSocket...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="stat">
+                <span class="stat-label">Total:</span>
+                <span class="stat-value" id="totalLogs">0</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Chats:</span>
+                <span class="stat-value" id="uniqueChats">0</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Rate:</span>
+                <span class="stat-value" id="messageRate">0/min</span>
+            </div>
+            <div class="connection-status">
+                <div class="connection-dot" id="connectionDot"></div>
+                <span id="connectionStatus">Connecting...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="contextMenu">
+        <div class="context-menu-item" data-action="copy-message">📋 Copy Message</div>
+        <div class="context-menu-item" data-action="copy-full">📄 Copy Full Log</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" data-action="filter-chat">🔍 Filter This Chat</div>
+        <div class="context-menu-item" data-action="filter-user">👤 Filter This User</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" data-action="hide-chat">🚫 Hide This Chat</div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal" id="exportModal">
+        <div class="modal-content">
+            <div class="modal-header">📥 Export Logs</div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Format:</label>
+                    <select id="exportFormat">
+                        <option value="json">JSON</option>
+                        <option value="csv">CSV</option>
+                        <option value="txt">TXT</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Range:</label>
+                    <select id="exportRange">
+                        <option value="visible">Visible Logs (filtered)</option>
+                        <option value="all">All Logs</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="exportCancelBtn">Cancel</button>
+                <button class="btn active" id="exportConfirmBtn">Export</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const WS_URL = 'wss://vibee-mcp.fly.dev/ws/logs';
+        
+        let ws = null;
+        let logs = [];
+        let uniqueChats = new Set();
+        let isPaused = false;
+        let searchTerm = '';
+        let messageCount = 0;
+        let startTime = Date.now();
+        let chatTypeFilter = 'all';
+        let timeRangeFilter = 'all';
+        let hiddenChats = new Set();
+        let currentContextLog = null;
+
+        const logsContainer = document.getElementById('logsContainer');
+        const searchInput = document.getElementById('searchInput');
+        const clearBtn = document.getElementById('clearBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const chatTypeFilterEl = document.getElementById('chatTypeFilter');
+        const timeRangeFilterEl = document.getElementById('timeRangeFilter');
+        const totalLogsEl = document.getElementById('totalLogs');
+        const uniqueChatsEl = document.getElementById('uniqueChats');
+        const messageRateEl = document.getElementById('messageRate');
+        const connectionDot = document.getElementById('connectionDot');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const statusBadge = document.getElementById('statusBadge');
+        const contextMenu = document.getElementById('contextMenu');
+        const exportModal = document.getElementById('exportModal');
+        const exportCancelBtn = document.getElementById('exportCancelBtn');
+        const exportConfirmBtn = document.getElementById('exportConfirmBtn');
+
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                connectionDot.classList.remove('disconnected');
+                connectionStatus.textContent = 'Connected';
+                statusBadge.textContent = 'ONLINE';
+                statusBadge.classList.remove('offline');
+                logsContainer.innerHTML = '';
+            };
+
+            ws.onmessage = (event) => {
+                if (isPaused) return;
+
+                try {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                } catch (e) {
+                    console.error('Failed to parse message:', e);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                connectionDot.classList.add('disconnected');
+                connectionStatus.textContent = 'Disconnected';
+                statusBadge.textContent = 'OFFLINE';
+                statusBadge.classList.add('offline');
+                setTimeout(connectWebSocket, 3000);
+            };
+        }
+
+        function handleMessage(data) {
+            // Parse message to extract chat info
+            const message = data.message || '';
+            
+            // Try to parse Telegram message format: 📨 TG: {chatId} {userName}: {text}
+            const match = message.match(/📨 TG: ([-\d]+) ([^:]+): (.+)/);
+            
+            if (match) {
+                const [, chatId, userName, text] = match;
+                addLog({
+                    timestamp: data.timestamp,
+                    chatId: chatId,
+                    chatName: getChatName(chatId),
+                    userName: userName,
+                    message: text
+                });
+            } else if (message.includes('TG:') || message.includes('chat=')) {
+                // Alternative format parsing
+                const chatMatch = message.match(/chat=([-\d]+)/);
+                const userMatch = message.match(/from:(\w+)/);
+                const textMatch = message.match(/text:(.+)/);
+                
+                if (chatMatch) {
+                    addLog({
+                        timestamp: data.timestamp,
+                        chatId: chatMatch[1],
+                        chatName: getChatName(chatMatch[1]),
+                        userName: userMatch ? userMatch[1] : 'Unknown',
+                        message: textMatch ? textMatch[1] : message
+                    });
+                } else {
+                    // Fallback: show as system message
+                    addLog({
+                        timestamp: data.timestamp,
+                        chatId: 'telegram',
+                        chatName: 'Telegram',
+                        userName: data.logger || 'system',
+                        message: message
+                    });
+                }
+            } else {
+                // System message
+                addLog({
+                    timestamp: data.timestamp,
+                    chatId: 'system',
+                    chatName: 'System',
+                    userName: data.logger || 'system',
+                    message: message
+                });
+            }
+        }
+
+        function getChatName(chatId) {
+            // Map known chat IDs to names
+            const chatNames = {
+                '144022504': 'Dmitrii',
+                '412973735': 'Ars Ariiskii',
+                '6579515876': 'VIBEE',
+                '5732975798': 'smkbdh',
+                '777000': 'Telegram',
+                '404348060': 'Yaroslav',
+                '7943369533': 'Andrey Burgart',
+                '8186044428': 'Vadimoov',
+                '8015217158': 'User',
+                '8086601755': 'Nikita',
+                '8363327456': 'Are',
+                '8254825516': 'Marce Ponce',
+                '8274264595': 'Макс Адлер',
+                '8278108744': 'Aleksandr Trubnikov',
+                '-5082217642': 'Aimly.io dev',
+                '-1002737186844': 'VIBEE AGENT',
+                '-1002298297094': 'НейроМентор',
+                '-1002643951085': 'AiStars ОФИС',
+                '-1002090264748': 'Leela Chakra Ai',
+                '-1001890042205': 'Визы в Таиланд',
+                '-1001415573741': 'Таиланд: Новости',
+                '-1001144640997': 'Тай Инфо Чат',
+                '-1001539876002': 'ПАНГАН Полезный',
+                '-1001168690993': 'GAIA',
+                '-1001729610573': 'Нейро Завтрак',
+                '-1001556974299': 'Порыв сердца',
+                '-1001483746067': 'НейроБлогер',
+                '-1001476314188': 'ВАЙБКОДЕР',
+                '-4832231272': 'Контент-завод cocoage',
+                'system': 'System',
+                'telegram': 'Telegram'
+            };
+            return chatNames[chatId] || `Chat ${chatId}`;
+        }
+
+        function addLog(log) {
+            messageCount++;
+            logs.push(log);
+            uniqueChats.add(log.chatId);
+
+            if (logs.length > 1000) {
+                logs.shift();
+            }
+
+            if (matchesAllFilters(log)) {
+                renderLog(log);
+            }
+
+            updateStats();
+        }
+
+        function matchesSearch(log) {
+            if (!searchTerm) return true;
+
+            // Check for field-specific search: user:name, chat:name, message:text
+            const fieldMatch = searchTerm.match(/^(user|chat|message):(.+)$/i);
+            if (fieldMatch) {
+                const [, field, value] = fieldMatch;
+                const lowerValue = value.toLowerCase();
+                switch (field.toLowerCase()) {
+                    case 'user':
+                        return log.userName.toLowerCase().includes(lowerValue);
+                    case 'chat':
+                        return log.chatName.toLowerCase().includes(lowerValue) || 
+                               log.chatId.includes(value);
+                    case 'message':
+                        return log.message.toLowerCase().includes(lowerValue);
+                }
+            }
+
+            // Check for regex search: /pattern/flags
+            const regexMatch = searchTerm.match(/^\/(.+)\/([gimuy]*)$/);
+            if (regexMatch) {
+                try {
+                    const [, pattern, flags] = regexMatch;
+                    const regex = new RegExp(pattern, flags);
+                    return regex.test(log.message) || 
+                           regex.test(log.userName) || 
+                           regex.test(log.chatName);
+                } catch (e) {
+                    console.error('Invalid regex:', e);
+                    return false;
+                }
+            }
+
+            // Default: search in all fields
+            const term = searchTerm.toLowerCase();
+            return log.message.toLowerCase().includes(term) ||
+                   log.userName.toLowerCase().includes(term) ||
+                   log.chatName.toLowerCase().includes(term);
+        }
+
+        function matchesFilters(log) {
+            // Chat type filter
+            if (chatTypeFilter !== 'all') {
+                const isGroup = log.chatId.startsWith('-');
+                const isSystem = log.chatId === 'system' || log.chatId === 'telegram';
+                
+                if (chatTypeFilter === 'groups' && !isGroup) return false;
+                if (chatTypeFilter === 'private' && (isGroup || isSystem)) return false;
+                if (chatTypeFilter === 'system' && !isSystem) return false;
+            }
+
+            // Time range filter
+            if (timeRangeFilter !== 'all') {
+                const now = Date.now();
+                const logTime = new Date(log.timestamp).getTime();
+                const ranges = {
+                    '5m': 5 * 60 * 1000,
+                    '15m': 15 * 60 * 1000,
+                    '1h': 60 * 60 * 1000,
+                    '6h': 6 * 60 * 60 * 1000,
+                    '24h': 24 * 60 * 60 * 1000
+                };
+                if (now - logTime > ranges[timeRangeFilter]) return false;
+            }
+
+            // Hidden chats
+            if (hiddenChats.has(log.chatId)) return false;
+
+            return true;
+        }
+
+        function matchesAllFilters(log) {
+            return matchesSearch(log) && matchesFilters(log);
+        }
+
+        function renderLog(log) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.dataset.logId = logs.indexOf(log);
+
+            const time = new Date(log.timestamp).toLocaleTimeString();
+            const chatIcon = log.chatId.startsWith('-') ? '👥' : (log.chatId === 'system' ? '⚙️' : '👤');
+
+            // Highlight search term
+            let messageHtml = escapeHtml(log.message);
+            if (searchTerm && !searchTerm.startsWith('/') && !searchTerm.includes(':')) {
+                const regex = new RegExp(`(${escapeRegex(searchTerm)})`, 'gi');
+                messageHtml = messageHtml.replace(regex, '<span class="highlight">$1</span>');
+            }
+
+            entry.innerHTML = `
+                <div class="log-header">
+                    <span class="log-time">${time}</span>
+                    <div class="log-chat">
+                        <span class="log-chat-icon">${chatIcon}</span>
+                        <span class="log-chat-name">${escapeHtml(log.chatName)}</span>
+                        <span class="log-chat-id">${log.chatId}</span>
+                    </div>
+                    <span class="log-user">${escapeHtml(log.userName)}</span>
+                </div>
+                <div class="log-message">${messageHtml}</div>
+            `;
+
+            // Context menu
+            entry.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                showContextMenu(e.clientX, e.clientY, log);
+            });
+
+            logsContainer.appendChild(entry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+
+            // Keep only last 100 in DOM
+            while (logsContainer.children.length > 100) {
+                logsContainer.removeChild(logsContainer.firstChild);
+            }
+        }
+
+        function escapeRegex(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function updateStats() {
+            totalLogsEl.textContent = messageCount;
+            uniqueChatsEl.textContent = uniqueChats.size;
+
+            const elapsed = (Date.now() - startTime) / 1000 / 60;
+            const rate = elapsed > 0 ? Math.round(messageCount / elapsed) : 0;
+            messageRateEl.textContent = rate + '/min';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Context menu functions
+        function showContextMenu(x, y, log) {
+            currentContextLog = log;
+            contextMenu.style.left = x + 'px';
+            contextMenu.style.top = y + 'px';
+            contextMenu.classList.add('show');
+        }
+
+        function hideContextMenu() {
+            contextMenu.classList.remove('show');
+            currentContextLog = null;
+        }
+
+        // Export functions
+        function exportLogs(format, range) {
+            const logsToExport = range === 'all' ? logs : logs.filter(matchesAllFilters);
+            
+            let content, filename, mimeType;
+            
+            switch (format) {
+                case 'json':
+                    content = JSON.stringify(logsToExport, null, 2);
+                    filename = `vibee-logs-${Date.now()}.json`;
+                    mimeType = 'application/json';
+                    break;
+                    
+                case 'csv':
+                    const headers = 'Timestamp,Chat ID,Chat Name,User,Message\n';
+                    const rows = logsToExport.map(log => 
+                        `"${log.timestamp}","${log.chatId}","${log.chatName}","${log.userName}","${log.message.replace(/"/g, '""')}"`
+                    ).join('\n');
+                    content = headers + rows;
+                    filename = `vibee-logs-${Date.now()}.csv`;
+                    mimeType = 'text/csv';
+                    break;
+                    
+                case 'txt':
+                    content = logsToExport.map(log => {
+                        const time = new Date(log.timestamp).toLocaleString();
+                        return `[${time}] ${log.chatName} (${log.chatId}) - ${log.userName}: ${log.message}`;
+                    }).join('\n');
+                    filename = `vibee-logs-${Date.now()}.txt`;
+                    mimeType = 'text/plain';
+                    break;
+            }
+            
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                console.log('Copied to clipboard');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        }
+
+        function refreshLogs() {
+            logsContainer.innerHTML = '';
+            logs.filter(matchesAllFilters).forEach(renderLog);
+        }
+
+        // Event listeners
+        searchInput.addEventListener('input', (e) => {
+            searchTerm = e.target.value;
+            refreshLogs();
+        });
+
+        chatTypeFilterEl.addEventListener('change', (e) => {
+            chatTypeFilter = e.target.value;
+            refreshLogs();
+        });
+
+        timeRangeFilterEl.addEventListener('change', (e) => {
+            timeRangeFilter = e.target.value;
+            refreshLogs();
+        });
+
+        clearBtn.addEventListener('click', () => {
+            logs = [];
+            logsContainer.innerHTML = '';
+            messageCount = 0;
+            uniqueChats.clear();
+            hiddenChats.clear();
+            startTime = Date.now();
+            updateStats();
+        });
+
+        pauseBtn.addEventListener('click', () => {
+            isPaused = !isPaused;
+            pauseBtn.textContent = isPaused ? '▶ Resume' : '⏸ Pause';
+        });
+
+        exportBtn.addEventListener('click', () => {
+            exportModal.classList.add('show');
+        });
+
+        exportCancelBtn.addEventListener('click', () => {
+            exportModal.classList.remove('show');
+        });
+
+        exportConfirmBtn.addEventListener('click', () => {
+            const format = document.getElementById('exportFormat').value;
+            const range = document.getElementById('exportRange').value;
+            exportLogs(format, range);
+            exportModal.classList.remove('show');
+        });
+
+        // Context menu actions
+        contextMenu.addEventListener('click', (e) => {
+            const item = e.target.closest('.context-menu-item');
+            if (!item || !currentContextLog) return;
+
+            const action = item.dataset.action;
+            const log = currentContextLog;
+
+            switch (action) {
+                case 'copy-message':
+                    copyToClipboard(log.message);
+                    break;
+                case 'copy-full':
+                    const fullLog = `[${new Date(log.timestamp).toLocaleString()}] ${log.chatName} (${log.chatId}) - ${log.userName}: ${log.message}`;
+                    copyToClipboard(fullLog);
+                    break;
+                case 'filter-chat':
+                    searchInput.value = `chat:${log.chatName}`;
+                    searchTerm = searchInput.value;
+                    refreshLogs();
+                    break;
+                case 'filter-user':
+                    searchInput.value = `user:${log.userName}`;
+                    searchTerm = searchInput.value;
+                    refreshLogs();
+                    break;
+                case 'hide-chat':
+                    hiddenChats.add(log.chatId);
+                    refreshLogs();
+                    break;
+            }
+
+            hideContextMenu();
+        });
+
+        // Close context menu on click outside
+        document.addEventListener('click', hideContextMenu);
+
+        // Close modal on click outside
+        exportModal.addEventListener('click', (e) => {
+            if (e.target === exportModal) {
+                exportModal.classList.remove('show');
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+F - Focus search
+            if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault();
+                searchInput.focus();
+            }
+            // Ctrl+K - Clear logs
+            if (e.ctrlKey && e.key === 'k') {
+                e.preventDefault();
+                clearBtn.click();
+            }
+            // Space - Pause/Resume
+            if (e.code === 'Space' && e.target === document.body) {
+                e.preventDefault();
+                pauseBtn.click();
+            }
+            // Ctrl+E - Export
+            if (e.ctrlKey && e.key === 'e') {
+                e.preventDefault();
+                exportBtn.click();
+            }
+            // Escape - Close modals/reset filters
+            if (e.key === 'Escape') {
+                if (exportModal.classList.contains('show')) {
+                    exportModal.classList.remove('show');
+                } else if (contextMenu.classList.contains('show')) {
+                    hideContextMenu();
+                } else {
+                    searchInput.value = '';
+                    searchTerm = '';
+                    chatTypeFilterEl.value = 'all';
+                    chatTypeFilter = 'all';
+                    timeRangeFilterEl.value = 'all';
+                    timeRangeFilter = 'all';
+                    hiddenChats.clear();
+                    refreshLogs();
+                }
+            }
+        });
+
+        // Initialize
+        connectWebSocket();
+    </script>
+</body>
+</html>
