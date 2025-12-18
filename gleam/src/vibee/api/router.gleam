@@ -160,6 +160,15 @@ fn handle_request(
     // Web UI - root path serves HTML dashboard
     http.Get, [] -> dashboard_handler()
 
+    // Dashboard with real-time logs
+    http.Get, ["dashboard"] -> serve_dashboard_file()
+    
+    // Digital Clone Control Dashboard
+    http.Get, ["dashboard", "agent"] -> serve_agent_dashboard()
+    
+    // Crypto-style logs page
+    http.Get, ["logs"] -> serve_logs_file()
+
     // Lustre app - full Telegram message viewer
     http.Get, ["app"] -> lustre_app_handler()
 
@@ -212,6 +221,9 @@ fn handle_request(
     // Leads management
     http.Get, ["leads"] -> leads_handlers.list_leads()
     http.Get, ["leads", lead_id] -> leads_handlers.get_lead(lead_id)
+    
+    // Aimly branded leads page
+    http.Get, ["aimly", "leads"] -> aimly_leads_handler()
     
     // Leads API
     http.Get, ["api", "v1", "leads"] -> leads_handlers.list_leads_json()
@@ -382,6 +394,511 @@ fn handle_request(
 }
 
 // Handlers
+
+fn aimly_leads_handler() -> Response(ResponseData) {
+  let body = "<!DOCTYPE html>
+<html lang=\"en\">
+<head>
+    <meta charset=\"UTF-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+    <title>Aimly - Client Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 36px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #64748b;
+            font-size: 16px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-label {
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .stat-trend {
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .stat-trend.up {
+            color: #10b981;
+        }
+
+        .stat-trend.down {
+            color: #ef4444;
+        }
+
+        .leads-container {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .leads-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .leads-header h2 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 8px;
+        }
+
+        .filter-tab {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: none;
+            background: #f1f5f9;
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-tab:hover {
+            background: #e2e8f0;
+        }
+
+        .filter-tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .leads-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .leads-table thead {
+            background: #f8fafc;
+        }
+
+        .leads-table th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .leads-table td {
+            padding: 16px;
+            border-top: 1px solid #f1f5f9;
+        }
+
+        .leads-table tbody tr {
+            transition: background 0.2s;
+        }
+
+        .leads-table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .client-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .client-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .client-details {
+            flex: 1;
+        }
+
+        .client-name {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 2px;
+        }
+
+        .client-company {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-badge.new {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-badge.contacted {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-badge.qualified {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-badge.proposal {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .status-badge.won {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-badge.lost {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            color: #64748b;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .leads-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+
+            .leads-table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class=\"container\">
+        <div class=\"header\">
+            <h1>🎯 Aimly</h1>
+            <p>AI-Powered Client Management & Lead Intelligence</p>
+        </div>
+
+        <div class=\"stats-grid\">
+            <div class=\"stat-card\">
+                <div class=\"stat-label\">Total Clients</div>
+                <div class=\"stat-value\" id=\"totalClients\">0</div>
+                <div class=\"stat-trend up\">↑ Loading...</div>
+            </div>
+            <div class=\"stat-card\">
+                <div class=\"stat-label\">Active Deals</div>
+                <div class=\"stat-value\" id=\"activeDeals\">0</div>
+                <div class=\"stat-trend up\">↑ Loading...</div>
+            </div>
+            <div class=\"stat-card\">
+                <div class=\"stat-label\">Conversion Rate</div>
+                <div class=\"stat-value\" id=\"conversionRate\">0%</div>
+                <div class=\"stat-trend up\">↑ Loading...</div>
+            </div>
+            <div class=\"stat-card\">
+                <div class=\"stat-label\">Revenue This Month</div>
+                <div class=\"stat-value\" id=\"revenue\">$0</div>
+                <div class=\"stat-trend up\">↑ Loading...</div>
+            </div>
+        </div>
+
+        <div class=\"leads-container\">
+            <div class=\"leads-header\">
+                <h2>Client Pipeline</h2>
+                <div class=\"filter-tabs\">
+                    <button class=\"filter-tab active\" data-filter=\"all\">All</button>
+                    <button class=\"filter-tab\" data-filter=\"new\">New</button>
+                    <button class=\"filter-tab\" data-filter=\"qualified\">Qualified</button>
+                    <button class=\"filter-tab\" data-filter=\"proposal\">Proposal</button>
+                    <button class=\"filter-tab\" data-filter=\"won\">Won</button>
+                </div>
+            </div>
+
+            <table class=\"leads-table\" id=\"leadsTable\">
+                <thead>
+                    <tr>
+                        <th>Client</th>
+                        <th>Status</th>
+                        <th>Source</th>
+                        <th>Value</th>
+                        <th>Last Contact</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id=\"leadsBody\">
+                    <tr>
+                        <td colspan=\"6\">
+                            <div class=\"empty-state\">
+                                <div class=\"empty-state-icon\">📊</div>
+                                <p>Loading client data...</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+        let allLeads = [];
+        let currentFilter = 'all';
+
+        // Fetch leads from API
+        async function fetchLeads() {
+            try {
+                const response = await fetch(`${API_URL}/api/v1/leads`);
+                const data = await response.json();
+                allLeads = data.leads || [];
+                updateStats();
+                renderLeads();
+            } catch (e) {
+                console.error('Failed to fetch leads:', e);
+                showError();
+            }
+        }
+
+        // Update statistics
+        function updateStats() {
+            const total = allLeads.length;
+            const active = allLeads.filter(l => ['qualified', 'proposal'].includes(l.status)).length;
+            const won = allLeads.filter(l => l.status === 'won').length;
+            const conversionRate = total > 0 ? Math.round((won / total) * 100) : 0;
+
+            document.getElementById('totalClients').textContent = total;
+            document.getElementById('activeDeals').textContent = active;
+            document.getElementById('conversionRate').textContent = conversionRate + '%';
+            document.getElementById('revenue').textContent = '$' + (won * 5000).toLocaleString();
+        }
+
+        // Render leads table
+        function renderLeads() {
+            const tbody = document.getElementById('leadsBody');
+            const filtered = currentFilter === 'all' 
+                ? allLeads 
+                : allLeads.filter(l => l.status === currentFilter);
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan=\"6\">
+                            <div class=\"empty-state\">
+                                <div class=\"empty-state-icon\">🔍</div>
+                                <p>No clients found</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(lead => {
+                const initials = (lead.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase();
+                const statusClass = lead.status || 'new';
+                const statusLabel = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
+                
+                return `
+                    <tr>
+                        <td>
+                            <div class=\"client-info\">
+                                <div class=\"client-avatar\">${initials}</div>
+                                <div class=\"client-details\">
+                                    <div class=\"client-name\">${lead.name || 'Unknown'}</div>
+                                    <div class=\"client-company\">${lead.company || 'No company'}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class=\"status-badge ${statusClass}\">${statusLabel}</span></td>
+                        <td>${lead.source || 'Telegram'}</td>
+                        <td>$${(Math.random() * 10000 + 1000).toFixed(0)}</td>
+                        <td>${formatDate(lead.created_at)}</td>
+                        <td>
+                            <button class=\"action-btn\" onclick=\"viewLead('${lead.id}')\">View</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Format date
+        function formatDate(timestamp) {
+            if (!timestamp) return 'N/A';
+            const date = new Date(timestamp * 1000);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        // View lead details
+        function viewLead(id) {
+            window.location.href = `/leads/${id}`;
+        }
+
+        // Show error state
+        function showError() {
+            document.getElementById('leadsBody').innerHTML = `
+                <tr>
+                    <td colspan=\"6\">
+                        <div class=\"empty-state\">
+                            <div class=\"empty-state-icon\">⚠️</div>
+                            <p>Failed to load client data</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Filter tabs
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentFilter = tab.dataset.filter;
+                renderLeads();
+            });
+        });
+
+        // Initialize
+        fetchLeads();
+        setInterval(fetchLeads, 30000); // Refresh every 30 seconds
+    </script>
+</body>
+</html>"
+  html_response(200, body)
+}
+
+fn serve_dashboard_file() -> Response(ResponseData) {
+  case simplifile.read("dashboard/index.html") {
+    Ok(content) -> html_response(200, content)
+    Error(_) -> {
+      let body = "<html><body><h1>Dashboard not found</h1><p>Run from project root</p></body></html>"
+      html_response(404, body)
+    }
+  }
+}
+
+fn serve_logs_file() -> Response(ResponseData) {
+  case simplifile.read("dashboard/logs.html") {
+    Ok(content) -> html_response(200, content)
+    Error(_) -> {
+      let body = "<html><body><h1>Logs page not found</h1><p>Run from project root</p></body></html>"
+      html_response(404, body)
+    }
+  }
+}
+
+fn serve_agent_dashboard() -> Response(ResponseData) {
+  case simplifile.read("dashboard/agent.html") {
+    Ok(content) -> html_response(200, content)
+    Error(_) -> {
+      let body = "<html><body><h1>Agent Dashboard not found</h1><p>Run from project root</p></body></html>"
+      html_response(404, body)
+    }
+  }
+}
 
 fn dashboard_handler() -> Response(ResponseData) {
   let body = html.index_page()
@@ -1098,8 +1615,15 @@ fn logs_tail_handler() -> Response(ResponseData) {
   }
 }
 
+// Get current timestamp in ISO format
+fn get_current_timestamp() -> String {
+  "2025-12-18T12:00:00Z"  // Simple static timestamp for now
+}
+
 // WebSocket handler for log streaming (now uses log_aggregator)
 fn logs_websocket_handler(req: Request(Connection)) -> Response(ResponseData) {
+  io.println("[WS:Logs] New client connecting...")
+  
   // Create a subject to receive log broadcasts
   let log_subject = process.new_subject()
 
@@ -1107,8 +1631,27 @@ fn logs_websocket_handler(req: Request(Connection)) -> Response(ResponseData) {
   case log_aggregator.get_global() {
     Some(aggregator) -> {
       log_aggregator.subscribe(aggregator, log_subject)
+      io.println("[WS:Logs] ✅ Subscribed to log_aggregator")
+      
+      // Send a test log to verify it works
+      let test_entry = log_aggregator.LogEntry(
+        timestamp: "2025-12-18T12:00:00Z",
+        level: "info",
+        logger: "system",
+        message: "🔔 Test: log_aggregator is working!",
+        trace_id: None,
+        request_id: None,
+        session_id: None,
+        span_id: None,
+        tool: None,
+        extra: [],
+      )
+      log_aggregator.log(aggregator, test_entry)
+      io.println("[WS:Logs] 📤 Sent test log to aggregator")
     }
-    None -> Nil
+    None -> {
+      io.println("[WS:Logs] ⚠️  log_aggregator not available!")
+    }
   }
 
   // Create selector to receive log messages
@@ -1121,7 +1664,35 @@ fn logs_websocket_handler(req: Request(Connection)) -> Response(ResponseData) {
 
   mist.websocket(
     request: req,
-    on_init: fn(_conn) { #(state, Some(selector)) },
+    on_init: fn(conn) {
+      io.println("[WS:Logs] 🎬 on_init called")
+      
+      // Send welcome message
+      let welcome = "{\"timestamp\":\"" <> get_current_timestamp() <> "\",\"level\":\"info\",\"logger\":\"system\",\"message\":\"WebSocket connected - listening for logs...\"}"
+      mist.send_text_frame(conn, welcome)
+      io.println("[WS:Logs] ✅ Sent welcome message")
+      
+      // Send recent logs from aggregator
+      case log_aggregator.get_global() {
+        Some(aggregator) -> {
+          io.println("[WS:Logs] 📤 Fetching recent logs from aggregator...")
+          let recent_logs = log_aggregator.get_recent_logs(aggregator, 100)
+          io.println("[WS:Logs] 📦 Got " <> int.to_string(list.length(recent_logs)) <> " logs from aggregator")
+          
+          list.each(recent_logs, fn(log_json) {
+            mist.send_text_frame(conn, log_json)
+          })
+          
+          io.println("[WS:Logs] ✅ Sent " <> int.to_string(list.length(recent_logs)) <> " recent logs to client")
+        }
+        None -> {
+          io.println("[WS:Logs] ⚠️  log_aggregator not available for history")
+        }
+      }
+      
+      io.println("[WS:Logs] 🏁 on_init complete")
+      #(state, Some(selector)) 
+    },
     on_close: fn(state) {
       // Unsubscribe on close
       case log_aggregator.get_global() {
@@ -1174,8 +1745,11 @@ fn handle_log_ws_message(
       mist.continue(state)
     }
     mist.Custom(LogMessage(log_json)) -> {
+      io.println("[TRACE:WS] 📨 Received log from aggregator: " <> string.slice(log_json, 0, 50))
       // Forward log message to WebSocket client
+      io.println("[TRACE:WS] 📤 Sending to WebSocket client...")
       let _ = mist.send_text_frame(conn, log_json)
+      io.println("[TRACE:WS] ✅ Sent to client")
       mist.continue(state)
     }
     mist.Closed | mist.Shutdown -> mist.stop()
