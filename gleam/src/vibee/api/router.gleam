@@ -201,6 +201,9 @@ fn handle_request(
     http.Get, ["api", "v1", "telegram", "history", chat_id] -> telegram_history_handler(chat_id)
     http.Get, ["api", "v1", "telegram", "all-messages"] -> telegram_all_messages_handler()
 
+    // Agent API
+    http.Get, ["api", "agent", "status"] -> agent_status_handler()
+    
     // Logs page - real-time log viewer
     http.Get, ["logs"] -> logs_page_handler()
     http.Get, ["api", "v1", "logs", "tail"] -> logs_tail_handler()
@@ -1057,6 +1060,31 @@ fn generate_demo_variants(limit: Int) -> List(#(String, Int, #(String, String, S
   })
 
   list.take(sorted, limit)
+}
+
+fn agent_status_handler() -> Response(ResponseData) {
+  let body = json.object([
+    #("id", json.string("vibee_agent_1")),
+    #("status", json.string("running")),
+    #("stats", json.object([
+      #("events_processed", json.int(0)),
+      #("messages_sent", json.int(0)),
+      #("tasks_completed", json.int(0)),
+      #("tasks_failed", json.int(0)),
+      #("uptime_seconds", json.int(0)),
+    ])),
+    #("confidence_scores", json.object([
+      #("code_generate", json.float(0.8)),
+      #("code_refactor", json.float(0.75)),
+      #("test_run", json.float(0.85)),
+      #("test_create", json.float(0.7)),
+      #("debug_build", json.float(0.9)),
+      #("debug_analyze", json.float(0.75)),
+      #("debug_fix", json.float(0.65)),
+    ])),
+  ])
+
+  json_response(200, body)
 }
 
 fn health_handler() -> Response(ResponseData) {
