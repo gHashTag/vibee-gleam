@@ -157,7 +157,7 @@ fn get_history_page(
 
 /// Экспортировать ВСЕ диалоги с юзерами
 pub fn export_all_user_dialogs(config: ExportConfig) -> ExportResult {
-  logging.info("Starting full dialog export...")
+  logging.quick_info("Starting full dialog export...")
 
   // Создаём директорию
   let _ = simplifile.create_directory_all(config.output_dir)
@@ -173,16 +173,16 @@ pub fn export_all_user_dialogs(config: ExportConfig) -> ExportResult {
     d.dialog_type == "user"
   })
 
-  logging.info("Found " <> int.to_string(list.length(user_dialogs)) <> " user dialogs")
+  logging.quick_info("Found " <> int.to_string(list.length(user_dialogs)) <> " user dialogs")
 
   // Экспортируем каждый диалог
   let results = list.index_map(user_dialogs, fn(dialog, idx) {
     let progress = "[" <> int.to_string(idx + 1) <> "/" <> int.to_string(list.length(user_dialogs)) <> "]"
-    logging.info(progress <> " Exporting: " <> dialog.title)
+    logging.quick_info(progress <> " Exporting: " <> dialog.title)
 
     // Скачиваем полную историю
     let messages = get_full_history(config, dialog.id)
-    logging.info("  Downloaded " <> int.to_string(list.length(messages)) <> " messages")
+    logging.quick_info("  Downloaded " <> int.to_string(list.length(messages)) <> " messages")
 
     // Сохраняем в файл
     let filename = config.output_dir <> "/" <> dialog.id <> ".json"
@@ -202,9 +202,9 @@ pub fn export_all_user_dialogs(config: ExportConfig) -> ExportResult {
     f
   })
 
-  logging.info("Export complete!")
-  logging.info("  Dialogs: " <> int.to_string(list.length(results)))
-  logging.info("  Messages: " <> int.to_string(total_messages))
+  logging.quick_info("Export complete!")
+  logging.quick_info("  Dialogs: " <> int.to_string(list.length(results)))
+  logging.quick_info("  Messages: " <> int.to_string(total_messages))
 
   ExportResult(
     dialog_count: list.length(results),
@@ -215,7 +215,7 @@ pub fn export_all_user_dialogs(config: ExportConfig) -> ExportResult {
 
 /// Экспортировать ВСЕ диалоги (включая группы и каналы)
 pub fn export_all_dialogs(config: ExportConfig) -> ExportResult {
-  logging.info("Starting FULL export (all dialogs)...")
+  logging.quick_info("Starting FULL export (all dialogs)...")
 
   let _ = simplifile.create_directory_all(config.output_dir)
 
@@ -224,21 +224,21 @@ pub fn export_all_dialogs(config: ExportConfig) -> ExportResult {
     Error(_) -> []
   }
 
-  logging.info("Found " <> int.to_string(list.length(dialogs)) <> " total dialogs")
+  logging.quick_info("Found " <> int.to_string(list.length(dialogs)) <> " total dialogs")
 
   let results = list.index_map(dialogs, fn(dialog, idx) {
     let progress = "[" <> int.to_string(idx + 1) <> "/" <> int.to_string(list.length(dialogs)) <> "]"
-    logging.info(progress <> " " <> dialog.title <> " (" <> dialog.dialog_type <> ")")
+    logging.quick_info(progress <> " " <> dialog.title <> " (" <> dialog.dialog_type <> ")")
 
     // Пропускаем каналы с большим количеством непрочитанных (спам)
     case dialog.unread_count > 5000 {
       True -> {
-        logging.info("  [SKIP] Too many unread: " <> int.to_string(dialog.unread_count))
+        logging.quick_info("  [SKIP] Too many unread: " <> int.to_string(dialog.unread_count))
         #(dialog.id, 0, "")
       }
       False -> {
         let messages = get_full_history(config, dialog.id)
-        logging.info("  Downloaded " <> int.to_string(list.length(messages)) <> " messages")
+        logging.quick_info("  Downloaded " <> int.to_string(list.length(messages)) <> " messages")
 
         let filename = config.output_dir <> "/" <> dialog.id <> ".json"
         let json_content = dialog_to_json(dialog, messages)
@@ -264,9 +264,9 @@ pub fn export_all_dialogs(config: ExportConfig) -> ExportResult {
     }
   })
 
-  logging.info("Export complete!")
-  logging.info("  Dialogs: " <> int.to_string(list.length(files)))
-  logging.info("  Messages: " <> int.to_string(total_messages))
+  logging.quick_info("Export complete!")
+  logging.quick_info("  Dialogs: " <> int.to_string(list.length(files)))
+  logging.quick_info("  Messages: " <> int.to_string(total_messages))
 
   ExportResult(
     dialog_count: list.length(files),

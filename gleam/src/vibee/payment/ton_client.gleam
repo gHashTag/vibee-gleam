@@ -134,7 +134,7 @@ pub fn find_payment_by_comment(
   case config.api_key {
     "" -> Error("TON_API_KEY not configured")
     _ -> {
-      logging.info("[TON] Searching for payment with comment: " <> expected_comment)
+      logging.quick_info("[TON] Searching for payment with comment: " <> expected_comment)
 
       // In production, this would make HTTP request to TON Center API
       // For now, return mock not found (actual implementation needs hackney/httpc)
@@ -157,7 +157,7 @@ pub fn verify_transaction(
   case config.api_key {
     "" -> Error("TON_API_KEY not configured")
     _ -> {
-      logging.info("[TON] Verifying transaction: " <> tx_hash)
+      logging.quick_info("[TON] Verifying transaction: " <> tx_hash)
 
       // In production, verify via TON Center API
       // GET /getTransactions with address and check tx hash
@@ -196,7 +196,7 @@ pub fn create_usdt_payment(
       let deep_link = generate_tonkeeper_usdt_link(wallet, amount_usdt, inv_id)
       let web_link = generate_tonkeeper_web_link(wallet, amount_usdt, inv_id, True)
 
-      logging.info("[TON] Created USDT payment link for inv_id: " <> inv_id <> ", amount: $" <> float.to_string(amount_usdt))
+      logging.quick_info("[TON] Created USDT payment link for inv_id: " <> inv_id <> ", amount: $" <> float.to_string(amount_usdt))
 
       Ok(PaymentLinkResult(
         deep_link: deep_link,
@@ -223,7 +223,7 @@ pub fn create_ton_payment(
       let deep_link = generate_tonkeeper_ton_link(wallet, amount_ton, inv_id)
       let web_link = generate_tonkeeper_web_link(wallet, amount_ton, inv_id, False)
 
-      logging.info("[TON] Created TON payment link for inv_id: " <> inv_id <> ", amount: " <> float.to_string(amount_ton) <> " TON")
+      logging.quick_info("[TON] Created TON payment link for inv_id: " <> inv_id <> ", amount: " <> float.to_string(amount_ton) <> " TON")
 
       Ok(PaymentLinkResult(
         deep_link: deep_link,

@@ -26,7 +26,7 @@ pub fn start_healing(task_id: String) -> Result(Task, String) {
   case task_store.get(task_id) {
     None -> Error("Task not found: " <> task_id)
     Some(task) -> {
-      logging.info("[HEALING] Starting healing for task: " <> task_id)
+      logging.quick_info("[HEALING] Starting healing for task: " <> task_id)
 
       // Take snapshots of current files
       let snapshots = take_snapshots(task.context.files)
@@ -50,7 +50,7 @@ pub fn apply_fix(task_id: String, fix: SuggestedFix) -> Result(AppliedFix, Strin
   case task_store.get(task_id) {
     None -> Error("Task not found: " <> task_id)
     Some(task) -> {
-      logging.info("[HEALING] Applying fix: " <> fix.id <> " to " <> fix.file_path)
+      logging.quick_info("[HEALING] Applying fix: " <> fix.id <> " to " <> fix.file_path)
 
       // Take snapshot before applying
       let snapshot = take_snapshot(fix.file_path)
@@ -78,7 +78,7 @@ pub fn apply_fix(task_id: String, fix: SuggestedFix) -> Result(AppliedFix, Strin
               case write_file_ffi(fix.file_path, new_content) {
                 Error(e) -> Error("Failed to write file: " <> e)
                 Ok(_) -> {
-                  logging.info("[HEALING] Fix applied successfully")
+                  logging.quick_info("[HEALING] Fix applied successfully")
 
                   // Update snapshots
                   let new_snapshot = FileSnapshot(
@@ -123,7 +123,7 @@ pub fn verify_fix(task_id: String, fix_id: String) -> Result(Bool, String) {
   case task_store.get(task_id) {
     None -> Error("Task not found: " <> task_id)
     Some(task) -> {
-      logging.info("[HEALING] Verifying fix: " <> fix_id)
+      logging.quick_info("[HEALING] Verifying fix: " <> fix_id)
 
       // Run build to check
       let build_result = run_build_ffi(get_project_path(task))
@@ -137,7 +137,7 @@ pub fn verify_fix(task_id: String, fix_id: String) -> Result(Bool, String) {
         False -> count_errors(build_result.output)
       }))
 
-      logging.info("[HEALING] Verification result: " <> case success {
+      logging.quick_info("[HEALING] Verification result: " <> case success {
         True -> "SUCCESS"
         False -> "FAILED"
       })
@@ -152,7 +152,7 @@ pub fn rollback(task_id: String, fix_id: String) -> Result(Nil, String) {
   case task_store.get(task_id) {
     None -> Error("Task not found: " <> task_id)
     Some(task) -> {
-      logging.info("[HEALING] Rolling back fix: " <> fix_id)
+      logging.quick_info("[HEALING] Rolling back fix: " <> fix_id)
 
       // Find the fix that was applied
       let maybe_fix = list.find(task.context.fixes_applied, fn(f) {
@@ -175,7 +175,7 @@ pub fn rollback(task_id: String, fix_id: String) -> Result(Nil, String) {
               case write_file_ffi(file_path, snapshot.content) {
                 Error(e) -> Error("Failed to restore file: " <> e)
                 Ok(_) -> {
-                  logging.info("[HEALING] Rolled back to original: " <> file_path)
+                  logging.quick_info("[HEALING] Rolled back to original: " <> file_path)
 
                   // Update task
                   let _ = task_store.add_event(task_id,
@@ -198,7 +198,7 @@ pub fn rollback_all(task_id: String) -> Result(Int, String) {
   case task_store.get(task_id) {
     None -> Error("Task not found: " <> task_id)
     Some(task) -> {
-      logging.info("[HEALING] Rolling back all changes for task: " <> task_id)
+      logging.quick_info("[HEALING] Rolling back all changes for task: " <> task_id)
 
       let rolled_back = list.fold(task.context.original_snapshots, 0, fn(count, snapshot) {
         case write_file_ffi(snapshot.path, snapshot.content) {
@@ -207,7 +207,7 @@ pub fn rollback_all(task_id: String) -> Result(Int, String) {
         }
       })
 
-      logging.info("[HEALING] Rolled back " <> int.to_string(rolled_back) <> " files")
+      logging.quick_info("[HEALING] Rolled back " <> int.to_string(rolled_back) <> " files")
       Ok(rolled_back)
     }
   }

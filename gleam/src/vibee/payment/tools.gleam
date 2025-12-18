@@ -153,7 +153,7 @@ pub fn handle_payment_create(args: json.Json) -> ToolResult {
       let method = payment_types.method_from_string(method_str)
       let description = option.unwrap(description_opt, "VIBEE top-up")
 
-      logging.info("[PAYMENT] Creating payment: method=" <> method_str <> ", amount=" <> float.to_string(amount))
+      logging.quick_info("[PAYMENT] Creating payment: method=" <> method_str <> ", amount=" <> float.to_string(amount))
 
       // Initialize payment store
       init_payment_store()
@@ -178,7 +178,7 @@ pub fn handle_payment_status(args: json.Json) -> ToolResult {
   case get_string_field(args, "inv_id") {
     None -> protocol.error_result("Missing required field: inv_id")
     Some(inv_id) -> {
-      logging.info("[PAYMENT] Getting status for: " <> inv_id)
+      logging.quick_info("[PAYMENT] Getting status for: " <> inv_id)
 
       case get_payment(inv_id) {
         Ok(payment_map) -> {
@@ -197,7 +197,7 @@ pub fn handle_payment_verify(args: json.Json) -> ToolResult {
 
   case method_opt, inv_id_opt {
     Some(method_str), Some(inv_id) -> {
-      logging.info("[PAYMENT] Verifying payment: " <> inv_id <> " via " <> method_str)
+      logging.quick_info("[PAYMENT] Verifying payment: " <> inv_id <> " via " <> method_str)
 
       case method_str {
         "robokassa" -> verify_robokassa_payment(args, inv_id)
@@ -215,7 +215,7 @@ pub fn handle_balance_get(args: json.Json) -> ToolResult {
   case get_int_field(args, "telegram_id") {
     None -> protocol.error_result("Missing required field: telegram_id")
     Some(telegram_id) -> {
-      logging.info("[PAYMENT] Getting balance for telegram_id: " <> int.to_string(telegram_id))
+      logging.quick_info("[PAYMENT] Getting balance for telegram_id: " <> int.to_string(telegram_id))
 
       let balance = get_user_balance(telegram_id)
 

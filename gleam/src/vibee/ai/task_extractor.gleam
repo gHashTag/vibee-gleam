@@ -298,7 +298,7 @@ fn create_tasks_in_db(
     // Check for duplicate task (same title + dialog)
     case is_duplicate_task(pool, task.title, dialog_id) {
       True -> {
-        logging.info("Skipping duplicate task: " <> task.title)
+        logging.quick_info("Skipping duplicate task: " <> task.title)
         Error("Duplicate task skipped: " <> task.title)
       }
       False -> {
@@ -531,7 +531,7 @@ fn parse_openrouter_response_with_usage(
 
   case json.parse(response_body, envelope_decoder) {
     Error(_) -> {
-      logging.warn("Failed to parse OpenRouter response: " <> response_body)
+      logging.quick_warn("Failed to parse OpenRouter response: " <> response_body)
       Error(ExtractorParseError("Failed to parse OpenRouter response envelope"))
     }
     Ok(#([], usage)) -> Ok(#([], usage))
@@ -583,7 +583,7 @@ fn parse_tasks_json(
   case json.parse(text, tasks_decoder) {
     Ok(tasks) -> Ok(tasks)
     Error(_) -> {
-      logging.warn("Failed to parse tasks JSON: " <> text)
+      logging.quick_warn("Failed to parse tasks JSON: " <> text)
       Error(ExtractorParseError("Failed to parse tasks JSON"))
     }
   }

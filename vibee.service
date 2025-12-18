@@ -1,0 +1,36 @@
+[Unit]
+Description=VIBEE Telegram Agent (Gleam/BEAM)
+After=network.target postgresql.service
+Wants=vibee-telegram-bridge.service
+
+[Service]
+Type=simple
+User=vibee
+Group=vibee
+WorkingDirectory=/opt/vibee/gleam
+
+# Load environment variables from file
+EnvironmentFile=/opt/vibee/.env
+
+# Or set directly (less secure, use EnvironmentFile instead)
+# Environment="TELEGRAM_SESSION_ID=sess_xxx"
+# Environment="TELEGRAM_API_ID=94892"
+# Environment="TELEGRAM_API_HASH=xxx"
+# Environment="OPENROUTER_API_KEY=sk-or-v1-xxx"
+# Environment="DATABASE_URL=postgresql://..."
+
+ExecStart=/usr/local/bin/gleam run
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vibee-gleam
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

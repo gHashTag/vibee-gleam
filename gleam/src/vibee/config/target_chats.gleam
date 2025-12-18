@@ -2,6 +2,7 @@
 // Аналог plugin-telegram-craft/config/targetChats.ts
 
 import gleam/int
+import gleam/io
 import gleam/list
 import gleam/string
 
@@ -46,13 +47,24 @@ pub fn get_target_chats() -> List(TargetChat) {
 /// Проверяет, является ли chatId целевым чатом
 /// Учитывает разные форматы ID (с и без префикса -100)
 pub fn is_target_chat(chat_id: String) -> Bool {
+  io.println("[TARGET_CHECK] Checking chat_id: " <> chat_id)
+  
   // Прямое совпадение
   case list.contains(target_chats, chat_id) {
-    True -> True
+    True -> {
+      io.println("[TARGET_CHECK] ✅ Direct match!")
+      True
+    }
     False -> {
       // Нормализация: убираем -100 префикс
       let normalized = normalize_chat_id(chat_id)
-      list.contains(target_chats, normalized)
+      io.println("[TARGET_CHECK] Normalized: " <> normalized)
+      let result = list.contains(target_chats, normalized)
+      case result {
+        True -> io.println("[TARGET_CHECK] ✅ Normalized match!")
+        False -> io.println("[TARGET_CHECK] ❌ Not in target_chats list")
+      }
+      result
     }
   }
 }
@@ -104,13 +116,13 @@ pub fn should_process_chat(chat_id: String) -> Bool {
 pub fn should_process_chat_with_mode(chat_id: String, digital_twin_enabled: Bool) -> Bool {
   case chat_id == owner_id {
     True -> {
-      // io.println("[FILTER] Skipping self-chat: " <> chat_id)
+      io.println("[FILTER] Skipping self-chat: " <> chat_id)
       False
     }
     False -> {
       case is_target_chat(chat_id) {
         True -> {
-          // io.println("[FILTER] ✅ Target chat: " <> chat_id)
+          io.println("[FILTER] ✅ Target chat: " <> chat_id)
           True
         }
         False -> {
@@ -118,11 +130,11 @@ pub fn should_process_chat_with_mode(chat_id: String, digital_twin_enabled: Bool
           let is_private = is_private_chat(chat_id)
           case digital_twin_enabled && is_private {
             True -> {
-              // io.println("[FILTER] ✅ Private chat (Digital Twin ON): " <> chat_id)
+              io.println("[FILTER] ✅ Private chat (Digital Twin ON): " <> chat_id)
               True
             }
             False -> {
-              // io.println("[FILTER] ⏭️  Skipping chat: " <> chat_id <> " (private=" <> case is_private { True -> "YES" False -> "NO" } <> ", twin=" <> case digital_twin_enabled { True -> "ON" False -> "OFF" } <> ")")
+              io.println("[FILTER] ⏭️  Skipping chat: " <> chat_id <> " (private=" <> case is_private { True -> "YES" False -> "NO" } <> ", twin=" <> case digital_twin_enabled { True -> "ON" False -> "OFF" } <> ")")
               False
             }
           }

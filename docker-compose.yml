@@ -45,6 +45,8 @@ services:
       context: ./gleam
       dockerfile: Dockerfile
     container_name: vibee-gleam
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgres://vibee:vibee_secret@postgres:5432/vibee?sslmode=disable
       TELEGRAM_BRIDGE_URL: http://telegram-bridge:9000

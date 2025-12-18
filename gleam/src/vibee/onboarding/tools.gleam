@@ -123,7 +123,7 @@ pub fn handle_onboarding_start(args: json.Json) -> ToolResult {
   case session_id {
     "" -> protocol.error_result("No active session. Complete auth_verify_code first.")
     sid -> {
-      logging.info("[ONBOARDING] Starting for session: " <> sid)
+      logging.quick_info("[ONBOARDING] Starting for session: " <> sid)
 
       // Initialize store if needed
       state.init_store()
@@ -136,7 +136,7 @@ pub fn handle_onboarding_start(args: json.Json) -> ToolResult {
       case onboarding_id {
         "" -> protocol.error_result("Failed to create onboarding session")
         id -> {
-          logging.info("[ONBOARDING] Created: " <> id)
+          logging.quick_info("[ONBOARDING] Created: " <> id)
 
           // Update status to scanning
           let _ = state.update_status_in_store(id, scanning_atom())
@@ -161,7 +161,7 @@ pub fn handle_onboarding_status(args: json.Json) -> ToolResult {
   case get_string_field(args, "onboarding_id") {
     None -> protocol.error_result("Missing required field: onboarding_id")
     Some(onboarding_id) -> {
-      logging.info("[ONBOARDING] Getting status for: " <> onboarding_id)
+      logging.quick_info("[ONBOARDING] Getting status for: " <> onboarding_id)
 
       // Get from store
       let result = state.get_from_store(onboarding_id)
@@ -184,7 +184,7 @@ pub fn handle_onboarding_select_dialogs(args: json.Json) -> ToolResult {
       let select_all = get_bool_field(args, "select_all") |> result.unwrap(False)
       let dialog_ids = get_int_list_field(args, "dialog_ids") |> result.unwrap([])
 
-      logging.info("[ONBOARDING] Selecting dialogs for: " <> onboarding_id)
+      logging.quick_info("[ONBOARDING] Selecting dialogs for: " <> onboarding_id)
 
       // Get current state
       let result = state.get_from_store(onboarding_id)
@@ -235,7 +235,7 @@ pub fn handle_onboarding_select_dialogs(args: json.Json) -> ToolResult {
 
 /// Handle onboarding_list
 pub fn handle_onboarding_list(_args: json.Json) -> ToolResult {
-  logging.info("[ONBOARDING] Listing active sessions")
+  logging.quick_info("[ONBOARDING] Listing active sessions")
 
   let active = state.list_active_in_store()
 

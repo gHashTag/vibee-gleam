@@ -33,7 +33,7 @@ import vibee/logging
 
 /// GET /api/v1/p2p/status - Get agent status
 pub fn status_handler() -> Response(ResponseData) {
-  logging.info("[P2P API] Status request")
+  logging.quick_info("[P2P API] Status request")
 
   // Primary user config - always use this ID
   let telegram_id = 144022504
@@ -65,7 +65,7 @@ pub fn status_handler() -> Response(ResponseData) {
 
 /// GET /api/v1/p2p/stats - Get earning statistics
 pub fn stats_handler() -> Response(ResponseData) {
-  logging.info("[P2P API] Stats request")
+  logging.quick_info("[P2P API] Stats request")
 
   // Get stats from earning worker
   let stats = get_agent_stats(0)
@@ -97,7 +97,7 @@ pub fn stats_handler() -> Response(ResponseData) {
 
 /// POST /api/v1/p2p/start - Start earning agent
 pub fn start_handler(req: Request(Connection)) -> Response(ResponseData) {
-  logging.info("[P2P API] Start request")
+  logging.quick_info("[P2P API] Start request")
 
   // Parse body for telegram_id, wallet, strategy
   case mist.read_body(req, 1024 * 1024) {
@@ -108,7 +108,7 @@ pub fn start_handler(req: Request(Connection)) -> Response(ResponseData) {
       let strategy_str = parse_json_string(body_str, "strategy") |> result.unwrap("hybrid")
       let strategy = earning_types.strategy_from_string(strategy_str)
 
-      logging.info("[P2P API] Starting agent for telegram_id=" <> int.to_string(telegram_id) <> " wallet=" <> wallet <> " strategy=" <> strategy_str)
+      logging.quick_info("[P2P API] Starting agent for telegram_id=" <> int.to_string(telegram_id) <> " wallet=" <> wallet <> " strategy=" <> strategy_str)
 
       case start_earning_agent(telegram_id, wallet, strategy) {
         Ok(_) -> {
@@ -154,7 +154,7 @@ pub fn start_handler(req: Request(Connection)) -> Response(ResponseData) {
 
 /// POST /api/v1/p2p/stop - Stop earning agent
 pub fn stop_handler() -> Response(ResponseData) {
-  logging.info("[P2P API] Stop request")
+  logging.quick_info("[P2P API] Stop request")
 
   case stop_earning_agent(0) {
     Ok(_) -> {
@@ -174,7 +174,7 @@ pub fn stop_handler() -> Response(ResponseData) {
 
 /// POST /api/v1/p2p/config - Update agent configuration
 pub fn config_handler(req: Request(Connection)) -> Response(ResponseData) {
-  logging.info("[P2P API] Config update request")
+  logging.quick_info("[P2P API] Config update request")
 
   // Parse body and update config
   // For now, just return success
@@ -190,7 +190,7 @@ pub fn config_handler(req: Request(Connection)) -> Response(ResponseData) {
 
 /// GET /api/v1/p2p/orders - List active orders
 pub fn orders_list_handler() -> Response(ResponseData) {
-  logging.info("[P2P API] Orders list request")
+  logging.quick_info("[P2P API] Orders list request")
 
   // Get active orders from P2P DB
   let orders = get_active_orders(0)
@@ -215,7 +215,7 @@ pub fn orders_list_handler() -> Response(ResponseData) {
 
 /// POST /api/v1/p2p/orders/{id}/cancel - Cancel order
 pub fn order_cancel_handler(order_id: String) -> Response(ResponseData) {
-  logging.info("[P2P API] Cancel order: " <> order_id)
+  logging.quick_info("[P2P API] Cancel order: " <> order_id)
 
   case cancel_order(order_id) {
     Ok(_) -> {
@@ -242,7 +242,7 @@ pub fn arbitrage_scan_handler(
   crypto_str: Option(String),
   fiat_str: Option(String),
 ) -> Response(ResponseData) {
-  logging.info("[P2P API] Arbitrage scan request")
+  logging.quick_info("[P2P API] Arbitrage scan request")
 
   let crypto = case crypto_str {
     Some("TON") -> p2p_types.TON
@@ -291,7 +291,7 @@ pub fn arbitrage_scan_handler(
 
 /// POST /api/v1/p2p/arbitrage/execute - Execute arbitrage opportunity
 pub fn arbitrage_execute_handler(req: Request(Connection)) -> Response(ResponseData) {
-  logging.info("[P2P API] Arbitrage execute request")
+  logging.quick_info("[P2P API] Arbitrage execute request")
 
   // Get opportunities and filter for Telegram-only (both buy and sell sources)
   let all_opportunities = arbitrage.scan_opportunities(p2p_types.USDT, p2p_types.THB, 0.5)
@@ -350,7 +350,7 @@ pub fn arbitrage_execute_handler(req: Request(Connection)) -> Response(ResponseD
 
 /// GET /api/v1/p2p/market-maker/rates - Get current market maker rates
 pub fn market_maker_rates_handler() -> Response(ResponseData) {
-  logging.info("[P2P API] Market maker rates request")
+  logging.quick_info("[P2P API] Market maker rates request")
 
   // Get current rates from market maker
   let base_price = 35.0  // USDT/THB base rate
@@ -384,7 +384,7 @@ pub fn maker_prices_handler(
   crypto_str: Option(String),
   fiat_str: Option(String),
 ) -> Response(ResponseData) {
-  logging.info("[P2P API] Maker prices request")
+  logging.quick_info("[P2P API] Maker prices request")
 
   let crypto = parse_crypto(crypto_str)
   let fiat = parse_fiat(fiat_str)
@@ -417,7 +417,7 @@ pub fn maker_toggle_handler(
   telegram_id_str: Option(String),
   enabled_str: Option(String),
 ) -> Response(ResponseData) {
-  logging.info("[P2P API] Maker toggle request")
+  logging.quick_info("[P2P API] Maker toggle request")
 
   case telegram_id_str {
     Some(id_str) -> {
@@ -468,7 +468,7 @@ pub fn alerts_scan_handler(
   fiat_str: Option(String),
   min_spread_str: Option(String),
 ) -> Response(ResponseData) {
-  logging.info("[P2P API] Alerts scan request")
+  logging.quick_info("[P2P API] Alerts scan request")
 
   let crypto = parse_crypto(crypto_str)
   let fiat = parse_fiat(fiat_str)
@@ -488,7 +488,7 @@ pub fn alerts_scan_handler(
 
 /// GET /api/v1/p2p/alerts/monitor - Get monitor status
 pub fn alerts_monitor_handler() -> Response(ResponseData) {
-  logging.info("[P2P API] Monitor status request")
+  logging.quick_info("[P2P API] Monitor status request")
 
   let config = alerts.default_monitor_config()
   let last_alerts = alerts.monitor_cycle(config)
@@ -502,7 +502,7 @@ pub fn alerts_monitor_handler() -> Response(ResponseData) {
 
 /// GET /api/v1/p2p/executor/status - Get executor status
 pub fn executor_status_handler() -> Response(ResponseData) {
-  logging.info("[P2P API] Executor status request")
+  logging.quick_info("[P2P API] Executor status request")
 
   let config = arb_executor.default_config()
   let state = arb_executor.init_state(config)
@@ -519,7 +519,7 @@ pub fn executor_simulate_handler(
   crypto_str: Option(String),
   fiat_str: Option(String),
 ) -> Response(ResponseData) {
-  logging.info("[P2P API] Executor simulate request")
+  logging.quick_info("[P2P API] Executor simulate request")
 
   let crypto = parse_crypto(crypto_str)
   let fiat = parse_fiat(fiat_str)
@@ -557,7 +557,7 @@ pub fn executor_simulate_handler(
 
 /// GET /api/v1/p2p/activity - Get activity log
 pub fn activity_log_handler(limit_str: Option(String)) -> Response(ResponseData) {
-  logging.info("[P2P API] Activity log request")
+  logging.quick_info("[P2P API] Activity log request")
 
   let limit = case limit_str {
     Some(s) -> result.unwrap(int.parse(s), 50)
@@ -856,7 +856,7 @@ fn cancel_order(order_id: String) -> Result(Nil, String) {
 
 /// POST /api/v1/p2p/order/accept - Accept an order and create payment invoice
 pub fn order_accept_handler(req: Request(Connection)) -> Response(ResponseData) {
-  logging.info("[P2P API] Order accept request")
+  logging.quick_info("[P2P API] Order accept request")
 
   case mist.read_body(req, 1024 * 1024) {
     Ok(req_with_body) -> {
@@ -865,7 +865,7 @@ pub fn order_accept_handler(req: Request(Connection)) -> Response(ResponseData) 
       let buyer_telegram_id = parse_json_int(body_str, "buyer_telegram_id") |> result.unwrap(0)
       let action = parse_json_string(body_str, "action") |> result.unwrap("buy")
 
-      logging.info("[P2P API] Accepting order " <> order_id <> " by user " <> int.to_string(buyer_telegram_id) <> " action=" <> action)
+      logging.quick_info("[P2P API] Accepting order " <> order_id <> " by user " <> int.to_string(buyer_telegram_id) <> " action=" <> action)
 
       // Get order from ETS
       case get_order_ffi(order_id) {
@@ -901,7 +901,7 @@ pub fn order_accept_handler(req: Request(Connection)) -> Response(ResponseData) 
               // Create CryptoBot invoice
               case create_cryptobot_invoice(crypto, amount, order_id, int.to_string(buyer_telegram_id)) {
                 Ok(invoice_url) -> {
-                  logging.info("[P2P API] Invoice created: " <> invoice_url)
+                  logging.quick_info("[P2P API] Invoice created: " <> invoice_url)
                   json_response(200, json.object([
                     #("success", json.bool(True)),
                     #("order_id", json.string(order_id)),
@@ -913,7 +913,7 @@ pub fn order_accept_handler(req: Request(Connection)) -> Response(ResponseData) 
                   ]))
                 }
                 Error(err) -> {
-                  logging.error("[P2P API] Invoice creation failed: " <> err)
+                  logging.quick_error("[P2P API] Invoice creation failed: " <> err)
                   // Still return success but without invoice URL
                   json_response(200, json.object([
                     #("success", json.bool(True)),

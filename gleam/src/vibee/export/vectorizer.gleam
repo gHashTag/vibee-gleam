@@ -56,8 +56,8 @@ pub fn default_config() -> VectorConfig {
 
 /// Векторизовать все диалоги
 pub fn vectorize_all_dialogs(config: VectorConfig) -> VectorResult {
-  logging.info("Starting vectorization with Ollama...")
-  logging.info("Model: " <> config.model)
+  logging.quick_info("Starting vectorization with Ollama...")
+  logging.quick_info("Model: " <> config.model)
 
   // Читаем все JSON файлы с диалогами
   let files = case simplifile.read_directory(config.input_dir) {
@@ -65,7 +65,7 @@ pub fn vectorize_all_dialogs(config: VectorConfig) -> VectorResult {
     Error(_) -> []
   }
 
-  logging.info("Found " <> int.to_string(list.length(files)) <> " dialog files")
+  logging.quick_info("Found " <> int.to_string(list.length(files)) <> " dialog files")
 
   // Обрабатываем каждый файл
   let all_embeddings = list.flat_map(files, fn(filename) {
@@ -77,9 +77,9 @@ pub fn vectorize_all_dialogs(config: VectorConfig) -> VectorResult {
   let json_content = embeddings_to_json(all_embeddings)
   let _ = simplifile.write(config.output_file, json_content)
 
-  logging.info("Vectorization complete!")
-  logging.info("Total embeddings: " <> int.to_string(list.length(all_embeddings)))
-  logging.info("Output: " <> config.output_file)
+  logging.quick_info("Vectorization complete!")
+  logging.quick_info("Total embeddings: " <> int.to_string(list.length(all_embeddings)))
+  logging.quick_info("Output: " <> config.output_file)
 
   VectorResult(
     messages_processed: list.length(all_embeddings),

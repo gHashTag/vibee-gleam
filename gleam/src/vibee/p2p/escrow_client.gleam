@@ -98,7 +98,7 @@ pub fn create_sell_order(
   // Store in ETS
   case store_order(order) {
     Ok(_) -> {
-      logging.info("[P2P] Created order " <> order_id <> " for " <> float.to_string(crypto_amount) <> " " <> crypto_to_string(crypto))
+      logging.quick_info("[P2P] Created order " <> order_id <> " for " <> float.to_string(crypto_amount) <> " " <> crypto_to_string(crypto))
       Ok(order)
     }
     Error(e) -> Error("Failed to store order: " <> e)
@@ -126,7 +126,7 @@ pub fn take_order(
 
           case store_order(updated_order) {
             Ok(_) -> {
-              logging.info("[P2P] Order " <> order_id <> " taken by buyer " <> int.to_string(buyer_telegram_id))
+              logging.quick_info("[P2P] Order " <> order_id <> " taken by buyer " <> int.to_string(buyer_telegram_id))
               Ok(updated_order)
             }
             Error(e) -> Error("Failed to update order: " <> e)
@@ -154,7 +154,7 @@ pub fn mark_fiat_sent(
               let updated_order = P2POrder(..order, status: FiatSent)
               case store_order(updated_order) {
                 Ok(_) -> {
-                  logging.info("[P2P] Order " <> order_id <> " fiat marked as sent")
+                  logging.quick_info("[P2P] Order " <> order_id <> " fiat marked as sent")
                   Ok(updated_order)
                 }
                 Error(e) -> Error("Failed to update order: " <> e)
@@ -207,7 +207,7 @@ pub fn oracle_confirm(
         Ok(order) -> {
           case order.status {
             Locked | FiatSent -> {
-              logging.info("[P2P] Oracle confirmed fiat for order " <> order_id)
+              logging.quick_info("[P2P] Oracle confirmed fiat for order " <> order_id)
               complete_order(order)
             }
             _ -> Error("Order is not ready for oracle confirmation")
@@ -247,7 +247,7 @@ fn complete_order(order: P2POrder) -> Result(P2POrder, String) {
         None -> Nil
       }
 
-      logging.info("[P2P] Order " <> order.id <> " completed! Crypto released to buyer.")
+      logging.quick_info("[P2P] Order " <> order.id <> " completed! Crypto released to buyer.")
       Ok(updated_order)
     }
     Error(e) -> Error("Failed to complete order: " <> e)
@@ -269,7 +269,7 @@ pub fn cancel_order(
               let updated_order = P2POrder(..order, status: Cancelled)
               case store_order(updated_order) {
                 Ok(_) -> {
-                  logging.info("[P2P] Order " <> order_id <> " cancelled by seller")
+                  logging.quick_info("[P2P] Order " <> order_id <> " cancelled by seller")
                   Ok(updated_order)
                 }
                 Error(e) -> Error("Failed to cancel order: " <> e)
@@ -293,7 +293,7 @@ pub fn expire_timed_out_orders() -> Int {
   let expired_count = do_expire_orders(locked_orders, now, 0)
 
   case expired_count > 0 {
-    True -> logging.info("[P2P] Expired " <> int.to_string(expired_count) <> " timed out orders")
+    True -> logging.quick_info("[P2P] Expired " <> int.to_string(expired_count) <> " timed out orders")
     False -> Nil
   }
 

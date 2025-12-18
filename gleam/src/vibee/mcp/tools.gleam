@@ -808,14 +808,14 @@ pub fn execute_tool(
   name: String,
   args: json.Json,
 ) -> ToolResult {
-  logging.info("[TOOL] Executing: " <> name)
+  logging.quick_info("[TOOL] Executing: " <> name)
 
   case dict.get(registry.handlers, name) {
     Ok(handler) -> {
       let result = handler(args)
       case result.is_error {
-        True -> logging.error("[TOOL] " <> name <> " failed")
-        False -> logging.info("[TOOL] " <> name <> " completed")
+        True -> logging.quick_error("[TOOL] " <> name <> " failed")
+        False -> logging.quick_info("[TOOL] " <> name <> " completed")
       }
       result
     }
@@ -2082,12 +2082,12 @@ fn handle_system_log(args: json.Json) -> ToolResult {
         Error(err) -> protocol.error_result(validation.error_to_string(err))
         Ok(level) -> {
           case level {
-            "debug" -> logging.debug(parsed.message)
-            "info" -> logging.info(parsed.message)
-            "warn" -> logging.warn(parsed.message)
-            "warning" -> logging.warn(parsed.message)
-            "error" -> logging.error(parsed.message)
-            _ -> logging.info(parsed.message)
+            "debug" -> logging.quick_info(parsed.message)
+            "info" -> logging.quick_info(parsed.message)
+            "warn" -> logging.quick_warn(parsed.message)
+            "warning" -> logging.quick_warn(parsed.message)
+            "error" -> logging.quick_error(parsed.message)
+            _ -> logging.quick_info(parsed.message)
           }
           protocol.text_result("Logged: [" <> level <> "] " <> parsed.message)
         }
@@ -2336,7 +2336,7 @@ fn handle_event_emit(args: json.Json) -> ToolResult {
       // Emit to Event Bus
       case events.emit(event_type, payload, parsed.target, "mcp_tool") {
         Ok(event_id) -> {
-          logging.info(
+          logging.quick_info(
             "[EVENT BUS] Emitted: "
             <> parsed.event_type
             <> " (id: "
@@ -2353,7 +2353,7 @@ fn handle_event_emit(args: json.Json) -> ToolResult {
           )
         }
         Error(err) -> {
-          logging.error("[EVENT BUS] Failed to emit: " <> err)
+          logging.quick_error("[EVENT BUS] Failed to emit: " <> err)
           protocol.error_result("Failed to emit event: " <> err)
         }
       }
@@ -3357,7 +3357,7 @@ fn handle_debug_build(args: json.Json) -> ToolResult {
         Error(err) -> protocol.error_result(validation.error_to_string(err))
         Ok(path) -> {
           let target = validation.validate_build_target(parsed.target)
-          logging.info("[DEBUG_BUILD] path=" <> path <> " target=" <> target)
+          logging.quick_info("[DEBUG_BUILD] path=" <> path <> " target=" <> target)
 
           // Use safe shell execution
           case shell.gleam_build(path, target) {
@@ -3394,7 +3394,7 @@ fn handle_debug_test(args: json.Json) -> ToolResult {
       case validation.validate_path(parsed.path) {
         Error(err) -> protocol.error_result(validation.error_to_string(err))
         Ok(path) -> {
-          logging.info("[DEBUG_TEST] path=" <> path)
+          logging.quick_info("[DEBUG_TEST] path=" <> path)
 
           case shell.gleam_test(path, parsed.filter) {
             Ok(output) -> {
@@ -3521,7 +3521,7 @@ fn handle_debug_trace(args: json.Json) -> ToolResult {
 
       // Generate trace code
       let trace_code = generate_trace_code(parsed.module, function, level)
-      logging.info(
+      logging.quick_info(
         "[DEBUG_TRACE] Adding trace to " <> parsed.module <> ":" <> function,
       )
       protocol.text_result(
@@ -3593,7 +3593,7 @@ fn handle_debug_log(args: json.Json) -> ToolResult {
             Error(_) -> simplifile.write(debug_log, log_entry)
           }
 
-          logging.info("[DEBUG_LOG] " <> parsed.operation <> " -> " <> status)
+          logging.quick_info("[DEBUG_LOG] " <> parsed.operation <> " -> " <> status)
           protocol.text_result(log_entry)
         }
       }
@@ -4092,7 +4092,7 @@ fn handle_agent_spawn(args: json.Json) -> ToolResult {
         Error(_) -> simplifile.write(event_file, agent_info)
       }
 
-      logging.info("[AGENT_SPAWN] " <> agent_id <> " for task: " <> parsed.task)
+      logging.quick_info("[AGENT_SPAWN] " <> agent_id <> " for task: " <> parsed.task)
       protocol.text_result(agent_info)
     }
   }
@@ -4126,7 +4126,7 @@ fn handle_agent_message(args: json.Json) -> ToolResult {
         Error(_) -> simplifile.write(event_file, msg_entry)
       }
 
-      logging.info(
+      logging.quick_info(
         "[AGENT_MSG] " <> parsed.agent_id <> " <- " <> parsed.message,
       )
       protocol.text_result(
@@ -4205,7 +4205,7 @@ fn handle_agent_kill(args: json.Json) -> ToolResult {
         Error(_) -> simplifile.write(event_file, kill_entry)
       }
 
-      logging.info("[AGENT_KILL] " <> parsed.agent_id)
+      logging.quick_info("[AGENT_KILL] " <> parsed.agent_id)
       protocol.text_result(
         json.object([
           #("killed", json.bool(True)),
@@ -4549,7 +4549,7 @@ fn handle_bot_analyze(args: json.Json) -> ToolResult {
       let depth = validation.validate_analysis_depth(parsed.depth)
       let history_limit = option.unwrap(parsed.message_history, 100)
 
-      logging.info(
+      logging.quick_info(
         "[BOT_ANALYZE] Analyzing bot: " <> bot <> " (depth: " <> depth <> ")",
       )
 
@@ -4759,7 +4759,7 @@ fn handle_bot_compare(args: json.Json) -> ToolResult {
       // Normalize bot usernames - proper JSON array handling
       let bots = list.map(parsed.bots, normalize_username)
 
-      logging.info("[BOT_COMPARE] Comparing bots: " <> string.join(bots, ", "))
+      logging.quick_info("[BOT_COMPARE] Comparing bots: " <> string.join(bots, ", "))
 
       let comparison =
         json.object([
@@ -4923,7 +4923,7 @@ fn handle_bot_extract_commands(args: json.Json) -> ToolResult {
       let session_id = option.unwrap(parsed.session_id, "")
       let test_commands = option.unwrap(parsed.test_commands, False)
 
-      logging.info("[BOT_EXTRACT] Extracting commands from: " <> bot)
+      logging.quick_info("[BOT_EXTRACT] Extracting commands from: " <> bot)
 
       // Common bot commands to try
       let common_commands = [
@@ -5004,7 +5004,7 @@ fn handle_bot_test_interaction(args: json.Json) -> ToolResult {
           case validation.validate_session_id_string(sid) {
             Error(err) -> protocol.error_result(validation.error_to_string(err))
             Ok(valid_sid) -> {
-              logging.info("[BOT_TEST] Testing interactions with: " <> bot)
+              logging.quick_info("[BOT_TEST] Testing interactions with: " <> bot)
 
               // Build interactions JSON array
               let interactions_json =
@@ -5228,7 +5228,7 @@ fn auth_logout_tool() -> Tool {
 // ============================================================
 
 fn handle_auth_status(_args: json.Json) -> ToolResult {
-  logging.info("[AUTH] Checking authorization status...")
+  logging.quick_info("[AUTH] Checking authorization status...")
 
   let base = bridge_url()
   let #(scheme, host, port) = parse_bridge_url(base)
@@ -5246,7 +5246,7 @@ fn handle_auth_status(_args: json.Json) -> ToolResult {
 
   case httpc.send(req) {
     Ok(resp) -> {
-      logging.info("[AUTH] Status received")
+      logging.quick_info("[AUTH] Status received")
       // Parse response to check if authorized and add helpful instructions
       case json.parse(from: resp.body, using: session_count_decoder()) {
         Ok(count) if count > 0 -> {
@@ -5303,7 +5303,7 @@ fn handle_auth_status(_args: json.Json) -> ToolResult {
       }
     }
     Error(_) -> {
-      logging.error("[AUTH] Status check failed - bridge not running")
+      logging.quick_error("[AUTH] Status check failed - bridge not running")
       let response =
         json.object([
           #("status", json.string("bridge_not_running")),
@@ -5323,7 +5323,7 @@ fn handle_auth_status(_args: json.Json) -> ToolResult {
 fn handle_auth_send_code(args: json.Json) -> ToolResult {
   // Log active session for debugging
   let active = session_manager.get_active() |> option.unwrap("NONE")
-  logging.info("[AUTH_SEND_CODE] Active session: " <> active)
+  logging.quick_info("[AUTH_SEND_CODE] Active session: " <> active)
 
   case decoders.decode_auth_send_code(args) {
     Error(err) -> protocol.error_result(decoders.error_to_string(err))
@@ -5331,7 +5331,7 @@ fn handle_auth_send_code(args: json.Json) -> ToolResult {
       case validation.validate_phone(parsed.phone) {
         Error(err) -> protocol.error_result(validation.error_to_string(err))
         Ok(phone) -> {
-          logging.info("[AUTH] Sending code to: " <> phone <> " with session: " <> active)
+          logging.quick_info("[AUTH] Sending code to: " <> phone <> " with session: " <> active)
 
           let url = bridge_url() <> "/api/v1/auth/phone"
           let body =
@@ -5342,11 +5342,11 @@ fn handle_auth_send_code(args: json.Json) -> ToolResult {
 
           case make_telegram_post_request(url, body) {
             Ok(response) -> {
-              logging.info("[AUTH] Code sent successfully")
+              logging.quick_info("[AUTH] Code sent successfully")
               protocol.text_result(response)
             }
             Error(err) -> {
-              logging.error("[AUTH] Send code failed: " <> err)
+              logging.quick_error("[AUTH] Send code failed: " <> err)
               protocol.error_result("Failed to send code: " <> err)
             }
           }
@@ -5363,7 +5363,7 @@ fn handle_auth_verify_code(args: json.Json) -> ToolResult {
       case validation.validate_phone(parsed.phone) {
         Error(err) -> protocol.error_result(validation.error_to_string(err))
         Ok(phone) -> {
-          logging.info("[AUTH] Verifying code for: " <> phone)
+          logging.quick_info("[AUTH] Verifying code for: " <> phone)
 
           let url = bridge_url() <> "/api/v1/auth/code"
           let body =
@@ -5405,7 +5405,7 @@ fn handle_auth_verify_code(args: json.Json) -> ToolResult {
               protocol.text_result(response)
             }
             Error(err) -> {
-              logging.error("[AUTH] Verification failed: " <> err)
+              logging.quick_error("[AUTH] Verification failed: " <> err)
               protocol.error_result("Failed to verify code: " <> err)
             }
           }
@@ -5467,17 +5467,17 @@ fn handle_auth_2fa(args: json.Json) -> ToolResult {
 }
 
 fn handle_auth_logout(_args: json.Json) -> ToolResult {
-  logging.info("[AUTH] Logging out...")
+  logging.quick_info("[AUTH] Logging out...")
 
   let url = bridge_url() <> "/api/v1/auth/logout"
 
   case make_telegram_post_request(url, "{}") {
     Ok(response) -> {
-      logging.info("[AUTH] Logout successful")
+      logging.quick_info("[AUTH] Logout successful")
       protocol.text_result(response)
     }
     Error(err) -> {
-      logging.error("[AUTH] Logout failed: " <> err)
+      logging.quick_error("[AUTH] Logout failed: " <> err)
       protocol.error_result("Failed to logout: " <> err)
     }
   }
@@ -5496,7 +5496,7 @@ fn make_telegram_post_request(
   let session_id = session_manager.get_active()
     |> option.unwrap("")
 
-  logging.info("[HTTP] POST " <> path <> " with X-Session-ID: " <> session_id)
+  logging.quick_info("[HTTP] POST " <> path <> " with X-Session-ID: " <> session_id)
 
   let req =
     request.new()
@@ -5512,7 +5512,7 @@ fn make_telegram_post_request(
 
   case httpc.send(req) {
     Ok(resp) -> {
-      logging.info("[HTTP] Response: " <> resp.body)
+      logging.quick_info("[HTTP] Response: " <> resp.body)
       Ok(resp.body)
     }
     Error(_) -> Error("HTTP request failed")
@@ -5914,7 +5914,7 @@ fn handle_rainbow_autonomous_debug_cycle(args: json.Json) -> ToolResult {
   case decoders.decode_rainbow_debug_cycle(args) {
     Error(err) -> protocol.error_result(decoders.error_to_string(err))
     Ok(parsed) -> {
-      logging.info("[RAINBOW] Running autonomous debug cycle...")
+      logging.quick_info("[RAINBOW] Running autonomous debug cycle...")
       let max_iter = option.unwrap(parsed.max_iterations, 5)
 
       // Initialize rainbow bridge modules
@@ -5935,7 +5935,7 @@ fn handle_task_create(args: json.Json) -> ToolResult {
   case decoders.decode_task_create(args) {
     Error(err) -> protocol.error_result(decoders.error_to_string(err))
     Ok(parsed) -> {
-      logging.info("[RAINBOW] Creating task...")
+      logging.quick_info("[RAINBOW] Creating task...")
       let files = option.unwrap(parsed.files, [])
 
       task_store.init()
@@ -5951,7 +5951,7 @@ fn handle_task_get(args: json.Json) -> ToolResult {
   case decoders.decode_task_get(args) {
     Error(err) -> protocol.error_result(decoders.error_to_string(err))
     Ok(parsed) -> {
-      logging.info("[RAINBOW] Getting task...")
+      logging.quick_info("[RAINBOW] Getting task...")
 
       case task_store.get(parsed.task_id) {
         Some(task) -> {
@@ -5968,7 +5968,7 @@ fn handle_task_list(args: json.Json) -> ToolResult {
   case decoders.decode_task_list(args) {
     Error(err) -> protocol.error_result(decoders.error_to_string(err))
     Ok(parsed) -> {
-      logging.info("[RAINBOW] Listing tasks...")
+      logging.quick_info("[RAINBOW] Listing tasks...")
 
       let tasks = case parsed.state {
         None -> task_store.list_all()
@@ -5993,7 +5993,7 @@ fn handle_task_update(args: json.Json) -> ToolResult {
   case decoders.decode_task_update(args) {
     Error(err) -> protocol.error_result(decoders.error_to_string(err))
     Ok(parsed) -> {
-      logging.info("[RAINBOW] Updating task...")
+      logging.quick_info("[RAINBOW] Updating task...")
       let state = rainbow_types.parse_task_state(parsed.state)
 
       case task_store.update_state(parsed.task_id, state) {
@@ -6011,7 +6011,7 @@ fn handle_heal_start(args: json.Json) -> ToolResult {
   case decoders.decode_heal_start(args) {
     Error(err) -> protocol.error_result(decoders.error_to_string(err))
     Ok(parsed) -> {
-      logging.info("[RAINBOW] Starting healing...")
+      logging.quick_info("[RAINBOW] Starting healing...")
       healing.init()
 
       case healing.start_healing(parsed.task_id) {
@@ -6029,7 +6029,7 @@ fn handle_heal_apply_fix(args: json.Json) -> ToolResult {
   case decoders.decode_heal_apply_fix(args) {
     Error(err) -> protocol.error_result(decoders.error_to_string(err))
     Ok(parsed) -> {
-      logging.info("[RAINBOW] Applying fix...")
+      logging.quick_info("[RAINBOW] Applying fix...")
 
       // Get the suggested fix from task context
       case task_store.get(parsed.task_id) {
@@ -6056,7 +6056,7 @@ fn handle_heal_verify(args: json.Json) -> ToolResult {
   case decoders.decode_heal_verify(args) {
     Error(err) -> protocol.error_result(decoders.error_to_string(err))
     Ok(parsed) -> {
-      logging.info("[RAINBOW] Verifying fix...")
+      logging.quick_info("[RAINBOW] Verifying fix...")
 
       case healing.verify_fix(parsed.task_id, parsed.fix_id) {
         Ok(success) -> {
@@ -6080,7 +6080,7 @@ fn handle_heal_rollback(args: json.Json) -> ToolResult {
   case decoders.decode_heal_rollback(args) {
     Error(err) -> protocol.error_result(decoders.error_to_string(err))
     Ok(parsed) -> {
-      logging.info("[RAINBOW] Rolling back fix...")
+      logging.quick_info("[RAINBOW] Rolling back fix...")
 
       case healing.rollback(parsed.task_id, parsed.fix_id) {
         Ok(_) -> {
@@ -6104,7 +6104,7 @@ fn handle_decide_next_step(args: json.Json) -> ToolResult {
   case decoders.decode_decide_next_step(args) {
     Error(err) -> protocol.error_result(decoders.error_to_string(err))
     Ok(parsed) -> {
-      logging.info("[RAINBOW] Deciding next step...")
+      logging.quick_info("[RAINBOW] Deciding next step...")
 
       case decision.decide_next_step(parsed.task_id) {
         Ok(d) -> {
@@ -6121,7 +6121,7 @@ fn handle_decide_apply(args: json.Json) -> ToolResult {
   case decoders.decode_decide_apply(args) {
     Error(err) -> protocol.error_result(decoders.error_to_string(err))
     Ok(parsed) -> {
-      logging.info("[RAINBOW] Applying decision...")
+      logging.quick_info("[RAINBOW] Applying decision...")
 
       // Get the decision and apply it
       case decision.decide_next_step(parsed.task_id) {
@@ -6233,15 +6233,15 @@ fn session_create_tool() -> Tool {
 // ============================================================
 
 fn handle_session_list(_args: json.Json) -> ToolResult {
-  logging.info("[SESSION] Listing all sessions from bridge...")
+  logging.quick_info("[SESSION] Listing all sessions from bridge...")
 
   // Get sessions from telegram-bridge (source of truth)
   let base = bridge_url()
-  logging.info("[SESSION] Bridge URL: " <> base)
+  logging.quick_info("[SESSION] Bridge URL: " <> base)
   let #(scheme, host, port) = parse_bridge_url(base)
-  logging.info("[SESSION] Parsed: scheme=" <> string.inspect(scheme) <> " host=" <> host <> " port=" <> int.to_string(port))
+  logging.quick_info("[SESSION] Parsed: scheme=" <> string.inspect(scheme) <> " host=" <> host <> " port=" <> int.to_string(port))
   let api_key = config.get_env("VIBEE_API_KEY")
-  logging.info("[SESSION] API key length: " <> int.to_string(string.length(api_key)))
+  logging.quick_info("[SESSION] API key length: " <> int.to_string(string.length(api_key)))
   let path = "/api/v1/auth/status"
 
   let req =
@@ -6258,7 +6258,7 @@ fn handle_session_list(_args: json.Json) -> ToolResult {
 
   case httpc.send(req) {
     Error(e) -> {
-      logging.error("[SESSION] Failed to get sessions from bridge: " <> string.inspect(e))
+      logging.quick_error("[SESSION] Failed to get sessions from bridge: " <> string.inspect(e))
       // Return empty list on error
       protocol.text_result(
         json.to_string(
@@ -6272,7 +6272,7 @@ fn handle_session_list(_args: json.Json) -> ToolResult {
       )
     }
     Ok(response) -> {
-      logging.info("[SESSION] Bridge response status: " <> string.inspect(response.status))
+      logging.quick_info("[SESSION] Bridge response status: " <> string.inspect(response.status))
       case response.status {
         200 -> {
           // Parse response from bridge
@@ -6282,7 +6282,7 @@ fn handle_session_list(_args: json.Json) -> ToolResult {
           }
           case json.parse(response.body, sessions_decoder) {
             Error(_) -> {
-              logging.error("[SESSION] Failed to parse sessions response: " <> response.body)
+              logging.quick_error("[SESSION] Failed to parse sessions response: " <> response.body)
               protocol.error_result("Failed to parse sessions from bridge")
             }
             Ok(sessions) -> {
@@ -6342,7 +6342,7 @@ fn handle_session_list(_args: json.Json) -> ToolResult {
           }
         }
         _ -> {
-          logging.error("[SESSION] Bridge returned error: " <> response.body)
+          logging.quick_error("[SESSION] Bridge returned error: " <> response.body)
           protocol.error_result("Bridge error: " <> response.body)
         }
       }
@@ -6351,7 +6351,7 @@ fn handle_session_list(_args: json.Json) -> ToolResult {
 }
 
 fn handle_session_set_active(args: json.Json) -> ToolResult {
-  logging.info("[SESSION] Setting active session...")
+  logging.quick_info("[SESSION] Setting active session...")
 
   // Parse session_id from args using json.parse pattern
   let session_id_decoder = {
@@ -6433,7 +6433,7 @@ fn handle_session_set_active(args: json.Json) -> ToolResult {
 }
 
 fn handle_session_create(args: json.Json) -> ToolResult {
-  logging.info("[SESSION] Creating new session...")
+  logging.quick_info("[SESSION] Creating new session...")
 
   let args_str = json.to_string(args)
 

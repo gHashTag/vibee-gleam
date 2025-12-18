@@ -50,10 +50,17 @@ RUN adduser -D -u 1000 vibee
 RUN chown -R vibee:vibee /app
 USER vibee
 
-# Environment variables
+# Environment variables (defaults, override via docker-compose or runtime)
 ENV PORT=8080
 ENV VIBEE_BRIDGE_URL=http://localhost:8081
 ENV VIBEE_LOG_LEVEL=info
+
+# Telegram configuration (set via docker-compose or runtime)
+# ENV TELEGRAM_SESSION_ID=
+# ENV TELEGRAM_API_ID=
+# ENV TELEGRAM_API_HASH=
+# ENV OPENROUTER_API_KEY=
+# ENV DATABASE_URL=
 
 EXPOSE 8080
 

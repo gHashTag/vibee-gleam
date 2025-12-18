@@ -42,7 +42,7 @@ pub fn handle_webhook(
   req: Request(Connection),
   service: String,
 ) -> Response(ResponseData) {
-  logging.info("[WEBHOOK] Received webhook from service: " <> service)
+  logging.quick_info("[WEBHOOK] Received webhook from service: " <> service)
 
   // Parse service type
   let webhook_service = case string.lowercase(service) {
@@ -58,22 +58,22 @@ pub fn handle_webhook(
 
   case webhook_service {
     None -> {
-      logging.warn("[WEBHOOK] Unknown service: " <> service)
+      logging.quick_warn("[WEBHOOK] Unknown service: " <> service)
       error_response(400, "Unknown webhook service: " <> service)
     }
     Some(svc) -> {
       // Read request body
       case read_request_body(req) {
         Ok(body) -> {
-          logging.info("[WEBHOOK] " <> service_to_string(svc) <> " body length: " <> string.inspect(string.length(body)))
+          logging.quick_info("[WEBHOOK] " <> service_to_string(svc) <> " body length: " <> string.inspect(string.length(body)))
           // Log the webhook payload for debugging (first 500 chars)
-          logging.debug("[WEBHOOK] Payload: " <> string.slice(body, 0, 500))
+          logging.quick_info("[WEBHOOK] Payload: " <> string.slice(body, 0, 500))
 
           // Process the webhook - extract info using Erlang FFI
           process_webhook(svc, body)
         }
         Error(err) -> {
-          logging.error("[WEBHOOK] Failed to read body: " <> err)
+          logging.quick_error("[WEBHOOK] Failed to read body: " <> err)
           error_response(400, "Failed to read request body")
         }
       }
@@ -90,16 +90,16 @@ fn process_webhook(service: WebhookService, body: String) -> Response(ResponseDa
   // Use Erlang FFI to parse JSON and extract fields
   let info = parse_webhook_ffi(body)
 
-  logging.info("[WEBHOOK] " <> service_to_string(service) <> " - ID: " <> info.id <> ", Status: " <> info.status)
+  logging.quick_info("[WEBHOOK] " <> service_to_string(service) <> " - ID: " <> info.id <> ", Status: " <> info.status)
 
   case info.output_url {
     "" -> Nil
-    url -> logging.info("[WEBHOOK] Output URL: " <> url)
+    url -> logging.quick_info("[WEBHOOK] Output URL: " <> url)
   }
 
   case info.error {
     "" -> Nil
-    err -> logging.warn("[WEBHOOK] Error: " <> err)
+    err -> logging.quick_warn("[WEBHOOK] Error: " <> err)
   }
 
   // Update ai_jobs table based on webhook status
@@ -112,13 +112,13 @@ fn process_webhook(service: WebhookService, body: String) -> Response(ResponseDa
 fn update_job_status(info: WebhookInfo) -> Nil {
   case info.id {
     "unknown" -> {
-      logging.warn("[WEBHOOK] Cannot update job: no ID in webhook")
+      logging.quick_warn("[WEBHOOK] Cannot update job: no ID in webhook")
       Nil
     }
     external_id -> {
       case get_db_pool() {
         Error(err) -> {
-          logging.warn("[WEBHOOK] DB not available: " <> err)
+          logging.quick_warn("[WEBHOOK] DB not available: " <> err)
           Nil
         }
         Ok(pool) -> {
@@ -142,13 +142,13 @@ fn update_job_status(info: WebhookInfo) -> Nil {
               ai_jobs.update_status_by_external_id(pool, external_id, ai_jobs.JobProcessing)
             }
             _ -> {
-              logging.debug("[WEBHOOK] Unknown status: " <> info.status <> ", treating as processing")
+              logging.quick_info("[WEBHOOK] Unknown status: " <> info.status <> ", treating as processing")
               ai_jobs.update_status_by_external_id(pool, external_id, ai_jobs.JobProcessing)
             }
           }
           case result {
-            Ok(_) -> logging.info("[WEBHOOK] Updated job " <> external_id <> " in database")
-            Error(_) -> logging.warn("[WEBHOOK] Job " <> external_id <> " not found in database (may be external job)")
+            Ok(_) -> logging.quick_info("[WEBHOOK] Updated job " <> external_id <> " in database")
+            Error(_) -> logging.quick_warn("[WEBHOOK] Job " <> external_id <> " not found in database (may be external job)")
           }
           Nil
         }

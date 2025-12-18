@@ -25,6 +25,8 @@ import vibee/logging
 import vibee/web/html
 import vibee/web/p2p_panel
 import vibee/web/factory_panel
+import vibee/web/leads_panel
+import vibee/api/leads_handlers
 import vibee/mcp/websocket as mcp_ws
 import vibee/mcp/tools.{type ToolRegistry}
 import vibee/mcp/session_manager
@@ -59,7 +61,7 @@ pub type Context {
 
 /// Start the HTTP server
 pub fn start(port: Int) -> Result(Nil, String) {
-  logging.info("🚀 Starting VIBEE HTTP server on port " <> int.to_string(port))
+  logging.quick_info("🚀 Starting VIBEE HTTP server on port " <> int.to_string(port))
 
   let handler = fn(req: Request(Connection)) -> Response(ResponseData) {
     handle_request(req, None, None)
@@ -70,11 +72,11 @@ pub fn start(port: Int) -> Result(Nil, String) {
     |> mist.start()
   {
     Ok(_) -> {
-      logging.info("✅ HTTP server started successfully")
+      logging.quick_info("✅ HTTP server started successfully")
       Ok(Nil)
     }
     Error(_) -> {
-      logging.error("❌ Failed to start HTTP server")
+      logging.quick_error("❌ Failed to start HTTP server")
       Error("Failed to start server")
     }
   }
@@ -85,7 +87,7 @@ pub fn start_with_events(
   port: Int,
   bus: process.Subject(event_bus.PubSubMessage),
 ) -> Result(Nil, String) {
-  logging.info("🚀 Starting VIBEE HTTP server on port " <> int.to_string(port) <> " with event bus")
+  logging.quick_info("🚀 Starting VIBEE HTTP server on port " <> int.to_string(port) <> " with event bus")
 
   let handler = fn(req: Request(Connection)) -> Response(ResponseData) {
     handle_request(req, Some(bus), None)
@@ -97,11 +99,11 @@ pub fn start_with_events(
     |> mist.start()
   {
     Ok(_) -> {
-      logging.info("✅ HTTP server started successfully with event bus")
+      logging.quick_info("✅ HTTP server started successfully with event bus")
       Ok(Nil)
     }
     Error(_) -> {
-      logging.error("❌ Failed to start HTTP server")
+      logging.quick_error("❌ Failed to start HTTP server")
       Error("Failed to start server")
     }
   }
@@ -113,7 +115,7 @@ pub fn start_with_mcp(
   bus: process.Subject(event_bus.PubSubMessage),
   registry: ToolRegistry,
 ) -> Result(Nil, String) {
-  logging.info("🚀 Starting VIBEE HTTP server on port " <> int.to_string(port) <> " with MCP WebSocket")
+  logging.quick_info("🚀 Starting VIBEE HTTP server on port " <> int.to_string(port) <> " with MCP WebSocket")
 
   let handler = fn(req: Request(Connection)) -> Response(ResponseData) {
     handle_request(req, Some(bus), Some(registry))
@@ -125,11 +127,11 @@ pub fn start_with_mcp(
     |> mist.start()
   {
     Ok(_) -> {
-      logging.info("✅ HTTP server started with MCP WebSocket at /ws/mcp")
+      logging.quick_info("✅ HTTP server started with MCP WebSocket at /ws/mcp")
       Ok(Nil)
     }
     Error(_) -> {
-      logging.error("❌ Failed to start HTTP server")
+      logging.quick_error("❌ Failed to start HTTP server")
       Error("Failed to start server")
     }
   }
@@ -206,6 +208,17 @@ fn handle_request(
     // P2P Control Panel UI (Earning Dashboard)
     http.Get, ["p2p"] -> p2p_panel_handler()
     http.Get, ["earning"] -> p2p_panel_handler()  // Alias route
+    
+    // Leads management
+    http.Get, ["leads"] -> leads_handlers.list_leads()
+    http.Get, ["leads", lead_id] -> leads_handlers.get_lead(lead_id)
+    
+    // Leads API
+    http.Get, ["api", "v1", "leads"] -> leads_handlers.list_leads_json()
+    http.Get, ["api", "v1", "leads", lead_id] -> leads_handlers.get_lead_json(lead_id)
+    http.Put, ["api", "v1", "leads", lead_id, "status"] -> leads_handlers.update_lead_status(lead_id, "")
+    http.Post, ["api", "v1", "leads", lead_id, "notes"] -> leads_handlers.add_lead_note(lead_id, "")
+    http.Post, ["api", "v1", "leads", lead_id, "message"] -> leads_handlers.send_message_to_lead(lead_id, "")
 
     // ==========================================================================
     // Template Factory UI - Vibe Reels Variants Gallery
@@ -1215,7 +1228,7 @@ fn log_entry_to_json(entry: log_aggregator.LogEntry) -> String {
 
 /// Robokassa webhook handler (POST /api/robokassa-result or /api/payment-success)
 fn robokassa_webhook_handler(_req: Request(Connection)) -> Response(ResponseData) {
-  logging.info("[PAYMENT] Robokassa webhook received")
+  logging.quick_info("[PAYMENT] Robokassa webhook received")
 
   // Parse form body (OutSum, InvId, SignatureValue)
   // For now, return OK response expected by Robokassa
@@ -1233,7 +1246,7 @@ fn robokassa_webhook_handler(_req: Request(Connection)) -> Response(ResponseData
 
 /// Parse all dialogs - POST /api/parse/all
 fn handle_parse_all(_req: Request(Connection)) -> Response(ResponseData) {
-  logging.info("[PARSER] Starting full parse of all dialogs")
+  logging.quick_info("[PARSER] Starting full parse of all dialogs")
 
   // Get active session
   let session_id = case session_manager.get_active() {
@@ -1288,7 +1301,7 @@ fn handle_parse_all(_req: Request(Connection)) -> Response(ResponseData) {
 
 /// Parse single chat - POST /api/parse/{chat_id}
 fn handle_parse_chat(_req: Request(Connection), chat_id_str: String) -> Response(ResponseData) {
-  logging.info("[PARSER] Starting parse for chat: " <> chat_id_str)
+  logging.quick_info("[PARSER] Starting parse for chat: " <> chat_id_str)
 
   case int.parse(chat_id_str) {
     Error(_) -> {

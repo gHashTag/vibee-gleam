@@ -109,7 +109,7 @@ fn handle_message(
     }
 
     Stop -> {
-      logging.info("Polling Actor stopped")
+      logging.quick_info("Polling Actor stopped")
       actor.stop()
     }
   }
@@ -356,7 +356,7 @@ fn log_chat_messages_with_events(
               True -> acc_seen  // Уже видели - пропускаем
               False -> {
                 // Новое входящее сообщение - логируем и публикуем
-                logging.telegram_message(chat_id, from_name, text)
+                logging.quick_info("TG: " <> chat_id <> " " <> from_name <> ": " <> text)
 
                 publish_event(bus, event_bus.telegram_message(
                   chat_id,
@@ -447,7 +447,7 @@ fn process_chat_messages_with_events(
               False -> {
                 io.println("[POLL] NEW INCOMING: " <> unique_id <> " from:" <> from_name)
                 // Логируем входящее сообщение
-                logging.telegram_message(chat_id, from_name, text)
+                logging.quick_info("TG: " <> chat_id <> " " <> from_name <> ": " <> text)
 
                 // Publish telegram message event
                 publish_event(bus, event_bus.telegram_message(
@@ -606,7 +606,7 @@ fn extract_json_bool_field(json: String, field: String) -> Bool {
 
 /// Запустить polling loop (бесконечный цикл в отдельном процессе)
 pub fn start_polling(subject: Subject(PollingMessage)) {
-  logging.info("Starting polling loop...")
+  logging.quick_info("Starting polling loop...")
 
   // Запускаем polling loop в отдельном linked-процессе
   let _ = process.spawn(fn() {

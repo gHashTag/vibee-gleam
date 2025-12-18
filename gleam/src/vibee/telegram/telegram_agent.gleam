@@ -108,9 +108,9 @@ pub fn digital_twin_config(owner_telegram_id: Int) -> TelegramAgentConfig {
 
 /// Инициализация агента
 pub fn init(config: TelegramAgentConfig) -> AgentState {
-  logging.info("Telegram Agent initialized")
-  logging.info("Bridge URL: " <> config.bridge_url)
-  logging.info("Auto-reply: " <> case config.auto_reply_enabled {
+  logging.quick_info("Telegram Agent initialized")
+  logging.quick_info("Bridge URL: " <> config.bridge_url)
+  logging.quick_info("Auto-reply: " <> case config.auto_reply_enabled {
     True -> "enabled"
     False -> "disabled"
   })
@@ -760,7 +760,7 @@ fn get_conversation_context(chat_id: String, _query: String) -> String {
   let db_url = config.get_env_or("DATABASE_URL", "")
   case db_url {
     "" -> {
-      logging.info("[RAG] DATABASE_URL not set")
+      logging.quick_info("[RAG] DATABASE_URL not set")
       ""
     }
     url -> {
@@ -981,7 +981,7 @@ fn call_openrouter(api_key: String, model: String, user_message: String) -> Resu
   ])
   |> json.to_string()
 
-  logging.debug("Calling OpenRouter API with model: " <> model)
+  logging.quick_info("Calling OpenRouter API with model: " <> model)
 
   let req = request.new()
     |> request.set_scheme(http.Https)
@@ -996,7 +996,7 @@ fn call_openrouter(api_key: String, model: String, user_message: String) -> Resu
 
   case httpc.send(req) {
     Ok(response) -> {
-      logging.debug("OpenRouter response status: " <> int.to_string(response.status))
+      logging.quick_info("OpenRouter response status: " <> int.to_string(response.status))
       // Парсим JSON ответ и извлекаем content
       case response.status {
         200 -> {
@@ -1004,21 +1004,21 @@ fn call_openrouter(api_key: String, model: String, user_message: String) -> Resu
           case extract_content_from_response(response.body) {
             Ok(content) -> Ok(content)
             Error(err) -> {
-              logging.error("Failed to parse OpenRouter response: " <> err)
-              logging.debug("Response body: " <> string.slice(response.body, 0, 200))
+              logging.quick_error("Failed to parse OpenRouter response: " <> err)
+              logging.quick_info("Response body: " <> string.slice(response.body, 0, 200))
               Error("Parse error: " <> err)
             }
           }
         }
         status -> {
-          logging.error("OpenRouter API error: HTTP " <> int.to_string(status))
-          logging.debug("Error body: " <> string.slice(response.body, 0, 200))
+          logging.quick_error("OpenRouter API error: HTTP " <> int.to_string(status))
+          logging.quick_info("Error body: " <> string.slice(response.body, 0, 200))
           Error("API error: HTTP " <> int.to_string(status))
         }
       }
     }
     Error(_) -> {
-      logging.error("HTTP request to OpenRouter failed")
+      logging.quick_error("HTTP request to OpenRouter failed")
       Error("HTTP request failed")
     }
   }

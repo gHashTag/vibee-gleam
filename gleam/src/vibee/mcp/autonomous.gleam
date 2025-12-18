@@ -25,7 +25,7 @@ pub fn run_debug_cycle(
   path: String,
   max_iterations: Int,
 ) -> DebugCycleReport {
-  logging.info("[AUTONOMOUS] Starting debug cycle for: " <> path)
+  logging.quick_info("[AUTONOMOUS] Starting debug cycle for: " <> path)
   let start_time = get_timestamp()
 
   // Create task for tracking
@@ -40,7 +40,7 @@ pub fn run_debug_cycle(
   let duration_ms = get_timestamp() - start_time
   let _ = task_store.complete(task_id, result.success, duration_ms)
 
-  logging.info("[AUTONOMOUS] Cycle completed: success=" <> bool_to_string(result.success)
+  logging.quick_info("[AUTONOMOUS] Cycle completed: success=" <> bool_to_string(result.success)
     <> " iterations=" <> int.to_string(result.iterations)
     <> " fixed=" <> int.to_string(result.errors_fixed))
 
@@ -59,7 +59,7 @@ fn do_debug_cycle(
   // Check iteration limit
   case current_iteration >= max_iterations {
     True -> {
-      logging.warn("[AUTONOMOUS] Max iterations reached: " <> int.to_string(max_iterations))
+      logging.quick_warn("[AUTONOMOUS] Max iterations reached: " <> int.to_string(max_iterations))
       let build_result = run_build(path)
       make_report(task_id, False, current_iteration, all_fixes,
         get_last_output(build_result), history, get_build_errors(build_result))
@@ -68,7 +68,7 @@ fn do_debug_cycle(
       // Increment iteration
       let _ = task_store.increment_iteration(task_id)
       let iteration_num = current_iteration + 1
-      logging.info("[AUTONOMOUS] Iteration " <> int.to_string(iteration_num))
+      logging.quick_info("[AUTONOMOUS] Iteration " <> int.to_string(iteration_num))
 
       // Step 1: Build
       let build_result = run_build(path)
@@ -76,7 +76,7 @@ fn do_debug_cycle(
       case is_build_success(build_result) {
         True -> {
           // Success! No more errors
-          logging.info("[AUTONOMOUS] Build successful!")
+          logging.quick_info("[AUTONOMOUS] Build successful!")
           let iteration = DebugIteration(
             iteration: iteration_num,
             build_result: build_result,
@@ -91,16 +91,16 @@ fn do_debug_cycle(
           // Has errors - analyze and fix
           let errors = get_build_errors(build_result)
           let error_count = list.length(errors)
-          logging.info("[AUTONOMOUS] Found " <> int.to_string(error_count) <> " errors")
+          logging.quick_info("[AUTONOMOUS] Found " <> int.to_string(error_count) <> " errors")
 
           // Step 2: Analyze errors and get fixes
           let suggested_fixes = analyze_errors(errors)
-          logging.info("[AUTONOMOUS] Got " <> int.to_string(list.length(suggested_fixes)) <> " fix suggestions")
+          logging.quick_info("[AUTONOMOUS] Got " <> int.to_string(list.length(suggested_fixes)) <> " fix suggestions")
 
           // Step 3: Apply best fix (highest confidence)
           case get_best_fix(suggested_fixes) {
             Some(fix) -> {
-              logging.info("[AUTONOMOUS] Applying fix: " <> fix.id <> " (confidence: "
+              logging.quick_info("[AUTONOMOUS] Applying fix: " <> fix.id <> " (confidence: "
                 <> float_to_string(fix.confidence) <> ")")
 
               let apply_result = apply_fix(fix)
@@ -134,7 +134,7 @@ fn do_debug_cycle(
             }
             None -> {
               // No fix found
-              logging.warn("[AUTONOMOUS] No suitable fix found")
+              logging.quick_warn("[AUTONOMOUS] No suitable fix found")
               let iteration = DebugIteration(
                 iteration: iteration_num,
                 build_result: build_result,
@@ -154,7 +154,7 @@ fn do_debug_cycle(
 
 /// Run gleam build and parse output
 fn run_build(path: String) -> BuildResult {
-  logging.debug("[AUTONOMOUS] Running build in: " <> path)
+  logging.quick_info("[AUTONOMOUS] Running build in: " <> path)
   let result = run_build_ffi(path)
 
   case result.exit_code {
@@ -349,12 +349,12 @@ fn get_best_fix(fixes: List(SuggestedFix)) -> Option(SuggestedFix) {
 
 /// Apply a fix to the code
 fn apply_fix(fix: SuggestedFix) -> Bool {
-  logging.info("[AUTONOMOUS] Applying fix to: " <> fix.file_path <> ":" <> int.to_string(fix.line_number))
+  logging.quick_info("[AUTONOMOUS] Applying fix to: " <> fix.file_path <> ":" <> int.to_string(fix.line_number))
 
   // Read the file
   case read_file_ffi(fix.file_path) {
     Error(_) -> {
-      logging.error("[AUTONOMOUS] Failed to read file: " <> fix.file_path)
+      logging.quick_error("[AUTONOMOUS] Failed to read file: " <> fix.file_path)
       False
     }
     Ok(content) -> {
@@ -362,18 +362,18 @@ fn apply_fix(fix: SuggestedFix) -> Bool {
       let new_content = apply_fix_to_content(content, fix)
       case new_content == content {
         True -> {
-          logging.warn("[AUTONOMOUS] No changes made to file")
+          logging.quick_warn("[AUTONOMOUS] No changes made to file")
           False
         }
         False -> {
           // Write back
           case write_file_ffi(fix.file_path, new_content) {
             Ok(_) -> {
-              logging.info("[AUTONOMOUS] Fix applied successfully")
+              logging.quick_info("[AUTONOMOUS] Fix applied successfully")
               True
             }
             Error(e) -> {
-              logging.error("[AUTONOMOUS] Failed to write file: " <> e)
+              logging.quick_error("[AUTONOMOUS] Failed to write file: " <> e)
               False
             }
           }

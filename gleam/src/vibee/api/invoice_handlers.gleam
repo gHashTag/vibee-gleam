@@ -23,7 +23,7 @@ import vibee/payment/invoice_service
 /// POST /api/v1/invoice/create - Create payment invoice
 /// Body: {"amount": 10.0, "currency": "USDT", "description": "...", "provider": "xrocket"}
 pub fn create_handler(req: Request(Connection)) -> Response(ResponseData) {
-  logging.info("[INVOICE API] Create invoice request")
+  logging.quick_info("[INVOICE API] Create invoice request")
 
   // Parse body - for now use defaults
   let amount = 10.0
@@ -56,7 +56,7 @@ pub fn create_get_handler(
   description_str: Option(String),
   provider_str: Option(String),
 ) -> Response(ResponseData) {
-  logging.info("[INVOICE API] Create invoice GET request")
+  logging.quick_info("[INVOICE API] Create invoice GET request")
 
   let amount = case amount_str {
     Some(s) -> case float.parse(s) {
@@ -110,7 +110,7 @@ pub fn cheque_handler(
   users_str: Option(String),
   description_str: Option(String),
 ) -> Response(ResponseData) {
-  logging.info("[INVOICE API] Create multi-cheque request")
+  logging.quick_info("[INVOICE API] Create multi-cheque request")
 
   let amount = case amount_str {
     Some(s) -> case float.parse(s) {
@@ -163,7 +163,7 @@ pub fn send_handler(
   comment_str: Option(String),
   provider_str: Option(String),
 ) -> Response(ResponseData) {
-  logging.info("[INVOICE API] Send direct transfer request")
+  logging.quick_info("[INVOICE API] Send direct transfer request")
 
   case telegram_id_str, amount_str {
     Some(tg_str), Some(amt_str) -> {
