@@ -1,6 +1,7 @@
 // Core types for VIBEE Agent Framework
 
 import gleam/option.{type Option}
+import gleam/erlang/process.{type Subject}
 
 /// Tone of agent responses
 pub type Tone {
@@ -55,12 +56,13 @@ pub type AgentState {
     history: List(Message),
     history_limit: Int,
     system_prompt: Option(String),
+    messages_since_save: Int,
   )
 }
 
-/// Reference to a running agent (pid stored as String for simplicity)
+/// Reference to a running agent
 pub type AgentRef {
-  AgentRef(id: String, pid_ref: String)
+  AgentRef(id: String, subject: Subject(AgentMessage))
 }
 
 /// Telegram update types
