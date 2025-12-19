@@ -12,20 +12,32 @@ import vibee/types.{
   Shutdown, TgUpdate, NewMessage, TextContent,
 }
 import vibee/error.{type VibeeError}
+import vibee/agent/persistence
 
 /// Start an agent actor using new builder API
 /// Returns Started with data being Subject(AgentMessage)
 pub fn start(config: AgentConfig) -> Result(actor.Started(Subject(AgentMessage)), actor.StartError) {
-  let initial_state =
-    AgentState(
-      id: config.id,
-      name: config.name,
-      tone: config.tone,
-      language: config.language,
-      history: [],
-      history_limit: config.history_limit,
-      system_prompt: config.system_prompt,
-    )
+  // Try to load existing state from database
+  let initial_state = case persistence.load_state(config.id) {
+    Ok(saved_state) -> {
+      io.println("[" <> config.name <> "] Loaded saved state")
+      // Reset messages_since_save counter
+      AgentState(..saved_state, messages_since_save: 0)
+    }
+    Error(_) -> {
+      io.println("[" <> config.name <> "] Creating new state")
+      AgentState(
+        id: config.id,
+        name: config.name,
+        tone: config.tone,
+        language: config.language,
+        history: [],
+        history_limit: config.history_limit,
+        system_prompt: config.system_prompt,
+        messages_since_save: 0,
+      )
+    }
+  }
 
   actor.new(initial_state)
   |> actor.on_message(handle_message)
@@ -56,12 +68,37 @@ fn handle_message(
 
     SaveState -> {
       io.println("[" <> state.name <> "] Saving state...")
-      // TODO: Persist state to PostgreSQL
-      actor.continue(state)
+      
+      // Persist state to PostgreSQL
+      let new_state = case persistence.save_state(state) {
+        Ok(_) -> {
+          io.println("[" <> state.name <> "] State saved successfully")
+          // Reset counter after successful save
+          AgentState(..state, messages_since_save: 0)
+        }
+        Error(err) -> {
+          io.println("[" <> state.name <> "] Failed to save state: " <> err)
+          // Record error for monitoring
+          case persistence.record_error(state.id, "save_state_failed", err, None, None) {
+            Ok(_) -> Nil
+            Error(_) -> Nil
+          }
+          state
+        }
+      }
+      
+      actor.continue(new_state)
     }
 
     Shutdown -> {
       io.println("[" <> state.name <> "] Shutting down...")
+      
+      // Save state before shutdown
+      case persistence.save_state(state) {
+        Ok(_) -> Nil
+        Error(_) -> Nil
+      }
+      
       actor.stop()
     }
   }
@@ -88,12 +125,43 @@ fn handle_telegram_update(
         )
 
       let new_history = add_to_history(state.history, msg, state.history_limit)
-      let new_state = AgentState(..state, history: new_history)
+      let messages_count = state.messages_since_save + 1
+      let new_state = AgentState(..state, history: new_history, messages_since_save: messages_count)
+
+      // Record message received metric
+      case persistence.record_metric(state.id, "message_received", 1.0, None) {
+        Ok(_) -> Nil
+        Error(_) -> Nil
+      }
+
+      // Auto-save every 5 messages
+      let auto_save_threshold = 5
+      let final_state = case messages_count >= auto_save_threshold {
+        True -> {
+          io.println("[" <> state.name <> "] Auto-saving state (threshold reached)")
+          case persistence.save_state(new_state) {
+            Ok(_) -> {
+              io.println("[" <> state.name <> "] Auto-save successful")
+              // Record auto-save metric
+              case persistence.record_metric(state.id, "auto_save", 1.0, None) {
+                Ok(_) -> Nil
+                Error(_) -> Nil
+              }
+              AgentState(..new_state, messages_since_save: 0)
+            }
+            Error(err) -> {
+              io.println("[" <> state.name <> "] Auto-save failed: " <> err)
+              new_state
+            }
+          }
+        }
+        False -> new_state
+      }
 
       // TODO: Generate response using LLM + RAG
       // TODO: Send response via Telegram bridge
 
-      actor.continue(new_state)
+      actor.continue(final_state)
     }
 
     _ -> {

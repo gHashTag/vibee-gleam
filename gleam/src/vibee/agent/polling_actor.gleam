@@ -133,17 +133,30 @@ fn do_poll(state: PollingState) -> PollingState {
     1 -> {
       io.println("[POLL] === RAG DEBUG v2 === Starting polling from: " <> state.config.bridge_url)
       io.println("[POLL] Digital Twin enabled: " <> case state.config.digital_twin_enabled { True -> "YES" False -> "NO" })
+      io.println("[POLL] Session ID: " <> state.config.session_id)
+      logging.quick_info("🔄 Telegram polling started (Digital Twin: " <> case state.config.digital_twin_enabled { True -> "ON" False -> "OFF" } <> ")")
     }
     _ -> case poll_num % 10 {
-      0 -> io.println("[POLL] Poll #" <> int.to_string(poll_num) <> " alive")
+      0 -> {
+        io.println("[POLL] Poll #" <> int.to_string(poll_num) <> " alive")
+        logging.quick_info("🔄 Polling #" <> int.to_string(poll_num) <> " - checking for new messages...")
+      }
       _ -> Nil
     }
   }
+  
+  // Debug: log every 5th poll
+  case poll_num % 5 {
+    0 -> io.println("[POLL] Cycle #" <> int.to_string(poll_num) <> " - fetching dialogs...")
+    _ -> Nil
+  }
 
   // Получаем список диалогов
+  io.println("[POLL] 📡 Fetching dialogs from bridge: " <> state.config.bridge_url)
   case get_dialogs(state.config) {
     Error(err) -> {
-      io.println("[POLL ERROR] Failed to get dialogs: " <> err)
+      io.println("[POLL ERROR] ❌ Failed to get dialogs: " <> err)
+      logging.quick_error("❌ Polling error: " <> err)
       // Publish error event
       publish_event(state.event_bus, event_bus.error_event(
         "polling_error",
@@ -153,11 +166,13 @@ fn do_poll(state: PollingState) -> PollingState {
       PollingState(..state, poll_count: poll_num)
     }
     Ok(dialogs_json) -> {
+      io.println("[POLL] ✅ Got dialogs response, length: " <> int.to_string(string.length(dialogs_json)))
+      
       // Логируем первый успешный poll
       case poll_num {
         1 -> {
-          io.println("[POLL] Got dialogs response, length: " <> int.to_string(string.length(dialogs_json)))
           io.println("[POLL] Response: " <> dialogs_json)
+          logging.quick_info("✅ Connected to Telegram bridge successfully")
         }
         _ -> Nil
       }
@@ -290,23 +305,27 @@ fn process_dialogs_with_events(
   // Находим все ID групп из JSON
   let group_ids = extract_group_ids(dialogs_json)
 
-  // Фильтруем через should_process_chat_with_mode который учитывает:
-  // - целевые чаты (всегда)
-  // - личные чаты (только в Digital Twin режиме)
-  // - исключает self-chat (owner_id)
+  // ИЗМЕНЕНО: Обрабатываем ВСЕ чаты для логирования, но фильтруем для автоответов
   let digital_twin_enabled = state.config.digital_twin_enabled
-  let filtered_ids = list.filter(group_ids, fn(id) {
-    target_chats.should_process_chat_with_mode(id, digital_twin_enabled)
-  })
-
-  // Логируем количество отфильтрованных чатов
+  
+  // Логируем количество чатов
+  io.println("[POLL] 🔍 Total dialogs found: " <> int.to_string(list.length(group_ids)))
+  io.println("[POLL] 📋 Processing ALL chats for logging...")
+  
+  // Используем ВСЕ чаты вместо фильтрованных
+  let filtered_ids = group_ids
+  
   case list.length(filtered_ids) {
-    0 -> io.println("[POLL] No chats to process (Digital Twin: " <> case digital_twin_enabled { True -> "ON" False -> "OFF" } <> ")")
+    0 -> {
+      io.println("[POLL] ⚠️  No chats to process (Digital Twin: " <> case digital_twin_enabled { True -> "ON" False -> "OFF" } <> ")")
+      logging.quick_warn("No chats matched filters - check target_chats configuration")
+    }
     n -> {
-      io.println("[POLL] Processing " <> int.to_string(n) <> " chats (Digital Twin: " <> case digital_twin_enabled { True -> "ON" False -> "OFF" } <> ")")
+      io.println("[POLL] ✅ Processing " <> int.to_string(n) <> " chats (Digital Twin: " <> case digital_twin_enabled { True -> "ON" False -> "OFF" } <> ")")
       // Показываем первые 5 чатов для отладки
       let preview = list.take(filtered_ids, 5)
-      io.println("[POLL] Chats: " <> string.join(preview, ", "))
+      io.println("[POLL] 📋 Chats: " <> string.join(preview, ", "))
+      logging.quick_info("Processing " <> int.to_string(n) <> " chats: " <> string.join(preview, ", "))
     }
   }
 
@@ -382,7 +401,7 @@ fn extract_group_ids(json: String) -> List(String) {
   // Простой парсинг - ищем "id": числа
   let parts = string.split(json, "\"id\":")
 
-  list.filter_map(parts, fn(part) {
+  let ids = list.filter_map(parts, fn(part) {
     case string.split(part, ",") {
       [first, ..] -> {
         let cleaned = string.trim(first)
@@ -394,6 +413,10 @@ fn extract_group_ids(json: String) -> List(String) {
       [] -> Error(Nil)
     }
   })
+  
+  // Логируем извлеченные ID
+  io.println("[EXTRACT] Found " <> int.to_string(list.length(ids)) <> " chat IDs: " <> string.join(ids, ", "))
+  ids
 }
 
 /// Проверить, является ли строка числом
@@ -434,20 +457,28 @@ fn process_chat_messages_with_events(
         // Пропускаем исходящие сообщения (от нас самих) - предотвращает самообщение!
         case is_outgoing {
           True -> {
+            io.println("[TRACE] ❌ Skipping OUT message: " <> unique_id)
             // Исходящее сообщение - добавляем в seen но не обрабатываем
             #(acc_state, set.insert(acc_seen, unique_id))
           }
           False -> {
+            io.println("[TRACE] ✅ Processing IN message: " <> unique_id)
             // Проверяем, видели ли мы это сообщение
             case set.contains(acc_seen, unique_id) {
               True -> {
+                io.println("[TRACE] ⏭️  Already seen: " <> unique_id)
                 io.println("[POLL] SKIP (seen): " <> unique_id)
                 acc  // Уже обработали - пропускаем
               }
               False -> {
-                io.println("[POLL] NEW INCOMING: " <> unique_id <> " from:" <> from_name)
+                io.println("[TRACE] 🆕 First time seeing: " <> unique_id)
+                io.println("[POLL] 🆕 NEW INCOMING: " <> unique_id <> " from:" <> from_name)
+                io.println("[POLL] 📝 Message text: " <> string.slice(text, 0, 100))
+                
+                io.println("[TRACE] 📤 Calling logging.quick_info...")
                 // Логируем входящее сообщение
-                logging.quick_info("TG: " <> chat_id <> " " <> from_name <> ": " <> text)
+                logging.quick_info("📨 TG: " <> chat_id <> " " <> from_name <> ": " <> text)
+                io.println("[TRACE] ✅ logging.quick_info completed")
 
                 // Publish telegram message event
                 publish_event(bus, event_bus.telegram_message(
