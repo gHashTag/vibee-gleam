@@ -677,7 +677,7 @@ fn generate_image_fal(prompt: String) -> Result(String, String) {
           case response.status {
             200 -> {
               // Парсим ответ и извлекаем URL изображения
-              extract_image_url(response.body)
+              extract_image_url(response.body, key)
             }
             _ -> Error("FAL.ai HTTP " <> int.to_string(response.status) <> ": " <> string.slice(response.body, 0, 100))
           }
@@ -689,7 +689,8 @@ fn generate_image_fal(prompt: String) -> Result(String, String) {
 }
 
 /// Извлекает URL изображения из ответа FAL.ai
-fn extract_image_url(body: String) -> Result(String, String) {
+/// Если статус IN_QUEUE - запускает polling
+fn extract_image_url(body: String, api_key: String) -> Result(String, String) {
   // Формат: {"images":[{"url":"https://..."}],...}
   let pattern = "\"url\":\""
   case string.split(body, pattern) {
@@ -702,12 +703,124 @@ fn extract_image_url(body: String) -> Result(String, String) {
     _ -> {
       // Проверяем на IN_QUEUE статус
       case string.contains(body, "IN_QUEUE") {
-        True -> Error("Request queued - try again in 30 seconds")
+        True -> {
+          // Извлекаем request_id для polling
+          case extract_request_id(body) {
+            Ok(request_id) -> {
+              io.println("[FAL] Request queued, starting polling for: " <> request_id)
+              poll_fal_result(request_id, api_key, 20)  // 20 попыток = ~60 сек
+            }
+            Error(err) -> Error("IN_QUEUE but no request_id: " <> err)
+          }
+        }
         False -> Error("No image URL in response: " <> string.slice(body, 0, 200))
       }
     }
   }
 }
+
+/// Извлекает request_id из ответа FAL.ai
+fn extract_request_id(body: String) -> Result(String, String) {
+  // Формат: {"request_id":"abc123",...}
+  let pattern = "\"request_id\":\""
+  case string.split(body, pattern) {
+    [_, rest, ..] -> {
+      case string.split(rest, "\"") {
+        [request_id, ..] -> Ok(request_id)
+        _ -> Error("Could not parse request_id")
+      }
+    }
+    _ -> Error("No request_id in response")
+  }
+}
+
+/// Polling для получения результата из FAL.ai очереди
+fn poll_fal_result(request_id: String, api_key: String, max_attempts: Int) -> Result(String, String) {
+  poll_fal_loop(request_id, api_key, max_attempts, 1)
+}
+
+fn poll_fal_loop(request_id: String, api_key: String, max_attempts: Int, attempt: Int) -> Result(String, String) {
+  case attempt > max_attempts {
+    True -> Error("Polling timeout after " <> int.to_string(max_attempts) <> " attempts")
+    False -> {
+      // Ждём 3 секунды между попытками
+      sleep_ms(3000)
+
+      // Проверяем статус
+      let status_req = request.new()
+        |> request.set_scheme(http.Https)
+        |> request.set_method(http.Get)
+        |> request.set_host("queue.fal.run")
+        |> request.set_path("/requests/" <> request_id <> "/status")
+        |> request.set_header("Authorization", "Key " <> api_key)
+        |> request.set_header("Content-Type", "application/json")
+
+      case httpc.send(status_req) {
+        Ok(status_response) -> {
+          io.println("[FAL] Poll #" <> int.to_string(attempt) <> " status: " <> string.slice(status_response.body, 0, 100))
+
+          case string.contains(status_response.body, "COMPLETED") {
+            True -> {
+              // Получаем результат
+              io.println("[FAL] Request COMPLETED, fetching result...")
+              fetch_fal_result(request_id, api_key)
+            }
+            False -> {
+              case string.contains(status_response.body, "FAILED") {
+                True -> Error("FAL.ai request failed")
+                False -> {
+                  // Продолжаем polling
+                  poll_fal_loop(request_id, api_key, max_attempts, attempt + 1)
+                }
+              }
+            }
+          }
+        }
+        Error(_) -> {
+          io.println("[FAL] Poll request failed, retrying...")
+          poll_fal_loop(request_id, api_key, max_attempts, attempt + 1)
+        }
+      }
+    }
+  }
+}
+
+/// Получает результат из FAL.ai очереди
+fn fetch_fal_result(request_id: String, api_key: String) -> Result(String, String) {
+  let result_req = request.new()
+    |> request.set_scheme(http.Https)
+    |> request.set_method(http.Get)
+    |> request.set_host("queue.fal.run")
+    |> request.set_path("/requests/" <> request_id)
+    |> request.set_header("Authorization", "Key " <> api_key)
+    |> request.set_header("Content-Type", "application/json")
+
+  case httpc.send(result_req) {
+    Ok(result_response) -> {
+      io.println("[FAL] Result response: " <> string.slice(result_response.body, 0, 200))
+      extract_image_url_simple(result_response.body)
+    }
+    Error(_) -> Error("Failed to fetch FAL.ai result")
+  }
+}
+
+/// Простое извлечение URL без рекурсии
+fn extract_image_url_simple(body: String) -> Result(String, String) {
+  let pattern = "\"url\":\""
+  case string.split(body, pattern) {
+    [_, rest, ..] -> {
+      case string.split(rest, "\"") {
+        [url, ..] -> Ok(url)
+        _ -> Error("Could not parse image URL from result")
+      }
+    }
+    _ -> Error("No image URL in result: " <> string.slice(body, 0, 200))
+  }
+}
+
+/// Erlang sleep wrapper
+@external(erlang, "timer", "sleep")
+fn sleep_ms(ms: Int) -> Nil
 
 /// Получает переменную окружения
 /// Использует FFI wrapper для конвертации binary -> charlist -> os:getenv -> binary

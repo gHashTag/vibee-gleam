@@ -40,6 +40,7 @@ import vibee/api/payment_webhooks
 import vibee/auth/web_auth
 import vibee/log_aggregator
 import vibee/telegram/parser
+import vibee/telegram/telegram_agent as vibee_telegram_agent
 import vibee/db/postgres
 import vibee/config/twin_config
 
@@ -206,6 +207,9 @@ fn handle_request(
 
     // Agent API
     http.Get, ["api", "agent", "status"] -> agent_status_handler()
+
+    // Test endpoint for simulating messages (for development)
+    http.Post, ["api", "test", "message"] -> test_message_handler(req)
     
     // Logs page - real-time log viewer
     http.Get, ["logs"] -> logs_page_handler()
@@ -1099,6 +1103,74 @@ fn agent_status_handler() -> Response(ResponseData) {
   ])
 
   json_response(200, body)
+}
+
+/// Test endpoint for simulating incoming messages
+fn test_message_handler(req: Request(Connection)) -> Response(ResponseData) {
+  case mist.read_body(req, 10_000) {
+    Error(_) -> json_response(400, json.object([#("error", json.string("Failed to read body"))]))
+    Ok(body_result) -> {
+      case bit_array.to_string(body_result.body) {
+        Error(_) -> json_response(400, json.object([#("error", json.string("Invalid UTF-8"))]))
+        Ok(body_str) -> {
+          // Parse JSON: {"chat_id": "123", "text": "/pricing", "from_name": "Test", "from_id": "123"}
+          let chat_id = extract_json_string(body_str, "chat_id") |> option.unwrap("0")
+          let text = extract_json_string(body_str, "text") |> option.unwrap("")
+          let from_name = extract_json_string(body_str, "from_name") |> option.unwrap("TestUser")
+          let from_id = extract_json_string(body_str, "from_id")
+            |> option.unwrap("999999")
+            |> int.parse()
+            |> result.unwrap(999999)
+
+          logging.quick_info("[TEST] Simulating message: " <> text <> " in chat " <> chat_id)
+
+          // Get config from environment
+          let bridge_url = telegram_config.bridge_url()
+          let session_id = config.get_env_or("TELEGRAM_SESSION_ID", "sess_test")
+
+          let state = vibee_telegram_agent.AgentState(
+            config: vibee_telegram_agent.TelegramAgentConfig(
+              bridge_url: bridge_url,
+              session_id: session_id,
+              llm_api_key: None,
+              llm_model: "gpt-4",
+              auto_reply_enabled: True,
+              cooldown_ms: 0,
+              digital_twin_enabled: True,
+              owner_id: 0,
+            ),
+            bot_user_id: None,
+            is_monitoring: True,
+            total_messages: 0,
+            last_reply_time: 0,
+            monitored_chats: [],
+          )
+
+          // Process the message
+          let _ = vibee_telegram_agent.handle_incoming_message(state, chat_id, from_id, from_name, text, 0)
+
+          json_response(200, json.object([
+            #("status", json.string("ok")),
+            #("message", json.string("Processed: " <> text)),
+          ]))
+        }
+      }
+    }
+  }
+}
+
+/// Extract string value from JSON (simple parser)
+fn extract_json_string(json_str: String, key: String) -> Option(String) {
+  let pattern = "\"" <> key <> "\":\""
+  case string.split(json_str, pattern) {
+    [_, rest, ..] -> {
+      case string.split(rest, "\"") {
+        [value, ..] -> Some(value)
+        _ -> None
+      }
+    }
+    _ -> None
+  }
 }
 
 fn health_handler() -> Response(ResponseData) {
