@@ -44,6 +44,11 @@ import vibee/payment/tools as payment_tools
 import vibee/payment/invoice_tools
 import vibee/p2p/tools as p2p_tools
 import vibee/earning/tools as earning_tools
+import vibee/mcp/github_tools
+import vibee/mcp/content_tools
+import vibee/mcp/sales_tools
+import vibee/mcp/config_tools
+import vibee/mcp/twin_tools
 
 /// Tool handler function type
 pub type ToolHandler =
@@ -76,6 +81,11 @@ pub type ToolCategory {
   CategoryClone
   CategoryTask
   CategoryRemotion
+  CategoryGitHub
+  CategoryContent
+  CategorySales
+  CategoryConfig
+  CategoryTwin
 }
 
 /// Tool registry
@@ -274,8 +284,66 @@ pub fn get_tool_category(name: String) -> ToolCategory {
                                                                                                 True ->
                                                                                                   CategoryRemotion
                                                                                                 False ->
-                                                                                                  CategorySystem
-                                                                                                // Default
+                                                                                                  case
+                                                                                                    string.starts_with(
+                                                                                                      name,
+                                                                                                      "github_",
+                                                                                                    )
+                                                                                                  {
+                                                                                                    True ->
+                                                                                                      CategoryGitHub
+                                                                                                    False ->
+                                                                                                      case
+                                                                                                        string.starts_with(
+                                                                                                          name,
+                                                                                                          "avatar_",
+                                                                                                        )
+                                                                                                        || string.starts_with(
+                                                                                                          name,
+                                                                                                          "content_",
+                                                                                                        )
+                                                                                                      {
+                                                                                                        True ->
+                                                                                                          CategoryContent
+                                                                                                        False ->
+                                                                                                          case
+                                                                                                            string.starts_with(
+                                                                                                              name,
+                                                                                                              "sales_",
+                                                                                                            )
+                                                                                                          {
+                                                                                                            True ->
+                                                                                                              CategorySales
+                                                                                                            False ->
+                                                                                                              case
+                                                                                                                string.starts_with(
+                                                                                                                  name,
+                                                                                                                  "config_",
+                                                                                                                )
+                                                                                                                || string.starts_with(
+                                                                                                                  name,
+                                                                                                                  "trigger_",
+                                                                                                                )
+                                                                                                              {
+                                                                                                                True ->
+                                                                                                                  CategoryConfig
+                                                                                                                False ->
+                                                                                                                  case
+                                                                                                                    string.starts_with(
+                                                                                                                      name,
+                                                                                                                      "twin_",
+                                                                                                                    )
+                                                                                                                  {
+                                                                                                                    True ->
+                                                                                                                      CategoryTwin
+                                                                                                                    False ->
+                                                                                                                      CategorySystem
+                                                                                                                    // Default
+                                                                                                                  }
+                                                                                                              }
+                                                                                                          }
+                                                                                                      }
+                                                                                                  }
                                                                                               }
                                                                                           }
                                                                                       }
@@ -347,6 +415,11 @@ pub fn category_to_string(cat: ToolCategory) -> String {
     CategoryClone -> "clone"
     CategoryTask -> "task"
     CategoryRemotion -> "remotion"
+    CategoryGitHub -> "github"
+    CategoryContent -> "content"
+    CategorySales -> "sales"
+    CategoryConfig -> "config"
+    CategoryTwin -> "twin"
   }
 }
 
@@ -378,6 +451,11 @@ pub fn parse_category(s: String) -> Result(ToolCategory, Nil) {
     "clone" -> Ok(CategoryClone)
     "task" -> Ok(CategoryTask)
     "remotion" -> Ok(CategoryRemotion)
+    "github" -> Ok(CategoryGitHub)
+    "content" -> Ok(CategoryContent)
+    "sales" -> Ok(CategorySales)
+    "config" -> Ok(CategoryConfig)
+    "twin" -> Ok(CategoryTwin)
     _ -> Error(Nil)
   }
 }
@@ -541,6 +619,16 @@ pub fn init_registry() -> ToolRegistry {
     |> list.append(storage_tools.all_tools())
     // Add Remotion tools (video rendering and template management)
     |> list.append(remotion_tools.all_tools())
+    // Add GitHub tools (profile loading, search, embeddings)
+    |> list.append(github_tools.get_github_tools())
+    // Add Content tools (avatar generation, content pipeline)
+    |> list.append(content_tools.get_content_tools())
+    // Add Sales tools (products, subscriptions, leads, quiz, paywall)
+    |> list.append(sales_tools.get_sales_tools())
+    // Add Config tools (dynamic configuration management, hot-reload)
+    |> list.append(config_tools.get_all_tools())
+    // Add Twin tools (Digital Twin configuration, ElizaOS compatible)
+    |> list.append(twin_tools.get_all_tools())
 
   let tool_dict =
     list.fold(tools, dict.new(), fn(acc, tool) {
@@ -709,6 +797,50 @@ pub fn init_registry() -> ToolRegistry {
       let #(name, handler) = pair
       dict.insert(acc, name, handler)
     })
+
+  // Add GitHub handlers (profile loading, search, embeddings)
+  let handler_dict =
+    github_tools.get_github_handlers()
+    |> list.fold(handler_dict, fn(acc, pair) {
+      let #(name, handler) = pair
+      dict.insert(acc, name, handler)
+    })
+
+  // Add Content handlers (avatar generation, content pipeline)
+  let handler_dict =
+    content_tools.get_content_handlers()
+    |> list.fold(handler_dict, fn(acc, pair) {
+      let #(name, handler) = pair
+      dict.insert(acc, name, handler)
+    })
+
+  // Add Sales handlers (products, subscriptions, leads, quiz, paywall)
+  let handler_dict =
+    sales_tools.get_sales_handlers()
+    |> list.fold(handler_dict, fn(acc, pair) {
+      let #(name, handler) = pair
+      dict.insert(acc, name, handler)
+    })
+
+  // Add Config handlers (dynamic configuration management, hot-reload)
+  let handler_dict =
+    handler_dict
+    |> dict.insert("config_get", config_tools.handle_config_get)
+    |> dict.insert("config_set", config_tools.handle_config_set)
+    |> dict.insert("config_list", config_tools.handle_config_list)
+    |> dict.insert("trigger_chat_list", config_tools.handle_trigger_chat_list)
+    |> dict.insert("trigger_chat_add", config_tools.handle_trigger_chat_add)
+    |> dict.insert("trigger_chat_remove", config_tools.handle_trigger_chat_remove)
+    |> dict.insert("config_cache_clear", config_tools.handle_config_cache_clear)
+    // Twin tools handlers (Digital Twin configuration)
+    |> dict.insert("twin_config_get", twin_tools.handle_twin_config_get)
+    |> dict.insert("twin_config_set", twin_tools.handle_twin_config_set)
+    |> dict.insert("twin_style_update", twin_tools.handle_twin_style_update)
+    |> dict.insert("twin_examples_add", twin_tools.handle_twin_examples_add)
+    |> dict.insert("twin_export", twin_tools.handle_twin_export)
+    |> dict.insert("twin_import", twin_tools.handle_twin_import)
+    |> dict.insert("twin_prompt_get", twin_tools.handle_twin_prompt_get)
+    |> dict.insert("twin_cache_clear", twin_tools.handle_twin_cache_clear)
 
   // Build categories dict
   let category_dict =

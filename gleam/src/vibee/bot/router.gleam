@@ -12,6 +12,7 @@ import vibee/bot/scene.{
   AvatarUploadPhotos, AvatarVideo, BRoll, CallbackQuery, Command, Idle,
   ImageToVideo, Main, MainMenu, Morphing, NeuroPhoto, NeuroPhotoEnterPrompt,
   NeuroPhotoGenerating, NeuroPhotoResult, NeuroPhotoSelectModel, PhotoMessage,
+  Pricing, Quiz, Subscription,
   TextMessage, TextReply, TextToVideo, TextWithKeyboard, UserSession,
   VoiceClone, button, button_row,
 }
@@ -20,7 +21,13 @@ import vibee/bot/scenes/avatar_video as avatar_video_scene
 import vibee/bot/scenes/broll as broll_scene
 import vibee/bot/scenes/image_to_video as image_to_video_scene
 import vibee/bot/scenes/morphing as morphing_scene
+import vibee/bot/scenes/pricing as pricing_scene
+import vibee/bot/scenes/quiz_scene
+import vibee/bot/scenes/subscription_scene
 import vibee/bot/scenes/text_to_video as text_to_video_scene
+import vibee/sales/paywall
+import vibee/sales/proposal_generator
+import vibee/sales/lead_service
 import vibee/bot/scenes/voice_clone as voice_clone_scene
 import vibee/bot/session_store
 
@@ -178,6 +185,69 @@ fn handle_command(
       }
     }
 
+    "pricing" | "tariffs" | "prices" -> {
+      let result = pricing_scene.handle_pricing_command(session)
+      let _ = session_store.save_session(pool, result.session)
+      Ok(RouterResult(
+        session: result.session,
+        response: result.response,
+      ))
+    }
+
+    "quiz" -> {
+      let result = quiz_scene.handle_quiz_command(session)
+      let _ = session_store.save_session(pool, result.session)
+      Ok(RouterResult(
+        session: result.session,
+        response: result.response,
+      ))
+    }
+
+    "subscribe" | "mystatus" | "status" -> {
+      let result = subscription_scene.handle_status_command(session)
+      let _ = session_store.save_session(pool, result.session)
+      Ok(RouterResult(
+        session: result.session,
+        response: result.response,
+      ))
+    }
+
+    "proposal" | "kp" -> {
+      // Генерируем КП для пользователя на основе квиза или дефолтного тарифа
+      case lead_service.get_or_create_lead(session.user_id, session.username, None, None, Some("bot")) {
+        Error(_) -> {
+          Ok(RouterResult(
+            session: session,
+            response: Some(TextReply("Ошибка создания профиля. Попробуйте позже.")),
+          ))
+        }
+        Ok(lead) -> {
+          // Определяем продукт из квиза или дефолтный (middle)
+          let product_code = case lead.recommended_product_id {
+            Some(1) -> "junior"
+            Some(2) -> "middle"
+            Some(3) -> "senior"
+            _ -> "middle"
+          }
+
+          case proposal_generator.generate_for_lead(lead, product_code, 0, "ru") {
+            Error(_) -> {
+              Ok(RouterResult(
+                session: session,
+                response: Some(TextReply("Ошибка генерации КП. Попробуйте /quiz для подбора тарифа.")),
+              ))
+            }
+            Ok(generated) -> {
+              Ok(RouterResult(
+                session: session,
+                response: Some(TextReply(generated.text_content)),
+              ))
+            }
+          }
+        }
+      }
+    }
+
     "cancel" | "reset" -> {
       let new_session = scene.reset_session(session)
       let _ = session_store.save_session(pool, new_session)
@@ -221,6 +291,10 @@ fn route_to_scene(
     BRoll(_) -> handle_new_scene(pool, session, message, broll_scene.handle_message, broll_scene.handle_callback)
     AvatarVideo(_) -> handle_new_scene(pool, session, message, avatar_video_scene.handle_message, avatar_video_scene.handle_callback)
     VoiceClone(_) -> handle_new_scene(pool, session, message, voice_clone_scene.handle_message, voice_clone_scene.handle_callback)
+    // Sales scenes
+    Pricing(_) -> handle_pricing_scene(pool, session, message)
+    Quiz(_) -> handle_quiz_scene(pool, session, message)
+    Subscription(_) -> handle_subscription_scene(pool, session, message)
   }
 }
 
@@ -255,6 +329,73 @@ fn scene_error_to_string(e: scene_handler.SceneError) -> String {
     scene_handler.InvalidInput(msg) -> "Invalid input: " <> msg
     scene_handler.ServiceError(msg) -> "Service error: " <> msg
     scene_handler.NotImplemented -> "Not implemented"
+  }
+}
+
+// ============================================================
+// Sales Scene Handlers
+// ============================================================
+
+fn handle_pricing_scene(
+  pool: pog.Connection,
+  session: UserSession,
+  message: IncomingMessage,
+) -> Result(RouterResult, RouterError) {
+  case message {
+    CallbackQuery(data) -> {
+      let result = pricing_scene.handle_callback(session, data)
+      let _ = session_store.save_session(pool, result.session)
+      Ok(RouterResult(session: result.session, response: result.response))
+    }
+    TextMessage(_) -> {
+      // Re-show pricing
+      let result = pricing_scene.handle_pricing_command(session)
+      let _ = session_store.save_session(pool, result.session)
+      Ok(RouterResult(session: result.session, response: result.response))
+    }
+    _ -> Ok(RouterResult(session: session, response: None))
+  }
+}
+
+fn handle_quiz_scene(
+  pool: pog.Connection,
+  session: UserSession,
+  message: IncomingMessage,
+) -> Result(RouterResult, RouterError) {
+  case message {
+    CallbackQuery(data) -> {
+      let result = quiz_scene.handle_callback(session, data)
+      let _ = session_store.save_session(pool, result.session)
+      Ok(RouterResult(session: result.session, response: result.response))
+    }
+    TextMessage(_) -> {
+      // Re-show current question
+      let result = quiz_scene.handle_quiz_command(session)
+      let _ = session_store.save_session(pool, result.session)
+      Ok(RouterResult(session: result.session, response: result.response))
+    }
+    _ -> Ok(RouterResult(session: session, response: None))
+  }
+}
+
+fn handle_subscription_scene(
+  pool: pog.Connection,
+  session: UserSession,
+  message: IncomingMessage,
+) -> Result(RouterResult, RouterError) {
+  case message {
+    CallbackQuery(data) -> {
+      let result = subscription_scene.handle_callback(session, data)
+      let _ = session_store.save_session(pool, result.session)
+      Ok(RouterResult(session: result.session, response: result.response))
+    }
+    TextMessage(_) -> {
+      // Re-show status
+      let result = subscription_scene.handle_status_command(session)
+      let _ = session_store.save_session(pool, result.session)
+      Ok(RouterResult(session: result.session, response: result.response))
+    }
+    _ -> Ok(RouterResult(session: session, response: None))
   }
 }
 
@@ -407,6 +548,21 @@ fn handle_main_menu_callback(
         Error(_) -> Error(SceneError("Failed to enter VoiceClone scene"))
       }
     }
+    "pricing" -> {
+      let result = pricing_scene.handle_pricing_command(session)
+      let _ = session_store.save_session(pool, result.session)
+      Ok(RouterResult(session: result.session, response: result.response))
+    }
+    "quiz" -> {
+      let result = quiz_scene.handle_quiz_command(session)
+      let _ = session_store.save_session(pool, result.session)
+      Ok(RouterResult(session: result.session, response: result.response))
+    }
+    "subscription" -> {
+      let result = subscription_scene.handle_status_command(session)
+      let _ = session_store.save_session(pool, result.session)
+      Ok(RouterResult(session: result.session, response: result.response))
+    }
     _ -> Ok(RouterResult(session: session, response: None))
   }
 }
@@ -487,24 +643,41 @@ fn handle_neuro_photo_enter_prompt(
 ) -> Result(RouterResult, RouterError) {
   case message {
     TextMessage(prompt) -> {
-      // Start generation
-      // In real implementation, call AI service and get job_id
-      let job_id = "job_" <> model <> "_placeholder"
-      let new_session =
-        scene.set_scene(
-          session,
-          NeuroPhoto(NeuroPhotoGenerating(model, prompt, job_id)),
-        )
-      let _ = session_store.save_session(pool, new_session)
+      // Check paywall before starting generation
+      case paywall.check_access(session.user_id, paywall.Generation) {
+        paywall.AccessGranted(_) -> {
+          // Start generation
+          // In real implementation, call AI service and get job_id
+          let job_id = "job_" <> model <> "_placeholder"
+          let new_session =
+            scene.set_scene(
+              session,
+              NeuroPhoto(NeuroPhotoGenerating(model, prompt, job_id)),
+            )
+          let _ = session_store.save_session(pool, new_session)
 
-      // TODO: Actually call FAL.ai or other service here
-      // For now, just acknowledge
-      Ok(RouterResult(
-        session: new_session,
-        response: Some(TextReply(
-          "Generating image with " <> model <> "...\n\nPrompt: " <> prompt,
-        )),
-      ))
+          // Record usage after successful generation start
+          let _ = paywall.record_usage(session.user_id, paywall.Generation)
+
+          // TODO: Actually call FAL.ai or other service here
+          // For now, just acknowledge
+          Ok(RouterResult(
+            session: new_session,
+            response: Some(TextReply(
+              "Generating image with " <> model <> "...\n\nPrompt: " <> prompt,
+            )),
+          ))
+        }
+        access_result -> {
+          // Access denied - show paywall message
+          let message = paywall.get_access_message(access_result, "ru")
+            <> "\n\n💎 /pricing - просмотр тарифов\n🎯 /quiz - подобрать тариф"
+          Ok(RouterResult(
+            session: session,
+            response: Some(TextReply(message)),
+          ))
+        }
+      }
     }
     CallbackQuery("back") -> {
       let new_session =
@@ -829,6 +1002,8 @@ fn main_menu_response() -> OutgoingMessage {
       [button("Animate Image", "image_to_video"), button("Morphing", "morphing")],
       [button("B-Roll", "broll"), button("Talking Avatar", "avatar_video")],
       [button("Train Avatar", "avatar"), button("Voice Clone", "voice_clone")],
+      [button("💎 Тарифы", "pricing"), button("🎯 Квиз", "quiz")],
+      [button("📊 Моя подписка", "subscription")],
     ],
   )
 }
@@ -872,6 +1047,11 @@ fn help_response() -> OutgoingMessage {
     <> "/talking - Talking avatar video\n\n"
     <> "**Audio:**\n"
     <> "/voice - Voice cloning\n\n"
+    <> "**Subscription:**\n"
+    <> "/pricing - View pricing plans\n"
+    <> "/quiz - Find best plan for you\n"
+    <> "/subscribe - Manage subscription\n"
+    <> "/proposal - Get personalized offer\n\n"
     <> "**General:**\n"
     <> "/menu - Main menu\n"
     <> "/cancel - Cancel current action\n"

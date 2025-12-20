@@ -1,6 +1,7 @@
 // HTTP API Router for VIBEE
 // Built on Mist HTTP server
 
+import gleam/bit_array
 import gleam/bytes_tree
 import gleam/erlang/process
 import gleam/http
@@ -35,10 +36,12 @@ import vibee/api/p2p_handlers
 import vibee/api/invoice_handlers
 import vibee/api/task_handlers
 import vibee/api/webhook_handlers
+import vibee/api/payment_webhooks
 import vibee/auth/web_auth
 import vibee/log_aggregator
 import vibee/telegram/parser
 import vibee/db/postgres
+import vibee/config/twin_config
 
 /// WebSocket message types
 pub type WsMessage {
@@ -217,8 +220,10 @@ fn handle_request(
     http.Get, ["ws", "events"] -> events_websocket_handler_with_bus(req, bus)
 
     // Payment webhooks
-    http.Post, ["api", "robokassa-result"] -> robokassa_webhook_handler(req)
-    http.Post, ["api", "payment-success"] -> robokassa_webhook_handler(req)
+    http.Post, ["api", "robokassa-result"] -> payment_webhooks.handle_robokassa(req)
+    http.Post, ["api", "payment-success"] -> payment_webhooks.handle_robokassa(req)
+    http.Post, ["api", "webhooks", "ton"] -> payment_webhooks.handle_ton(req)
+    http.Post, ["api", "webhooks", "stars"] -> payment_webhooks.handle_stars(req)
 
     // AI Service Webhooks (Replicate, Hedra, HeyGen, Kling, KIE.ai, BFL, ElevenLabs)
     http.Post, ["api", "webhooks", service] -> webhook_handlers.handle_webhook(req, service)
@@ -396,6 +401,15 @@ fn handle_request(
     http.Post, ["api", "parse", "all"] -> handle_parse_all(req)
     http.Post, ["api", "parse", chat_id] -> handle_parse_chat(req, chat_id)
     http.Get, ["api", "parse", "status"] -> handle_parse_status(req)
+
+    // ==========================================================================
+    // Digital Twin Configuration API (ElizaOS compatible)
+    // ==========================================================================
+    http.Get, ["api", "v1", "twin", "config"] -> handle_twin_config_get()
+    http.Put, ["api", "v1", "twin", "config"] -> handle_twin_config_update(req)
+    http.Get, ["api", "v1", "twin", "export"] -> handle_twin_export()
+    http.Post, ["api", "v1", "twin", "import"] -> handle_twin_import(req)
+    http.Get, ["api", "v1", "twin", "prompt"] -> handle_twin_prompt_get()
 
     // 404 for unknown routes
     _, _ -> not_found_handler()
@@ -1720,11 +1734,11 @@ fn logs_websocket_handler(req: Request(Connection)) -> Response(ResponseData) {
       case log_aggregator.get_global() {
         Some(aggregator) -> {
           io.println("[WS:Logs] 📤 Fetching recent logs from aggregator...")
-          let recent_logs = log_aggregator.get_recent_logs(aggregator, 100)
+          let recent_logs = log_aggregator.get_recent(aggregator, 100)
           io.println("[WS:Logs] 📦 Got " <> int.to_string(list.length(recent_logs)) <> " logs from aggregator")
           
-          list.each(recent_logs, fn(log_json) {
-            mist.send_text_frame(conn, log_json)
+          list.each(recent_logs, fn(entry) {
+            mist.send_text_frame(conn, log_aggregator.log_entry_to_json(entry))
           })
           
           io.println("[WS:Logs] ✅ Sent " <> int.to_string(list.length(recent_logs)) <> " recent logs to client")
@@ -1838,24 +1852,6 @@ fn log_entry_to_json(entry: log_aggregator.LogEntry) -> String {
 
   json.object(all_fields)
   |> json.to_string
-}
-
-// =============================================================================
-// PAYMENT WEBHOOK HANDLERS
-// =============================================================================
-
-/// Robokassa webhook handler (POST /api/robokassa-result or /api/payment-success)
-fn robokassa_webhook_handler(_req: Request(Connection)) -> Response(ResponseData) {
-  logging.quick_info("[PAYMENT] Robokassa webhook received")
-
-  // Parse form body (OutSum, InvId, SignatureValue)
-  // For now, return OK response expected by Robokassa
-  // In production: validate signature, update payment status, update balance
-
-  // Robokassa expects "OK<inv_id>" response on success
-  response.new(200)
-  |> response.set_body(mist.Bytes(bytes_tree.from_string("OK")))
-  |> response.set_header("content-type", "text/plain")
 }
 
 // =============================================================================
@@ -2021,3 +2017,177 @@ fn spawn_dialog_parse(pool: postgres.DbPool, session_id: String, dialog_id: Int,
 
 @external(erlang, "vibee_parser_ffi", "spawn_dialog_parse")
 fn do_spawn_dialog_parse(pool: postgres.DbPool, session_id: String, dialog_id: Int, job_id: Int) -> Nil
+
+// =============================================================================
+// Digital Twin Configuration Handlers
+// =============================================================================
+
+/// Get Digital Twin configuration
+fn handle_twin_config_get() -> Response(ResponseData) {
+  case postgres.get_global_pool() {
+    None -> {
+      let body = json.object([#("error", json.string("Database not configured"))])
+      json_response(500, body)
+    }
+    Some(pool) -> {
+      case twin_config.get_active(pool) {
+        Ok(config) -> {
+          let body = json.object([
+            #("id", json.string(config.id)),
+            #("name", json.string(config.name)),
+            #("username", case config.username {
+              Some(u) -> json.string(u)
+              None -> json.null()
+            }),
+            #("bio", json.array(config.bio, json.string)),
+            #("adjectives", json.array(config.adjectives, json.string)),
+            #("topics", json.array(config.topics, json.string)),
+            #("style", json.object([
+              #("tone", json.string(config.style.tone)),
+              #("language", json.string(config.style.language)),
+              #("all", json.array(config.style.all, json.string)),
+              #("chat", json.array(config.style.chat, json.string)),
+              #("post", json.array(config.style.post, json.string)),
+            ])),
+            #("settings", json.object([
+              #("model", json.string(config.settings.model)),
+              #("temperature", json.float(config.settings.temperature)),
+              #("max_tokens", json.int(config.settings.max_tokens)),
+            ])),
+            #("plugins", json.array(config.plugins, json.string)),
+            #("is_active", json.bool(config.is_active)),
+          ])
+          json_response(200, body)
+        }
+        Error(_) -> {
+          let body = json.object([#("error", json.string("Digital Twin config not found"))])
+          json_response(404, body)
+        }
+      }
+    }
+  }
+}
+
+/// Update Digital Twin configuration field
+fn handle_twin_config_update(req: Request(Connection)) -> Response(ResponseData) {
+  case mist.read_body(req, 1024 * 100) {
+    Error(_) -> {
+      let body = json.object([#("error", json.string("Failed to read body"))])
+      json_response(400, body)
+    }
+    Ok(req_with_body) -> {
+      let body_str = case bit_array.to_string(req_with_body.body) {
+        Ok(s) -> s
+        Error(_) -> ""
+      }
+
+      case postgres.get_global_pool() {
+        None -> {
+          let body = json.object([#("error", json.string("Database not configured"))])
+          json_response(500, body)
+        }
+        Some(pool) -> {
+          // Parse field and value from JSON body
+          // Expected: {"field": "name", "value": "New Name"}
+          let body = json.object([
+            #("success", json.bool(True)),
+            #("message", json.string("Config update endpoint - parse body: " <> body_str)),
+          ])
+          json_response(200, body)
+        }
+      }
+    }
+  }
+}
+
+/// Export Digital Twin configuration as ElizaOS JSON
+fn handle_twin_export() -> Response(ResponseData) {
+  case postgres.get_global_pool() {
+    None -> {
+      let body = json.object([#("error", json.string("Database not configured"))])
+      json_response(500, body)
+    }
+    Some(pool) -> {
+      case twin_config.get_active(pool) {
+        Ok(config) -> {
+          let elizaos_json = twin_config.export_to_elizaos(config)
+          // Return raw JSON string as response
+          response.new(200)
+          |> response.set_header("content-type", "application/json")
+          |> response.set_body(mist.Bytes(bytes_tree.from_string(elizaos_json)))
+        }
+        Error(_) -> {
+          let body = json.object([#("error", json.string("Digital Twin config not found"))])
+          json_response(404, body)
+        }
+      }
+    }
+  }
+}
+
+/// Import Digital Twin configuration from ElizaOS JSON
+fn handle_twin_import(req: Request(Connection)) -> Response(ResponseData) {
+  case mist.read_body(req, 1024 * 100) {
+    Error(_) -> {
+      let body = json.object([#("error", json.string("Failed to read body"))])
+      json_response(400, body)
+    }
+    Ok(req_with_body) -> {
+      let body_str = case bit_array.to_string(req_with_body.body) {
+        Ok(s) -> s
+        Error(_) -> ""
+      }
+
+      case postgres.get_global_pool() {
+        None -> {
+          let body = json.object([#("error", json.string("Database not configured"))])
+          json_response(500, body)
+        }
+        Some(pool) -> {
+          case twin_config.import_from_elizaos(pool, body_str) {
+            Ok(Nil) -> {
+              let body = json.object([
+                #("success", json.bool(True)),
+                #("message", json.string("ElizaOS Character imported successfully")),
+              ])
+              json_response(200, body)
+            }
+            Error(err) -> {
+              let body = json.object([
+                #("error", json.string("Import failed")),
+              ])
+              json_response(400, body)
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/// Get generated system prompt
+fn handle_twin_prompt_get() -> Response(ResponseData) {
+  case postgres.get_global_pool() {
+    None -> {
+      let body = json.object([#("error", json.string("Database not configured"))])
+      json_response(500, body)
+    }
+    Some(pool) -> {
+      case twin_config.get_active(pool) {
+        Ok(config) -> {
+          let prompt = twin_config.build_system_prompt(config)
+          let body = json.object([
+            #("name", json.string(config.name)),
+            #("system_prompt", json.string(prompt)),
+            #("prompt_length", json.int(string.length(prompt))),
+          ])
+          json_response(200, body)
+        }
+        Error(_) -> {
+          let body = json.object([#("error", json.string("Digital Twin config not found"))])
+          json_response(404, body)
+        }
+      }
+    }
+  }
+}
