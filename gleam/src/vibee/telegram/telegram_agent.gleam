@@ -14,9 +14,11 @@ import gleam/option.{type Option, None, Some}
 import gleam/string
 import shellout
 import vibee/mcp/config
+import vibee/config/dynamic_config
 import vibee/config/target_chats
 import vibee/config/telegram_config
 import vibee/config/trigger_chats
+import vibee/config/twin_config
 import vibee/db/postgres
 import vibee/leads/lead_logger
 import vibee/logging
@@ -74,7 +76,7 @@ pub type SendResult {
   SendError(reason: String)
 }
 
-/// Создать конфигурацию по умолчанию (используем централизованный конфиг)
+/// Создать конфигурацию по умолчанию (используем централизованный конфиг из БД)
 pub fn default_config() -> TelegramAgentConfig {
   // Get active session from session manager, fall back to empty string if none
   let session_id = case session_manager.get_active() {
@@ -85,14 +87,33 @@ pub fn default_config() -> TelegramAgentConfig {
     bridge_url: telegram_config.bridge_url(),
     session_id: session_id,
     llm_api_key: None,
-    llm_model: "x-ai/grok-4.1-fast",
+    llm_model: get_llm_model_from_db(),
     auto_reply_enabled: True,
     cooldown_ms: 30_000,
-    // Digital Twin mode - enabled by default for owner @neuro_sage
+    // Digital Twin mode - enabled by default for owner
     digital_twin_enabled: True,
-    owner_id: 144_022_504,
-    // @neuro_sage Telegram ID
+    owner_id: get_owner_id_from_db(),
   )
+}
+
+/// Получить модель LLM из базы данных
+fn get_llm_model_from_db() -> String {
+  case postgres.get_global_pool() {
+    Some(pool) ->
+      case twin_config.get_active(pool) {
+        Ok(cfg) -> cfg.settings.model
+        Error(_) -> "x-ai/grok-4.1-fast"
+      }
+    None -> "x-ai/grok-4.1-fast"
+  }
+}
+
+/// Получить owner_id из базы данных
+fn get_owner_id_from_db() -> Int {
+  case postgres.get_global_pool() {
+    Some(pool) -> dynamic_config.get_owner_id(pool)
+    None -> 144_022_504  // fallback
+  }
 }
 
 /// Конфигурация для Digital Twin режима
@@ -121,7 +142,7 @@ pub fn init(config: TelegramAgentConfig) -> AgentState {
     is_monitoring: False,
     total_messages: 0,
     last_reply_time: 0,
-    monitored_chats: target_chats.target_chats,
+    monitored_chats: target_chats.target_chats(),
   )
 }
 
@@ -312,8 +333,20 @@ pub fn handle_incoming_message(
         }
         Some(#("help", _)) -> {
           io.println("[CMD] /help detected!")
-          let help_text = "VIBEE Bot - Komandy:\n\n/neurophoto <prompt> - Generaciya izobrazheniya s FLUX LoRA\n/neuro <prompt> - Korotkaya versiya\n\nTrigger slovo NEURO_SAGE dobavlyaetsya avtomaticheski."
+          let help_text = "VIBEE Bot - Komandy:\n\n/neurophoto <prompt> - Generaciya izobrazheniya s FLUX LoRA\n/neuro <prompt> - Korotkaya versiya\n/pricing - Tarify VIBEE\n/quiz - Podobrat' tarif\n\nTrigger slovo NEURO_SAGE dobavlyaetsya avtomaticheski."
           let _ = send_message(updated_state.config, chat_id, help_text, Some(message_id))
+          AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
+        }
+        Some(#("pricing", _)) -> {
+          io.println("[CMD] /pricing detected!")
+          let pricing_text = "💎 VIBEE Tarify:\n\n🥉 JUNIOR - $99/mes\n• 100 generacij\n• Telegram bot\n• Email podderzhka\n\n🥈 MIDDLE - $299/mes\n• 500 generacij\n• Custom persona\n• CRM + Analytics\n\n🥇 SENIOR - $999/mes\n• Bezlimit generacij\n• Multichannel\n• API dostup + SLA\n\n👉 /quiz - podobrat' tarif"
+          let _ = send_message(updated_state.config, chat_id, pricing_text, Some(message_id))
+          AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
+        }
+        Some(#("quiz", _)) -> {
+          io.println("[CMD] /quiz detected!")
+          let quiz_text = "🎯 Quiz: Kakoj tarif vam podhodit?\n\n1️⃣ Skolko generacij v mesyac vam nuzhno?\n   A) Do 100\n   B) 100-500\n   C) Bolshe 500\n\n2️⃣ Nuzhna li integracija s CRM?\n   A) Net\n   B) Da\n\n3️⃣ Nuzhен li API dostup?\n   A) Net\n   B) Da\n\nOtvetjte bukvami, naprimer: ABA\n\n💡 Ili napishite 'pomosch' dlya konsultacii"
+          let _ = send_message(updated_state.config, chat_id, quiz_text, Some(message_id))
           AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
         }
         _ -> {
@@ -817,86 +850,56 @@ fn format_context(raw: String) -> String {
   }
 }
 
-/// Строит улучшенный Digital Twin промпт с best practices
+/// Строит улучшенный Digital Twin промпт из базы данных
 fn build_digital_twin_prompt(from_name: String, context: String) -> String {
-  let base_prompt = "Ты - цифровой двойник (Digital Twin) Дмитрия Васильева (@neuro_sage).
+  // Получаем промпт из БД через twin_config
+  let base_prompt = case postgres.get_global_pool() {
+    Some(pool) ->
+      case twin_config.get_active(pool) {
+        Ok(cfg) -> twin_config.build_system_prompt(cfg)
+        Error(_) -> fallback_prompt()
+      }
+    None -> fallback_prompt()
+  }
 
-## ИДЕНТИЧНОСТЬ
-
-Имя: Дмитрий (Dmitrii)
-Telegram: @neuro_sage
-Локация: Россия → Таиланд (digital nomad)
-Профессия: Вайб-кодер, AI-инженер, основатель VIBEE
-
-## ЛИЧНОСТЬ И ЦЕННОСТИ
-
-- Энтузиаст AI и автономных агентов
-- Верю в симбиоз человека и AI
-- Практикую вайб-кодинг (программирование через диалог с AI)
-- Люблю эксперименты с новыми технологиями
-- Ценю эффективность и автоматизацию
-
-## ТЕКУЩИЕ ПРОЕКТЫ
-
-1. **VIBEE** - платформа AI-агентов на Gleam/BEAM
-   - Telegram боты с AI
-   - Digital Twin технология
-   - Генерация видео/аватаров
-
-2. **НейроКодер** - сообщество вайб-кодеров
-   - Обучение AI-программированию
-   - Claude Code, Cursor, Windsurf
-
-## СТИЛЬ ОБЩЕНИЯ
-
-### Характерные паттерны:
-- Использую микс русского и английского
-- Краткие, ёмкие ответы (1-3 предложения)
-- Технические термины без упрощения
-- НЕ использую emoji - пишу чисто текстом
-- Вариативность: начинаю каждое сообщение по-разному
-
-### ВАЖНО - Запреты:
-- НИКОГДА не начинай сообщение с \"Йо\" или \"Йо!\" - это слишком повторяется
-- Используй разные приветствия: \"Прив\", \"Здарова\", \"Оп\", или сразу по делу без приветствия
-
-### Типичные фразы:
-- \"го\" вместо \"давай\"
-- \"кринж\" / \"база\"
-- \"вайб\" в разных контекстах
-- \"залетай\" = присоединяйся
-- \"тема\" = хорошая идея/проект
-
-### Примеры моих реальных сообщений:
-<examples>
-User: Как дела с проектом?
-Dmitrii: Движемся! Вчера затащил Digital Twin, теперь бот отвечает за меня. Тестим на проде
-
-User: Что думаешь про новый Claude?
-Dmitrii: Opus 4.5 - база. Особенно для кодинга. Я на нём весь VIBEE пилю через Claude Code
-
-User: Можешь помочь с кодом?
-Dmitrii: Го, скинь что там. Если Gleam/Elixir - вообще тема, это мой стек
-</examples>
-
-## КОНТЕКСТ РАЗГОВОРА
-
-Собеседник: " <> from_name <> "
-" <> case context {
+  // Добавляем контекст собеседника
+  base_prompt
+  <> "\n\n## КОНТЕКСТ РАЗГОВОРА\n\nСобеседник: "
+  <> from_name
+  <> "\n"
+  <> case context {
     "" -> "История: Нет предыдущего контекста с этим человеком"
     ctx -> "Релевантный контекст из истории:\n" <> ctx
-  } <> "
+  }
+}
 
-## ИНСТРУКЦИИ
+/// Fallback промпт если БД недоступна
+fn fallback_prompt() -> String {
+  "Ты - AI ассистент. Отвечай кратко и по делу на русском языке."
+}
 
-1. Отвечай как настоящий Дмитрий - естественно, без формальностей
-2. НЕ раскрывай что ты AI/бот - веди себя как человек
-3. Если не знаешь точный ответ - скажи \"уточню и отпишу\"
-4. На технические вопросы отвечай компетентно
-5. Поддерживай дружеский тон, но без наигранности
-6. Длина ответа: 1-4 предложения (как в реальной переписке)"
+/// Получить temperature из БД
+fn get_temperature_from_db() -> Float {
+  case postgres.get_global_pool() {
+    Some(pool) ->
+      case twin_config.get_active(pool) {
+        Ok(cfg) -> cfg.settings.temperature
+        Error(_) -> 0.9
+      }
+    None -> 0.9
+  }
+}
 
-  base_prompt
+/// Получить max_tokens из БД
+fn get_max_tokens_from_db() -> Int {
+  case postgres.get_global_pool() {
+    Some(pool) ->
+      case twin_config.get_active(pool) {
+        Ok(cfg) -> cfg.settings.max_tokens
+        Error(_) -> 150
+      }
+    None -> 150
+  }
 }
 
 /// Вызов OpenRouter с кастомным системным промптом
@@ -908,8 +911,8 @@ fn call_openrouter_with_system(
 ) -> Result(String, String) {
   let body = json.object([
     #("model", json.string(model)),
-    #("temperature", json.float(0.9)),  // High temperature for variety
-    #("max_tokens", json.int(150)),
+    #("temperature", json.float(get_temperature_from_db())),
+    #("max_tokens", json.int(get_max_tokens_from_db())),
     #("messages", json.array([
       json.object([
         #("role", json.string("system")),
@@ -1248,12 +1251,17 @@ pub fn get_history(config: TelegramAgentConfig, chat_id: String, limit: Int) -> 
 
 /// Получить список диалогов
 pub fn get_dialogs(config: TelegramAgentConfig, limit: Int) -> Result(String, String) {
+  // Parse bridge URL dynamically
+  let #(scheme, host, port) = parse_bridge_url(config.bridge_url)
+  let api_key = telegram_config.bridge_api_key()
+
   let req = request.new()
-    |> request.set_scheme(http.Http)
+    |> request.set_scheme(scheme)
     |> request.set_method(http.Get)
-    |> request.set_host("localhost")
-    |> request.set_port(8081)
+    |> request.set_host(host)
+    |> request.set_port(port)
     |> request.set_path("/api/v1/dialogs")
+    |> request.set_header("Authorization", "Bearer " <> api_key)
     |> request.set_header("X-Session-ID", config.session_id)
 
   case httpc.send(req) {
@@ -1274,28 +1282,25 @@ fn generate_trigger_reply(
     Ok(chat_config) -> {
       // Используем AI для генерации вариации на основе шаблона
       let system_prompt =
-        "Ты дружелюбный человек, который помогает людям покупать криптовалюту. Отвечай тепло и по-человечески.\n\n"
-        <> "ВАЖНО: Каждый раз отвечай по-разному! Будь дружелюбным и естественным!\n\n"
-        <> "Примеры дружелюбных ответов:\n"
-        <> "1. \"Привет! Могу помочь с покупкой крипты. Пиши в личку, всё расскажу.\"\n"
-        <> "2. \"Здарова! Помогу купить. Напиши в личные сообщения, обсудим.\"\n"
-        <> "3. \"Привет! Могу помочь. Пиши в ЛС, подскажу как лучше.\"\n"
-        <> "4. \"Хей! С покупкой помогу. Пиши в личку.\"\n"
-        <> "5. \"Привет! Помогу разобраться с покупкой. Напиши в личные сообщения.\"\n"
-        <> "6. \"Могу помочь купить. Пиши в личку, всё объясню.\"\n"
-        <> "7. \"Привет! Помогу с криптой. Напиши в ЛС.\"\n"
-        <> "8. \"Хай! Могу помочь. Пиши в личку, обсудим детали.\"\n\n"
-        <> "Правила:\n"
+        "Ты дружелюбный человек. Напиши ТОЛЬКО приглашение в личные сообщения.\n\n"
+        <> "СТРОГИЕ ПРАВИЛА:\n"
+        <> "- ТОЛЬКО 1 предложение\n"
+        <> "- БЕЗ @ и username\n"
+        <> "- БЕЗ ссылок\n"
+        <> "- БЕЗ markdown форматирования\n"
         <> "- БЕЗ эмодзи\n"
-        <> "- 1-2 предложения\n"
-        <> "- Дружелюбный тон (привет/хей/здарова)\n"
-        <> "- Неформальный стиль: пиши/напиши (не \"пишите\")\n"
-        <> "- Варьируй: помогу/могу помочь/подскажу/разберёмся\n"
-        <> "- Варьируй: в личку/в ЛС/в личные сообщения\n"
-        <> "- Добавляй: всё расскажу/обсудим/объясню/подскажу\n"
-        <> "- НЕ используй username\n"
-        <> "- Звучи как друг, который хочет помочь\n\n"
-        <> "Вопрос пользователя: \"" <> user_message <> "\""
+        <> "- БЕЗ кавычек вокруг ответа\n\n"
+        <> "Примеры хороших ответов:\n"
+        <> "Привет! Могу помочь, напиши в личку.\n"
+        <> "Помогу с этим, пиши в ЛС.\n"
+        <> "Могу помочь, напиши в личные сообщения.\n"
+        <> "Пиши в личку, всё расскажу.\n"
+        <> "Напиши мне в ЛС, помогу разобраться.\n\n"
+        <> "ЗАПРЕЩЕНО:\n"
+        <> "- Упоминать username (типа @name)\n"
+        <> "- Использовать ** или __ или любое форматирование\n"
+        <> "- Использовать [] или () для ссылок\n\n"
+        <> "Просто ответь одним коротким предложением с приглашением в личку."
       
       let user_prompt = "Ответь дружелюбно и естественно. Каждый раз по-разному!"
       
@@ -1321,8 +1326,10 @@ fn generate_trigger_reply(
             user_prompt,
           ) {
             Ok(reply) -> {
-              io.println("[TRIGGER_REPLY] ✅ Generated variation: " <> string.slice(reply, 0, 60) <> "...")
-              Ok(reply)
+              // Очищаем ответ от @ и markdown
+              let cleaned_reply = clean_trigger_response(reply)
+              io.println("[TRIGGER_REPLY] ✅ Generated variation: " <> string.slice(cleaned_reply, 0, 60) <> "...")
+              Ok(cleaned_reply)
             }
             Error(err) -> {
               // Fallback на шаблон если AI не сработал
@@ -1337,5 +1344,74 @@ fn generate_trigger_reply(
       // Если нет конфигурации, используем обычный Digital Twin
       generate_digital_twin_reply(config, user_message, from_name, chat_id)
     }
+  }
+}
+
+/// Очищает ответ от @ упоминаний, ссылок и markdown форматирования
+fn clean_trigger_response(text: String) -> String {
+  text
+  // Убираем @ упоминания (например @username)
+  |> remove_at_mentions()
+  // Убираем markdown форматирование
+  |> string.replace("**", "")
+  |> string.replace("__", "")
+  |> string.replace("*", "")
+  |> string.replace("_", "")
+  |> string.replace("`", "")
+  // Убираем ссылки в формате [text](url)
+  |> remove_markdown_links()
+  // Убираем кавычки вокруг ответа
+  |> string.trim()
+  |> remove_surrounding_quotes()
+}
+
+/// Убирает @ упоминания из текста
+fn remove_at_mentions(text: String) -> String {
+  // Простой подход: разбиваем по пробелам и фильтруем слова начинающиеся с @
+  string.split(text, " ")
+  |> list.filter(fn(word) { !string.starts_with(word, "@") })
+  |> string.join(" ")
+}
+
+/// Убирает markdown ссылки [text](url) -> text
+fn remove_markdown_links(text: String) -> String {
+  // Если нет markdown ссылок, возвращаем как есть
+  case string.contains(text, "](") {
+    False -> text
+    True -> {
+      // Простая замена: убираем всё после [ до ]( и всё в ()
+      // Это грубый подход, но работает для большинства случаев
+      text
+      |> string.replace("[", "")
+      |> string.replace("](", " ")
+      |> remove_parentheses_content()
+    }
+  }
+}
+
+/// Убирает контент в скобках (ссылки)
+fn remove_parentheses_content(text: String) -> String {
+  case string.split_once(text, "(") {
+    Error(_) -> text
+    Ok(#(before, after)) -> {
+      case string.split_once(after, ")") {
+        Error(_) -> text
+        Ok(#(_, rest)) -> before <> remove_parentheses_content(rest)
+      }
+    }
+  }
+}
+
+/// Убирает кавычки вокруг текста
+fn remove_surrounding_quotes(text: String) -> String {
+  let text = string.trim(text)
+  case string.starts_with(text, "\"") && string.ends_with(text, "\"") {
+    True -> {
+      text
+      |> string.drop_start(1)
+      |> string.drop_end(1)
+      |> string.trim()
+    }
+    False -> text
   }
 }
