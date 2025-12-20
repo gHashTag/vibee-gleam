@@ -2,7 +2,7 @@ FROM node:22-bookworm-slim
 
 WORKDIR /app
 
-# Install Chrome dependencies for headless rendering
+# Install Chrome dependencies for headless rendering + fonts for Cyrillic/Russian
 RUN apt-get update && apt-get install -y \
     libnss3 \
     libdbus-1-3 \
@@ -20,7 +20,12 @@ RUN apt-get update && apt-get install -y \
     libcups2 \
     fonts-noto-color-emoji \
     fonts-noto-cjk \
+    fonts-noto-core \
+    fonts-freefont-ttf \
+    fontconfig \
+    ffmpeg \
     curl \
+    && fc-cache -f -v \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy package files

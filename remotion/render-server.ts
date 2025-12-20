@@ -6,6 +6,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { randomUUID } from "node:crypto";
 import { S3Client, PutObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { transcribeVideo } from "./src/lib/transcribe";
 
 const PORT = process.env.PORT || 3333;
 const OUTPUT_DIR = process.env.OUTPUT_DIR || "./out";
@@ -342,6 +343,48 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Transcribe video to captions using Whisper
+  if (req.url === "/transcribe" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on("end", async () => {
+      try {
+        const { videoUrl, language = "ru", fps = 30 } = JSON.parse(body);
+
+        if (!videoUrl) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "videoUrl is required" }));
+          return;
+        }
+
+        console.log(`🎤 Starting transcription: ${videoUrl} (${language})`);
+
+        const result = await transcribeVideo(videoUrl, language, fps);
+
+        console.log(`✅ Transcription complete: ${result.captions.length} captions`);
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          success: true,
+          language,
+          captions: result.captions,
+          segments: result.segments,
+        }));
+      } catch (error) {
+        console.error("❌ Transcription failed:", error);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          success: false,
+          error: error instanceof Error ? error.message : "Transcription failed",
+        }));
+      }
+    });
+    return;
+  }
+
   // Serve rendered files
   if (req.url?.startsWith("/renders/") && req.method === "GET") {
     const filename = req.url.replace("/renders/", "");
@@ -640,6 +683,7 @@ async function main() {
     console.log(`   GET  /renders/:id  - Download rendered file`);
     console.log(`   POST /upload       - Upload asset to S3`);
     console.log(`   GET  /assets       - List S3 assets`);
+    console.log(`   POST /transcribe   - Transcribe audio to captions (RU/EN)`);
     console.log(`🔌 WebSocket: ws://0.0.0.0:${PORT} (real-time sync)`);
     console.log(`📦 S3 Bucket: ${S3_BUCKET}`);
   });

@@ -11,26 +11,33 @@ import {
   Easing,
   staticFile,
 } from 'remotion';
+import type { Caption } from '@remotion/captions';
+import { Captions } from '../components/Captions';
 
 /**
  * 🎨 LipSync Main - Профессиональный шаблон для Instagram Reels
  * Динамическая трансформация аватара в круглый бейдж с glassmorphism эффектом
  */
 
-// Helper: wrap local paths with staticFile() for server render, direct paths for browser player
-const resolveMediaPath = (path: string): string => {
-  // In browser context (player), use paths directly - Vite proxy will handle them
-  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-    console.log('🌐 [BROWSER] Using direct path:', path);
-    return path;
+// Helper: wrap local paths with staticFile() for rendering
+// Always use staticFile for local asset paths (without http/https)
+const resolveMediaPath = (pathStr: string): string => {
+  // External URLs - use as-is
+  if (pathStr.includes('://')) {
+    return pathStr;
   }
-  // In render context (server), use staticFile for local paths
-  if (path.startsWith('/') && !path.startsWith('//') && !path.includes('://')) {
-    console.log('🖥️ [SERVER] Using staticFile:', path);
-    return staticFile(path);
-  }
-  return path;
+  // Local paths - use staticFile (removes leading slash if present)
+  const cleanPath = pathStr.startsWith('/') ? pathStr.slice(1) : pathStr;
+  return staticFile(cleanPath);
 };
+
+export interface CaptionStyle {
+  fontSize?: number;
+  highlightColor?: string;
+  bottomPercent?: number;
+  textColor?: string;
+  backgroundColor?: string;
+}
 
 export interface LipSyncMainProps {
   lipSyncVideo: string;
@@ -45,6 +52,10 @@ export interface LipSyncMainProps {
   circleSizePercent?: number; // Размер круга в % от высоты экрана (default: 25.2)
   circleBottomPercent?: number; // Отступ снизу в % от высоты (default: 15)
   circleLeftPx?: number; // Отступ слева в пикселях (default: 40)
+  // 📝 Captions для русских субтитров
+  captions?: Caption[];
+  showCaptions?: boolean;
+  captionStyle?: CaptionStyle;
 }
 
 export const LipSyncMain: React.FC<LipSyncMainProps> = ({
@@ -60,6 +71,10 @@ export const LipSyncMain: React.FC<LipSyncMainProps> = ({
   circleSizePercent = 25.2, // 25.2% от высоты экрана
   circleBottomPercent = 15, // 15% от высоты отступ снизу
   circleLeftPx = 40, // 40px отступ слева
+  // 📝 Captions
+  captions = [],
+  showCaptions = true,
+  captionStyle = {},
 }) => {
   const { fps, durationInFrames, width, height } = useVideoConfig();
   const frame = useCurrentFrame();
@@ -689,6 +704,18 @@ export const LipSyncMain: React.FC<LipSyncMainProps> = ({
             }}
           />
         </AbsoluteFill>
+      )}
+
+      {/* 📝 CAPTIONS - русские субтитры с Montserrat Bold */}
+      {showCaptions && captions && captions.length > 0 && (
+        <Captions
+          captions={captions}
+          fontSize={captionStyle?.fontSize ?? 52}
+          highlightColor={captionStyle?.highlightColor ?? '#f59e0b'}
+          bottomPercent={captionStyle?.bottomPercent ?? 25}
+          textColor={captionStyle?.textColor ?? '#ffffff'}
+          backgroundColor={captionStyle?.backgroundColor ?? 'rgba(0, 0, 0, 0.6)'}
+        />
       )}
 
       {/* 🌟 ВИНЬЕТКА - всегда поверх */}

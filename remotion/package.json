@@ -15,6 +15,7 @@
     "@remotion/bundler": "4.0.388",
     "@remotion/captions": "^4.0.391",
     "@remotion/cli": "4.0.388",
+    "@remotion/google-fonts": "^4.0.394",
     "@remotion/install-whisper-cpp": "^4.0.391",
     "@remotion/lambda": "4.0.388",
     "@remotion/renderer": "4.0.388",

@@ -10,8 +10,12 @@ import {
   EyeOff,
   Upload,
   FileText,
+  Mic,
+  Loader2,
 } from 'lucide-react';
 import './CaptionsPanel.css';
+
+const RENDER_SERVER_URL = import.meta.env.VITE_RENDER_SERVER_URL || 'https://vibee-remotion.fly.dev';
 
 // Parse SRT timestamp to milliseconds (format: 00:00:00,000)
 function parseSrtTime(time: string): number {
@@ -127,7 +131,46 @@ export function CaptionsPanel() {
   const project = useEditorStore((s) => s.project);
 
   const [activeTab, setActiveTab] = useState<'captions' | 'style'>('captions');
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle Whisper transcription
+  const handleTranscribe = async () => {
+    const lipSyncVideo = templateProps.lipSyncVideo;
+    if (!lipSyncVideo) {
+      alert('No video loaded. Please add a lip-sync video first.');
+      return;
+    }
+
+    setIsTranscribing(true);
+    try {
+      console.log(`[Captions] Starting transcription for: ${lipSyncVideo}`);
+
+      const response = await fetch(`${RENDER_SERVER_URL}/transcribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoUrl: lipSyncVideo,
+          language: 'ru',
+          fps: project.fps,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.captions) {
+        updateTemplateProp('captions', result.captions);
+        console.log(`[Captions] Loaded ${result.captions.length} captions from transcription`);
+      } else {
+        throw new Error(result.error || 'Transcription failed');
+      }
+    } catch (error) {
+      console.error('[Captions] Transcription error:', error);
+      alert(`Transcription failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -273,6 +316,19 @@ export function CaptionsPanel() {
               <Upload size={16} />
               Import
             </button>
+            <button
+              className="transcribe-btn"
+              onClick={handleTranscribe}
+              disabled={isTranscribing}
+              title="Auto-transcribe Russian audio using Whisper"
+            >
+              {isTranscribing ? (
+                <Loader2 size={16} className="spinning" />
+              ) : (
+                <Mic size={16} />
+              )}
+              {isTranscribing ? 'Transcribing...' : 'Transcribe RU'}
+            </button>
           </div>
 
           {/* Captions List */}
@@ -361,6 +417,17 @@ export function CaptionsPanel() {
                 <option value={600}>SemiBold</option>
                 <option value={700}>Bold</option>
                 <option value={800}>ExtraBold</option>
+              </select>
+            </div>
+            <div className="style-row">
+              <label>Font Family</label>
+              <select
+                value={captionStyle.fontFamily || 'Montserrat, sans-serif'}
+                onChange={(e) => handleStyleChange('fontFamily', e.target.value)}
+              >
+                <option value="Montserrat, sans-serif">Montserrat Bold</option>
+                <option value="Inter, system-ui, sans-serif">Inter</option>
+                <option value="-apple-system, BlinkMacSystemFont, sans-serif">System</option>
               </select>
             </div>
           </div>
