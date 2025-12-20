@@ -339,13 +339,21 @@ pub fn handle_incoming_message(
         }
         Some(#("pricing", _)) -> {
           io.println("[CMD] /pricing detected!")
-          let pricing_text = "💎 VIBEE Tarify:\n\n🥉 JUNIOR - $99/mes\n• 100 generacij\n• Telegram bot\n• Email podderzhka\n\n🥈 MIDDLE - $299/mes\n• 500 generacij\n• Custom persona\n• CRM + Analytics\n\n🥇 SENIOR - $999/mes\n• Bezlimit generacij\n• Multichannel\n• API dostup + SLA\n\n👉 /quiz - podobrat' tarif"
+          let is_ru = is_cyrillic_text(text)
+          let pricing_text = case is_ru {
+            True -> "💎 VIBEE Тарифы:\n\n🥉 JUNIOR - $99/мес\n• 100 генераций\n• Telegram бот\n• Email поддержка\n\n🥈 MIDDLE - $299/мес\n• 500 генераций\n• Custom персона\n• CRM + Аналитика\n\n🥇 SENIOR - $999/мес\n• Безлимит генераций\n• Мультиканал\n• API доступ + SLA\n\n👉 /quiz - подобрать тариф"
+            False -> "💎 VIBEE Pricing:\n\n🥉 JUNIOR - $99/mo\n• 100 generations\n• Telegram bot\n• Email support\n\n🥈 MIDDLE - $299/mo\n• 500 generations\n• Custom persona\n• CRM + Analytics\n\n🥇 SENIOR - $999/mo\n• Unlimited generations\n• Multichannel\n• API access + SLA\n\n👉 /quiz - find your plan"
+          }
           let _ = send_message(updated_state.config, chat_id, pricing_text, Some(message_id))
           AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
         }
         Some(#("quiz", _)) -> {
           io.println("[CMD] /quiz detected!")
-          let quiz_text = "🎯 Quiz: Kakoj tarif vam podhodit?\n\n1️⃣ Skolko generacij v mesyac vam nuzhno?\n   A) Do 100\n   B) 100-500\n   C) Bolshe 500\n\n2️⃣ Nuzhna li integracija s CRM?\n   A) Net\n   B) Da\n\n3️⃣ Nuzhен li API dostup?\n   A) Net\n   B) Da\n\nOtvetjte bukvami, naprimer: ABA\n\n💡 Ili napishite 'pomosch' dlya konsultacii"
+          let is_ru = is_cyrillic_text(text)
+          let quiz_text = case is_ru {
+            True -> "🎯 Quiz: Какой тариф вам подходит?\n\n1️⃣ Сколько генераций в месяц вам нужно?\n   A) До 100\n   B) 100-500\n   C) Больше 500\n\n2️⃣ Нужна ли интеграция с CRM?\n   A) Нет\n   B) Да\n\n3️⃣ Нужен ли API доступ?\n   A) Нет\n   B) Да\n\nОтветьте буквами, например: ABA\n\n💡 Или напишите 'помощь' для консультации"
+            False -> "🎯 Quiz: Which plan fits you?\n\n1️⃣ How many generations per month do you need?\n   A) Up to 100\n   B) 100-500\n   C) More than 500\n\n2️⃣ Do you need CRM integration?\n   A) No\n   B) Yes\n\n3️⃣ Do you need API access?\n   A) No\n   B) Yes\n\nAnswer with letters, e.g.: ABA\n\n💡 Or type 'help' for consultation"
+          }
           let _ = send_message(updated_state.config, chat_id, quiz_text, Some(message_id))
           AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
         }
@@ -568,6 +576,35 @@ fn process_with_digital_twin(state: AgentState, chat_id: String, message_id: Int
 // ============================================================
 // Command Parsing and Handlers
 // ============================================================
+
+/// Определяет язык: True = русский (по умолчанию), False = английский (только если явно латиница)
+fn is_cyrillic_text(text: String) -> Bool {
+  // Убираем команду из текста
+  let clean_text = case string.split(text, " ") {
+    [_cmd, ..rest] -> string.join(rest, " ")
+    _ -> text
+  }
+
+  // Если текст пустой или только команда — русский по умолчанию
+  case string.trim(clean_text) {
+    "" -> True  // По умолчанию русский
+    remaining -> {
+      // Проверяем наличие латинских букв (не в команде)
+      let latin_chars = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"]
+      let cyrillic_chars = ["а", "б", "в", "г", "д", "е", "ж", "з", "и", "й", "к", "л", "м", "н", "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ", "ы", "э", "ю", "я"]
+      let lower_remaining = string.lowercase(remaining)
+
+      let has_cyrillic = list.any(cyrillic_chars, fn(char) { string.contains(lower_remaining, char) })
+      let has_latin = list.any(latin_chars, fn(char) { string.contains(lower_remaining, char) })
+
+      case has_cyrillic, has_latin {
+        True, _ -> True      // Есть кириллица → русский
+        False, True -> False // Только латиница → английский
+        False, False -> True // Ни того ни другого → русский по умолчанию
+      }
+    }
+  }
+}
 
 /// Парсит команду из текста сообщения
 /// Возвращает Some(#(command, args)) или None
