@@ -317,8 +317,8 @@ export function InteractiveCanvas() {
             width: project.width,
             height: project.height,
           }}
-          controls={true}
-          showVolumeControls={true}
+          controls={false}
+          showVolumeControls={false}
           loop
           clickToPlay={true}
           playbackRate={playbackRate}
