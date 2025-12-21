@@ -275,15 +275,15 @@ export function InteractiveCanvas() {
   return (
     <div className="canvas-container" onClick={handleCanvasClick} ref={containerRef}>
       {/* Zoom Controls */}
-      <div className="canvas-controls">
-        <button className="canvas-control-btn" onClick={handleZoomOut} title="Zoom out">
+      <div className="canvas-controls" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="canvas-control-btn" onClick={handleZoomOut} title="Zoom out">
           <ZoomOut size={16} />
         </button>
         <span className="canvas-zoom-label">{Math.round(effectiveZoom * 100)}%</span>
-        <button className="canvas-control-btn" onClick={handleZoomIn} title="Zoom in">
+        <button type="button" className="canvas-control-btn" onClick={handleZoomIn} title="Zoom in">
           <ZoomIn size={16} />
         </button>
-        <button className="canvas-control-btn" onClick={handleFullscreen} title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
+        <button type="button" className="canvas-control-btn" onClick={handleFullscreen} title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
           {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
         </button>
       </div>

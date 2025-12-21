@@ -20,7 +20,8 @@
   padding: 6px 12px;
   background: rgba(0, 0, 0, 0.8);
   border-radius: 6px;
-  z-index: 10;
+  z-index: 100;
+  pointer-events: auto;
 }
 
 .canvas-control-btn {
