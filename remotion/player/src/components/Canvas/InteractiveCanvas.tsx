@@ -75,10 +75,6 @@ function convertToSplitTalkingHeadProps(
     }
   }
 
-  console.log('[convertToSplitTalkingHeadProps] backgroundMusic:', props.backgroundMusic);
-  console.log('[convertToSplitTalkingHeadProps] musicVolume:', props.musicVolume);
-  console.log('[convertToSplitTalkingHeadProps] lipSyncVideo:', props.lipSyncVideo);
-
   return {
     lipSyncVideo: props.lipSyncVideo,
     segments,
@@ -146,15 +142,9 @@ export function InteractiveCanvas() {
     () => {
       const props = {
         ...splitTalkingHeadPropsBase,
-        // Background music volume (0.5 = 50%)
-        musicVolume: isMuted ? 0 : 0.5,
+        // Background music volume (0.15 = 15% - quiet background)
+        musicVolume: isMuted ? 0 : 0.15,
       };
-      console.log('[splitTalkingHeadProps] FINAL PROPS:', {
-        backgroundMusic: props.backgroundMusic,
-        musicVolume: props.musicVolume,
-        lipSyncVideo: props.lipSyncVideo,
-        isMuted,
-      });
       return props;
     },
     [splitTalkingHeadPropsBase, isMuted]
@@ -294,8 +284,6 @@ export function InteractiveCanvas() {
           clickToPlay={true}
           playbackRate={playbackRate}
           numberOfSharedAudioTags={5}
-          // @ts-ignore - logLevel for audio debugging
-          logLevel="trace"
         />
       </div>
     </div>

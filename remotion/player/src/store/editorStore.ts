@@ -426,21 +426,11 @@ export const useEditorStore = create<EditorStore>()(
       // See: https://www.remotion.dev/docs/player/autoplay
       playDirect: (event?: React.MouseEvent) => {
         const state = get();
-        console.log('[playDirect] event:', event?.type);
         if (state.playerRef?.current) {
           const player = state.playerRef.current;
-          // Unmute before playing
-          if (player.unmute) {
-            player.unmute();
-          }
-          if (player.setVolume) {
-            player.setVolume(1);
-          }
-          // Pass event to player.play() - this is REQUIRED for audio to work!
-          console.log('[playDirect] Calling player.play(event)');
+          if (player.unmute) player.unmute();
+          if (player.setVolume) player.setVolume(1);
           player.play(event);
-        } else {
-          console.warn('[playDirect] playerRef not available');
         }
         set((s) => { s.isPlaying = true; });
       },

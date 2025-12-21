@@ -34,7 +34,7 @@
 }
 
 .sidebar-left {
-  width: 320px;
+  width: 360px;
   flex-shrink: 0;
   border-right: 1px solid #1a1a1a;
 }
@@ -71,8 +71,8 @@
 .sidebar-tab {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
+  gap: 4px;
+  padding: 8px 10px;
   background: transparent;
   border: none;
   border-radius: 6px;
@@ -83,6 +83,7 @@
   transition: all 0.15s;
   flex: 1;
   justify-content: center;
+  white-space: nowrap;
 }
 
 .sidebar-tab:hover {

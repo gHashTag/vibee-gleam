@@ -11,7 +11,6 @@ export function Timeline() {
 
   const project = useEditorStore((s) => s.project);
   const tracks = useEditorStore((s) => s.tracks);
-  console.log('[Timeline] tracks:', tracks.length, tracks.map(t => t.type));
   const currentFrame = useEditorStore((s) => s.currentFrame);
   const isPlaying = useEditorStore((s) => s.isPlaying);
   const playbackRate = useEditorStore((s) => s.playbackRate);
@@ -39,10 +38,8 @@ export function Timeline() {
     // Also control the Remotion Player's mute state
     if (playerRef?.current) {
       if (newMuted) {
-        console.log('[Timeline] Muting player');
         playerRef.current.mute?.();
       } else {
-        console.log('[Timeline] Unmuting player');
         playerRef.current.unmute?.();
         playerRef.current.setVolume?.(1);
       }
