@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo } from 'react';
-import { useEditorStore } from '@/store/editorStore';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { templatePropsAtom, updateTemplatePropAtom, currentFrameAtom, projectAtom } from '@/atoms';
 import type { CaptionItem, CaptionStyle } from '@/store/types';
 import {
   Plus,
@@ -134,10 +135,10 @@ function parseVtt(content: string): CaptionItem[] {
 }
 
 export function CaptionsPanel() {
-  const templateProps = useEditorStore((s) => s.templateProps);
-  const updateTemplateProp = useEditorStore((s) => s.updateTemplateProp);
-  const currentFrame = useEditorStore((s) => s.currentFrame);
-  const project = useEditorStore((s) => s.project);
+  const templateProps = useAtomValue(templatePropsAtom);
+  const updateTemplateProp = useSetAtom(updateTemplatePropAtom);
+  const currentFrame = useAtomValue(currentFrameAtom);
+  const project = useAtomValue(projectAtom);
 
   const [activeTab, setActiveTab] = useState<'captions' | 'style'>('captions');
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -172,7 +173,7 @@ export function CaptionsPanel() {
       const result = await response.json();
 
       if (result.success && result.captions) {
-        updateTemplateProp('captions', result.captions);
+        updateTemplateProp({ key: 'captions', value: result.captions });
         console.log(`[Captions] Loaded ${result.captions.length} captions from transcription`);
       } else {
         throw new Error(result.error || 'Transcription failed');
@@ -203,7 +204,7 @@ export function CaptionsPanel() {
       }
 
       if (parsedCaptions.length > 0) {
-        updateTemplateProp('captions', parsedCaptions);
+        updateTemplateProp({ key: 'captions', value: parsedCaptions });
         console.log(`[Captions] Loaded ${parsedCaptions.length} captions from ${file.name}`);
       } else {
         alert('Could not parse captions from file. Please check the format.');
@@ -247,7 +248,7 @@ export function CaptionsPanel() {
   );
 
   const handleToggleCaptions = () => {
-    updateTemplateProp('showCaptions', !showCaptions);
+    updateTemplateProp({ key: 'showCaptions', value: !showCaptions });
   };
 
   const handleAddCaption = () => {
@@ -258,22 +259,22 @@ export function CaptionsPanel() {
       timestampMs: currentTimeMs,
       confidence: null,
     };
-    updateTemplateProp('captions', [...captions, newCaption]);
+    updateTemplateProp({ key: 'captions', value: [...captions, newCaption] });
   };
 
   const handleUpdateCaption = (index: number, updates: Partial<CaptionItem>) => {
     const newCaptions = [...captions];
     newCaptions[index] = { ...newCaptions[index], ...updates };
-    updateTemplateProp('captions', newCaptions);
+    updateTemplateProp({ key: 'captions', value: newCaptions });
   };
 
   const handleDeleteCaption = (index: number) => {
     const newCaptions = captions.filter((_, i) => i !== index);
-    updateTemplateProp('captions', newCaptions);
+    updateTemplateProp({ key: 'captions', value: newCaptions });
   };
 
   const handleStyleChange = (key: keyof CaptionStyle, value: any) => {
-    updateTemplateProp('captionStyle', { ...captionStyle, [key]: value });
+    updateTemplateProp({ key: 'captionStyle', value: { ...captionStyle, [key]: value } });
   };
 
   const formatTime = (ms: number) => {

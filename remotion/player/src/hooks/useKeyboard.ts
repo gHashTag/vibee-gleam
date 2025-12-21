@@ -1,36 +1,67 @@
 import { useEffect } from 'react';
-import { useEditorStore } from '@/store/editorStore';
+import { useAtomValue, useSetAtom } from 'jotai';
+import {
+  isPlayingAtom,
+  playAtom,
+  pauseAtom,
+  deleteItemsAtom,
+  rippleDeleteAtom,
+  duplicateItemsAtom,
+  copyItemsAtom,
+  pasteItemsAtom,
+  clipboardAtom,
+  selectedItemIdsAtom,
+  selectAllAtom,
+  clearSelectionAtom,
+  getSelectedItemsAtom,
+  currentFrameAtom,
+  setCurrentFrameAtom,
+  projectAtom,
+  undoAtom,
+  redoAtom,
+  inPointAtom,
+  outPointAtom,
+  clearInOutPointsAtom,
+  splitItemAtom,
+  tracksAtom,
+  timelineZoomAtom,
+  addMarkerAtom,
+  goToNextMarkerAtom,
+  goToPrevMarkerAtom,
+  getItemByIdAtom,
+} from '@/atoms';
 
 export function useKeyboardShortcuts() {
-  const isPlaying = useEditorStore((s) => s.isPlaying);
-  const play = useEditorStore((s) => s.play);
-  const pause = useEditorStore((s) => s.pause);
-  const deleteItems = useEditorStore((s) => s.deleteItems);
-  const rippleDelete = useEditorStore((s) => s.rippleDelete);
-  const duplicateItems = useEditorStore((s) => s.duplicateItems);
-  const copyItems = useEditorStore((s) => s.copyItems);
-  const pasteItems = useEditorStore((s) => s.pasteItems);
-  const clipboard = useEditorStore((s) => s.clipboard);
-  const selectedItemIds = useEditorStore((s) => s.selectedItemIds);
-  const selectAll = useEditorStore((s) => s.selectAll);
-  const clearSelection = useEditorStore((s) => s.clearSelection);
-  const currentFrame = useEditorStore((s) => s.currentFrame);
-  const setCurrentFrame = useEditorStore((s) => s.setCurrentFrame);
-  const project = useEditorStore((s) => s.project);
-  const undo = useEditorStore((s) => s.undo);
-  const redo = useEditorStore((s) => s.redo);
-  const getSelectedItems = useEditorStore((s) => s.getSelectedItems);
-  const setInPoint = useEditorStore((s) => s.setInPoint);
-  const setOutPoint = useEditorStore((s) => s.setOutPoint);
-  const inPoint = useEditorStore((s) => s.inPoint);
-  const outPoint = useEditorStore((s) => s.outPoint);
-  const clearInOutPoints = useEditorStore((s) => s.clearInOutPoints);
-  const splitItem = useEditorStore((s) => s.splitItem);
-  const tracks = useEditorStore((s) => s.tracks);
-  const setTimelineZoom = useEditorStore((s) => s.setTimelineZoom);
-  const addMarker = useEditorStore((s) => s.addMarker);
-  const goToNextMarker = useEditorStore((s) => s.goToNextMarker);
-  const goToPrevMarker = useEditorStore((s) => s.goToPrevMarker);
+  const isPlaying = useAtomValue(isPlayingAtom);
+  const play = useSetAtom(playAtom);
+  const pause = useSetAtom(pauseAtom);
+  const deleteItems = useSetAtom(deleteItemsAtom);
+  const rippleDelete = useSetAtom(rippleDeleteAtom);
+  const duplicateItems = useSetAtom(duplicateItemsAtom);
+  const copyItems = useSetAtom(copyItemsAtom);
+  const pasteItems = useSetAtom(pasteItemsAtom);
+  const clipboard = useAtomValue(clipboardAtom);
+  const selectedItemIds = useAtomValue(selectedItemIdsAtom);
+  const selectAll = useSetAtom(selectAllAtom);
+  const clearSelection = useSetAtom(clearSelectionAtom);
+  const currentFrame = useAtomValue(currentFrameAtom);
+  const setCurrentFrame = useSetAtom(setCurrentFrameAtom);
+  const project = useAtomValue(projectAtom);
+  const undo = useSetAtom(undoAtom);
+  const redo = useSetAtom(redoAtom);
+  const selectedItems = useAtomValue(getSelectedItemsAtom);
+  const setInPoint = useSetAtom(inPointAtom);
+  const setOutPoint = useSetAtom(outPointAtom);
+  const inPoint = useAtomValue(inPointAtom);
+  const outPoint = useAtomValue(outPointAtom);
+  const clearInOutPoints = useSetAtom(clearInOutPointsAtom);
+  const splitItem = useSetAtom(splitItemAtom);
+  const tracks = useAtomValue(tracksAtom);
+  const setTimelineZoom = useSetAtom(timelineZoomAtom);
+  const addMarker = useSetAtom(addMarkerAtom);
+  const goToNextMarker = useSetAtom(goToNextMarkerAtom);
+  const goToPrevMarker = useSetAtom(goToPrevMarkerAtom);
+  const getItemById = useAtomValue(getItemByIdAtom);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -90,7 +121,7 @@ export function useKeyboardShortcuts() {
       if ((e.ctrlKey || e.metaKey) && e.code === 'KeyD') {
         e.preventDefault();
         if (selectedItemIds.length > 0) {
-          duplicateItems(selectedItemIds);
+          duplicateItems({ itemIds: selectedItemIds, fps: project.fps });
         }
         return;
       }
@@ -99,7 +130,8 @@ export function useKeyboardShortcuts() {
       if ((e.ctrlKey || e.metaKey) && e.code === 'KeyC') {
         e.preventDefault();
         if (selectedItemIds.length > 0) {
-          copyItems(selectedItemIds);
+          const items = selectedItemIds.map(id => getItemById(id)).filter((i): i is import('@/store/types').TrackItem => !!i);
+          copyItems(items);
         }
         return;
       }
@@ -207,9 +239,8 @@ export function useKeyboardShortcuts() {
       // [ - Jump to start of selection
       if (e.code === 'BracketLeft') {
         e.preventDefault();
-        const items = getSelectedItems();
-        if (items.length > 0) {
-          const minStart = Math.min(...items.map((i) => i.startFrame));
+        if (selectedItems.length > 0) {
+          const minStart = Math.min(...selectedItems.map((i) => i.startFrame));
           setCurrentFrame(minStart);
         }
         return;
@@ -218,9 +249,8 @@ export function useKeyboardShortcuts() {
       // ] - Jump to end of selection
       if (e.code === 'BracketRight') {
         e.preventDefault();
-        const items = getSelectedItems();
-        if (items.length > 0) {
-          const maxEnd = Math.max(...items.map((i) => i.startFrame + i.durationInFrames));
+        if (selectedItems.length > 0) {
+          const maxEnd = Math.max(...selectedItems.map((i) => i.startFrame + i.durationInFrames));
           setCurrentFrame(Math.min(maxEnd, project.durationInFrames - 1));
         }
         return;
@@ -235,7 +265,7 @@ export function useKeyboardShortcuts() {
           for (const item of track.items) {
             const itemEnd = item.startFrame + item.durationInFrames;
             if (currentFrame > item.startFrame && currentFrame < itemEnd) {
-              splitItem(item.id, currentFrame);
+              splitItem({ itemId: item.id, atFrame: currentFrame });
             }
           }
         }
@@ -272,7 +302,7 @@ export function useKeyboardShortcuts() {
       // M - Add/remove marker at current frame
       if (e.code === 'KeyM' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
         e.preventDefault();
-        addMarker(currentFrame);
+        addMarker({ frame: currentFrame });
         return;
       }
 
@@ -312,7 +342,7 @@ export function useKeyboardShortcuts() {
     project.fps,
     undo,
     redo,
-    getSelectedItems,
+    selectedItems,
     setInPoint,
     setOutPoint,
     inPoint,
@@ -324,5 +354,6 @@ export function useKeyboardShortcuts() {
     addMarker,
     goToNextMarker,
     goToPrevMarker,
+    getItemById,
   ]);
 }

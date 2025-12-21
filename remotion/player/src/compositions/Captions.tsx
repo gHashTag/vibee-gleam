@@ -9,14 +9,24 @@
  * - Dynamic position based on layout mode
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AbsoluteFill,
   useCurrentFrame,
   useVideoConfig,
   interpolate,
   spring,
+  delayRender,
+  continueRender,
 } from 'remotion';
+import { loadFont, fontFamily } from '@remotion/google-fonts/Inter';
+import { CAPTION_DEFAULTS } from '@/constants/captions';
+
+// Load Inter Black (900) with Cyrillic support
+const { waitUntilDone } = loadFont('normal', {
+  weights: ['900'],
+  subsets: ['cyrillic', 'latin'],
+});
 
 // Our own Caption interface (not from @remotion/captions)
 export interface Caption {
@@ -55,14 +65,26 @@ export interface CaptionsProps {
  */
 export const Captions: React.FC<CaptionsProps> = ({
   captions,
-  fontSize = 56,
-  textColor = '#FFFF00', // Bright yellow like reel_01.mp4
-  topPercent = 50, // Center by default
-  maxWords = 2,
+  fontSize = CAPTION_DEFAULTS.fontSize,
+  textColor = CAPTION_DEFAULTS.textColor,
+  topPercent = 50, // Center by default, overridden by SplitTalkingHead
+  maxWords = CAPTION_DEFAULTS.maxWords,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const currentTimeMs = (frame / fps) * 1000;
+
+  // Wait for Montserrat font to load before rendering
+  const [fontHandle] = useState(() => delayRender('Loading Montserrat font'));
+
+  useEffect(() => {
+    waitUntilDone()
+      .then(() => continueRender(fontHandle))
+      .catch((err) => {
+        console.error('Font loading failed:', err);
+        continueRender(fontHandle);
+      });
+  }, [fontHandle]);
 
   // Skip if no captions
   if (!captions || captions.length === 0) {
@@ -168,7 +190,7 @@ export const Captions: React.FC<CaptionsProps> = ({
         <p
           style={{
             fontSize,
-            fontFamily: '"Montserrat", "Impact", "Arial Black", sans-serif',
+            fontFamily: fontFamily,
             fontWeight: 900,
             fontStyle: 'normal', // NOT italic - straight like reel_01.mp4
             color: textColor,

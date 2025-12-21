@@ -1285,6 +1285,46 @@ func (c *Client) GetMessageWithMedia(ctx context.Context, chatID int64, messageI
 	return &parsed[0], nil
 }
 
+// ClickButton clicks an inline keyboard button (callback query)
+func (c *Client) ClickButton(ctx context.Context, chatID int64, msgID int, callbackData string) (string, error) {
+	c.mu.RLock()
+	api := c.api
+	c.mu.RUnlock()
+
+	if api == nil {
+		return "", fmt.Errorf("not connected")
+	}
+
+	peer, err := c.resolvePeer(ctx, chatID)
+	if err != nil {
+		return "", fmt.Errorf("resolve peer: %w", err)
+	}
+
+	// Convert InputPeerClass to InputUserClass for bot
+	var botPeer tg.InputUserClass
+	switch p := peer.(type) {
+	case *tg.InputPeerUser:
+		botPeer = &tg.InputUser{UserID: p.UserID, AccessHash: p.AccessHash}
+	default:
+		// For bots, we typically have user peer
+		botPeer = &tg.InputUser{UserID: chatID}
+	}
+
+	// Call MessagesGetBotCallbackAnswer to simulate button click
+	result, err := api.API().MessagesGetBotCallbackAnswer(ctx, &tg.MessagesGetBotCallbackAnswerRequest{
+		Peer:  peer,
+		MsgID: msgID,
+		Data:  []byte(callbackData),
+	})
+	if err != nil {
+		return "", fmt.Errorf("callback answer: %w", err)
+	}
+
+	// Return the callback message if any
+	_ = botPeer // unused, but kept for potential future use
+	return result.Message, nil
+}
+
 // mimeToExt returns file extension for MIME type
 func mimeToExt(mime string) string {
 	switch mime {

@@ -24,6 +24,7 @@ import vibee/mcp/session_manager
 import vibee/onboarding/state as onboarding_state
 import vibee/log_aggregator
 import vibee/db/postgres
+import vibee/api/e2e_test_runner
 import gleam/int
 import gleam/list
 
@@ -252,6 +253,10 @@ fn run_telegram_agent() {
             Ok(_) -> io.println("[EARNING] ✓ Earning worker started (scans every 2 min)")
             Error(_) -> io.println("[EARNING] ! Worker start failed, continuing without it")
           }
+
+          // Initialize E2E ETS table (owned by main process for persistence)
+          e2e_test_runner.init()
+          io.println("[E2E] ✓ ETS table initialized (vibee_e2e_runs)")
 
           // Start HTTP API server with Web UI and shared event bus
           let port = 8080
@@ -500,6 +505,10 @@ fn run_mcp_server() {
           Error(_) -> 8080
         }
       }
+      // Initialize E2E ETS table (owned by main process for persistence)
+      e2e_test_runner.init()
+      io.println("[E2E] ✓ ETS table initialized (vibee_e2e_runs)")
+
       io.println("[HTTP] Starting server on port " <> int.to_string(port) <> "...")
 
       case router.start_with_mcp(port, bus, registry) {

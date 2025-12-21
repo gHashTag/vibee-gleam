@@ -204,6 +204,33 @@ fn telegram_error_to_string(err: TelegramError) -> String {
   }
 }
 
+/// Click inline keyboard button (callback)
+pub fn click_button(
+  bridge: TelegramBridge,
+  chat_id: Int,
+  msg_id: Int,
+  callback_data: String,
+) -> Result(String, TelegramError) {
+  io.println("[BRIDGE] click_button: chat_id=" <> int.to_string(chat_id) <> ", msg_id=" <> int.to_string(msg_id) <> ", data=" <> callback_data)
+
+  let body = json.object([
+    #("chat_id", json.int(chat_id)),
+    #("msg_id", json.int(msg_id)),
+    #("data", json.string(callback_data)),
+  ])
+
+  case post_with_session(bridge, "/api/v1/callback", json.to_string(body)) {
+    Ok(resp) -> {
+      io.println("[BRIDGE] ✅ click_button response: " <> string.slice(resp.body, 0, 200))
+      parse_callback_result(resp.body)
+    }
+    Error(e) -> {
+      io.println("[BRIDGE] ❌ click_button failed: " <> telegram_error_to_string(e))
+      Error(e)
+    }
+  }
+}
+
 /// Get WebSocket URL for updates
 pub fn get_updates_url(bridge: TelegramBridge) -> Result(String, TelegramError) {
   case bridge.session_id {
@@ -452,5 +479,19 @@ fn parse_send_result(body: String) -> Result(SendMessageResult, TelegramError) {
   case json.parse(body, decoder) {
     Ok(result) -> Ok(result)
     Error(_) -> Error(ApiError(0, "Failed to parse send result"))
+  }
+}
+
+fn parse_callback_result(body: String) -> Result(String, TelegramError) {
+  let decoder = {
+    use success <- decode.field("success", decode.bool)
+    use message <- decode.optional_field("message", "", decode.string)
+    decode.success(#(success, message))
+  }
+
+  case json.parse(body, decoder) {
+    Ok(#(True, msg)) -> Ok(msg)
+    Ok(#(False, _)) -> Error(ApiError(0, "Callback failed"))
+    Error(_) -> Error(ApiError(0, "Failed to parse callback result"))
   }
 }

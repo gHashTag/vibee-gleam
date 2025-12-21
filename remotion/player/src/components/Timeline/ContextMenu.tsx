@@ -1,6 +1,17 @@
 import { useEffect, useRef, memo } from 'react';
 import { Copy, Trash2, ClipboardPaste, Layers, Palette } from 'lucide-react';
-import { useEditorStore } from '@/store/editorStore';
+import { useAtomValue, useSetAtom } from 'jotai';
+import {
+  copyItemsAtom,
+  pasteItemsAtom,
+  deleteItemsAtom,
+  duplicateItemsAtom,
+  updateItemAtom,
+  clipboardAtom,
+  selectedItemIdsAtom,
+  getItemByIdAtom,
+  projectAtom,
+} from '@/atoms';
 import type { ColorTag } from '@/store/types';
 import './ContextMenu.css';
 
@@ -25,13 +36,15 @@ interface ContextMenuProps {
 export const ContextMenu = memo(function ContextMenu({ x, y, itemId, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const copyItems = useEditorStore((s) => s.copyItems);
-  const pasteItems = useEditorStore((s) => s.pasteItems);
-  const deleteItems = useEditorStore((s) => s.deleteItems);
-  const duplicateItems = useEditorStore((s) => s.duplicateItems);
-  const updateItem = useEditorStore((s) => s.updateItem);
-  const clipboard = useEditorStore((s) => s.clipboard);
-  const selectedItemIds = useEditorStore((s) => s.selectedItemIds);
+  const copyItems = useSetAtom(copyItemsAtom);
+  const pasteItems = useSetAtom(pasteItemsAtom);
+  const deleteItems = useSetAtom(deleteItemsAtom);
+  const duplicateItems = useSetAtom(duplicateItemsAtom);
+  const updateItem = useSetAtom(updateItemAtom);
+  const clipboard = useAtomValue(clipboardAtom);
+  const selectedItemIds = useAtomValue(selectedItemIdsAtom);
+  const getItemById = useAtomValue(getItemByIdAtom);
+  const project = useAtomValue(projectAtom);
 
   // Get actual items to operate on (selected or clicked item)
   const targetIds = selectedItemIds.includes(itemId) ? selectedItemIds : [itemId];
@@ -74,7 +87,8 @@ export const ContextMenu = memo(function ContextMenu({ x, y, itemId, onClose }: 
   }, [x, y]);
 
   const handleCopy = () => {
-    copyItems(targetIds);
+    const items = targetIds.map(id => getItemById(id)).filter((i): i is import('@/store/types').TrackItem => !!i);
+    copyItems(items);
     onClose();
   };
 
@@ -84,7 +98,7 @@ export const ContextMenu = memo(function ContextMenu({ x, y, itemId, onClose }: 
   };
 
   const handleDuplicate = () => {
-    duplicateItems(targetIds);
+    duplicateItems({ itemIds: targetIds, fps: project.fps });
     onClose();
   };
 
@@ -95,7 +109,7 @@ export const ContextMenu = memo(function ContextMenu({ x, y, itemId, onClose }: 
 
   const handleColorTag = (color: ColorTag) => {
     targetIds.forEach((id) => {
-      updateItem(id, { colorTag: color });
+      updateItem({ itemId: id, updates: { colorTag: color } });
     });
     onClose();
   };

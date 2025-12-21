@@ -1,7 +1,7 @@
 import type { LipSyncMainProps } from '@/store/types';
 
 // Render server URL for media assets
-export const RENDER_SERVER_URL = import.meta.env.VITE_RENDER_SERVER_URL || 'http://localhost:3333';
+export const RENDER_SERVER_URL = import.meta.env.VITE_RENDER_SERVER_URL || 'https://vibee-remotion.fly.dev';
 
 /**
  * Convert relative paths to absolute URLs for render server

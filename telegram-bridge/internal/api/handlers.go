@@ -14,19 +14,21 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/gotd/td/session"
+	"github.com/vibee/telegram-bridge/internal/botapi"
 	"github.com/vibee/telegram-bridge/internal/config"
 	"github.com/vibee/telegram-bridge/internal/telegram"
 )
 
 // Router handles HTTP requests
 type Router struct {
-	cfg      *config.Config
-	mux      *http.ServeMux
-	db       *sql.DB
-	clients  map[string]*telegram.Client
-	upgrader websocket.Upgrader
-	wsHub    *WSHub
-	mu       sync.RWMutex
+	cfg       *config.Config
+	mux       *http.ServeMux
+	db        *sql.DB
+	clients   map[string]*telegram.Client
+	botClient *botapi.BotClient
+	upgrader  websocket.Upgrader
+	wsHub     *WSHub
+	mu        sync.RWMutex
 }
 
 // NewRouter creates a new HTTP router
@@ -43,6 +45,31 @@ func NewRouter(cfg *config.Config, db *sql.DB) *Router {
 			},
 		},
 		wsHub: NewWSHub(),
+	}
+
+	// Initialize Bot API client if token is configured
+	if cfg.BotToken != "" {
+		botCfg := botapi.Config{
+			Token:      cfg.BotToken,
+			WebhookURL: cfg.BotWebhookURL,
+			GleamURL:   cfg.GleamURL,
+		}
+		botClient, err := botapi.NewBotClient(botCfg)
+		if err != nil {
+			log.Printf("⚠️ Failed to create Bot API client: %v", err)
+		} else {
+			r.botClient = botClient
+			log.Printf("✅ Bot API client initialized: @%s", botClient.GetBotUsername())
+
+			// Set webhook if URL is configured
+			if cfg.BotWebhookURL != "" {
+				if err := botClient.SetWebhook(cfg.BotWebhookURL); err != nil {
+					log.Printf("⚠️ Failed to set webhook: %v", err)
+				}
+			}
+		}
+	} else {
+		log.Println("ℹ️ TELEGRAM_BOT_TOKEN not set, Bot API disabled")
 	}
 
 	// Start WebSocket hub
@@ -164,6 +191,15 @@ func (r *Router) setupRoutes() {
 	// Media endpoints
 	r.mux.HandleFunc("/api/v1/download", r.handleDownloadMedia)
 	r.mux.HandleFunc("/api/v1/media/", r.handleGetMediaInfo)
+
+	// Callback endpoint (for clicking inline buttons)
+	r.mux.HandleFunc("/api/v1/callback", r.handleCallback)
+
+	// Bot API endpoints (for inline buttons with real callbacks)
+	r.mux.HandleFunc("/api/v1/bot/send-buttons", r.handleBotSendButtons)
+	r.mux.HandleFunc("/api/v1/bot/webhook", r.handleBotWebhook)
+	r.mux.HandleFunc("/api/v1/bot/answer", r.handleBotAnswer)
+	r.mux.HandleFunc("/api/v1/bot/status", r.handleBotStatus)
 
 	// WebSocket for updates
 	r.mux.HandleFunc("/api/v1/updates", r.handleWebSocket)
@@ -941,4 +977,222 @@ func (r *Router) handleGetMediaInfo(w http.ResponseWriter, req *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, msg)
+}
+
+// CallbackRequest is the request for /callback
+type CallbackRequest struct {
+	ChatID       int64  `json:"chat_id"`
+	MsgID        int    `json:"msg_id"`
+	CallbackData string `json:"data"`
+}
+
+// handleCallback clicks an inline keyboard button
+// POST /api/v1/callback
+// Body: {"chat_id": 123, "msg_id": 456, "data": "t2v:kling"}
+func (r *Router) handleCallback(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "POST required")
+		return
+	}
+
+	sessionID := req.Header.Get("X-Session-ID")
+	if sessionID == "" {
+		respondError(w, http.StatusBadRequest, "X-Session-ID header required")
+		return
+	}
+
+	client := r.getClient(sessionID)
+	if client == nil {
+		respondError(w, http.StatusNotFound, "session not found")
+		return
+	}
+
+	var body CallbackRequest
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+		return
+	}
+
+	if body.ChatID == 0 || body.MsgID == 0 || body.CallbackData == "" {
+		respondError(w, http.StatusBadRequest, "chat_id, msg_id, and data are required")
+		return
+	}
+
+	log.Printf("[handleCallback] chat_id=%d, msg_id=%d, data=%s", body.ChatID, body.MsgID, body.CallbackData)
+
+	ctx, cancel := context.WithTimeout(req.Context(), 30*time.Second)
+	defer cancel()
+
+	message, err := client.ClickButton(ctx, body.ChatID, body.MsgID, body.CallbackData)
+	if err != nil {
+		log.Printf("[handleCallback] error: %v", err)
+		respondError(w, http.StatusInternalServerError, "callback error: "+err.Error())
+		return
+	}
+
+	log.Printf("[handleCallback] success, message: %s", message)
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": message,
+	})
+}
+
+// ============================================================================
+// Bot API Handlers (for inline keyboard callbacks)
+// ============================================================================
+
+// BotSendButtonsRequest is the request for /bot/send-buttons
+type BotSendButtonsRequest struct {
+	ChatID  int64                     `json:"chat_id"`
+	Text    string                    `json:"text"`
+	Buttons [][]botapi.InlineButton   `json:"buttons"`
+}
+
+// handleBotSendButtons sends a message with inline keyboard via Bot API
+// POST /api/v1/bot/send-buttons
+func (r *Router) handleBotSendButtons(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "POST required")
+		return
+	}
+
+	if r.botClient == nil {
+		respondError(w, http.StatusServiceUnavailable, "Bot API not configured")
+		return
+	}
+
+	var body BotSendButtonsRequest
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+		return
+	}
+
+	if body.ChatID == 0 || body.Text == "" || len(body.Buttons) == 0 {
+		respondError(w, http.StatusBadRequest, "chat_id, text, and buttons are required")
+		return
+	}
+
+	log.Printf("[BotAPI] Sending buttons to chat %d: %s", body.ChatID, truncate(body.Text, 50))
+
+	messageID, err := r.botClient.SendWithButtons(body.ChatID, body.Text, body.Buttons)
+	if err != nil {
+		log.Printf("[BotAPI] SendWithButtons error: %v", err)
+		respondError(w, http.StatusInternalServerError, "failed to send: "+err.Error())
+		return
+	}
+
+	log.Printf("[BotAPI] Message sent: chat_id=%d, message_id=%d", body.ChatID, messageID)
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":    true,
+		"message_id": messageID,
+	})
+}
+
+// handleBotWebhook receives callback queries from Telegram
+// POST /api/v1/bot/webhook
+func (r *Router) handleBotWebhook(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "POST required")
+		return
+	}
+
+	if r.botClient == nil {
+		respondError(w, http.StatusServiceUnavailable, "Bot API not configured")
+		return
+	}
+
+	callbackData, err := r.botClient.HandleWebhook(req)
+	if err != nil {
+		log.Printf("[BotAPI] Webhook error: %v", err)
+		respondError(w, http.StatusBadRequest, "webhook error: "+err.Error())
+		return
+	}
+
+	// Non-callback update (message, etc.) - acknowledge but don't process
+	if callbackData == nil {
+		respondJSON(w, http.StatusOK, map[string]string{"status": "ignored"})
+		return
+	}
+
+	log.Printf("[BotAPI] Callback received: query_id=%s, data=%s, user=%d, chat=%d",
+		callbackData.QueryID, callbackData.Data, callbackData.UserID, callbackData.ChatID)
+
+	// Forward to Gleam for processing
+	ctx, cancel := context.WithTimeout(req.Context(), 10*time.Second)
+	defer cancel()
+
+	if err := r.botClient.ForwardCallbackToGleam(ctx, callbackData); err != nil {
+		log.Printf("[BotAPI] Forward to Gleam error: %v", err)
+		// Still acknowledge the webhook to Telegram
+	}
+
+	// Return callback data for Gleam to process
+	respondJSON(w, http.StatusOK, callbackData)
+}
+
+// BotAnswerRequest is the request for /bot/answer
+type BotAnswerRequest struct {
+	QueryID   string `json:"query_id"`
+	Text      string `json:"text"`
+	ShowAlert bool   `json:"show_alert"`
+}
+
+// handleBotAnswer answers a callback query
+// POST /api/v1/bot/answer
+func (r *Router) handleBotAnswer(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "POST required")
+		return
+	}
+
+	if r.botClient == nil {
+		respondError(w, http.StatusServiceUnavailable, "Bot API not configured")
+		return
+	}
+
+	var body BotAnswerRequest
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+		return
+	}
+
+	if body.QueryID == "" {
+		respondError(w, http.StatusBadRequest, "query_id is required")
+		return
+	}
+
+	if err := r.botClient.AnswerCallback(body.QueryID, body.Text, body.ShowAlert); err != nil {
+		log.Printf("[BotAPI] AnswerCallback error: %v", err)
+		respondError(w, http.StatusInternalServerError, "failed to answer: "+err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+	})
+}
+
+// handleBotStatus returns Bot API client status
+// GET /api/v1/bot/status
+func (r *Router) handleBotStatus(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		respondError(w, http.StatusMethodNotAllowed, "GET required")
+		return
+	}
+
+	if r.botClient == nil {
+		respondJSON(w, http.StatusOK, map[string]interface{}{
+			"configured": false,
+			"message":    "Bot API not configured. Set TELEGRAM_BOT_TOKEN environment variable.",
+		})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"configured": true,
+		"bot_id":     r.botClient.GetBotID(),
+		"username":   r.botClient.GetBotUsername(),
+	})
 }

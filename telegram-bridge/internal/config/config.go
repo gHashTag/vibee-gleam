@@ -15,6 +15,11 @@ type Config struct {
 	AppID   int
 	AppHash string
 
+	// Telegram Bot API config (for inline buttons)
+	BotToken      string
+	BotWebhookURL string
+	GleamURL      string
+
 	// Session storage
 	SessionDir string
 
@@ -46,6 +51,11 @@ func Load() (*Config, error) {
 
 	cfg.AppHash = os.Getenv("TELEGRAM_APP_HASH")
 	cfg.DatabaseURL = os.Getenv("DATABASE_URL")
+
+	// Bot API config (optional - for inline buttons support)
+	cfg.BotToken = os.Getenv("TELEGRAM_BOT_TOKEN")
+	cfg.BotWebhookURL = os.Getenv("TELEGRAM_BOT_WEBHOOK_URL") // e.g., https://vibee-telegram-bridge.fly.dev/api/v1/bot/webhook
+	cfg.GleamURL = getEnv("GLEAM_CALLBACK_URL", "https://vibee-mcp.fly.dev/api/v1/bot/callback")
 
 	// Parse allowed origins
 	// CORS_ALLOWED_ORIGINS can be comma-separated list or "*" for dev mode

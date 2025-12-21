@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { useEditorStore } from '@/store/editorStore';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { projectAtom, templatePropsAtom, currentFrameAtom, isPlayingAtom } from '@/atoms';
 import './styles.css';
 
 interface Segment {
@@ -10,8 +11,14 @@ interface Segment {
 }
 
 export function Timeline() {
-  const { props, fps, durationInFrames, currentFrame, setCurrentFrame, setIsPlaying } =
-    useEditorStore();
+  const project = useAtomValue(projectAtom);
+  const props = useAtomValue(templatePropsAtom);
+  const currentFrame = useAtomValue(currentFrameAtom);
+  const setCurrentFrame = useSetAtom(currentFrameAtom);
+  const setIsPlaying = useSetAtom(isPlayingAtom);
+
+  const fps = project.fps;
+  const durationInFrames = project.durationInFrames;
 
   const totalDuration = durationInFrames / fps;
   const coverDurationFrames = Math.round(props.coverDuration * fps);

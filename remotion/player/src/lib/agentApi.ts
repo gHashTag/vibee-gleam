@@ -3,10 +3,11 @@
  */
 
 import { useChatStore, type AgentAction } from '@/store/chatStore';
-import { useEditorStore } from '@/store/editorStore';
+import { editorStore } from '@/atoms/Provider';
+import { templatePropsAtom, selectedItemIdsAtom, updateTemplatePropAtom } from '@/atoms';
 import type { LipSyncMainProps } from '@/store/types';
 
-// Agent server URL - connects to Gleam MCP server
+// Agent server URL - connects to Gleam MCP server via WebSocket
 const AGENT_WS_URL = import.meta.env.VITE_AGENT_WS_URL ||
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'ws://localhost:8081/agent'
@@ -223,15 +224,14 @@ export function isAgentConnected(): boolean {
 // Send chat message to agent
 export async function sendToAgent(message: string): Promise<void> {
   const chatStore = useChatStore.getState();
-  const editorStore = useEditorStore.getState();
 
-  // Build context
+  // Build context using Jotai store
   const context: AgentContext = {
     logs: chatStore.context.logs.slice(-50),
-    props: editorStore.templateProps as unknown as Record<string, unknown>,
+    props: editorStore.get(templatePropsAtom) as unknown as Record<string, unknown>,
     errors: chatStore.context.errors.map(e => e.message),
     template: chatStore.context.currentTemplate,
-    selectedItems: editorStore.selectedItemIds,
+    selectedItems: editorStore.get(selectedItemIdsAtom),
   };
 
   await agentConnection.send({
@@ -242,22 +242,17 @@ export async function sendToAgent(message: string): Promise<void> {
 
 // Apply agent action
 export async function applyAgentAction(action: AgentAction): Promise<void> {
-  const editorStore = useEditorStore.getState();
-
   switch (action.type) {
     case 'update_prop': {
-      const { key, value } = action.payload as { key: keyof LipSyncMainProps; value: unknown };
-      editorStore.updateTemplateProp(key, value as LipSyncMainProps[typeof key]);
+      const { key, value } = action.payload as { key: string; value: unknown };
+      editorStore.set(updateTemplatePropAtom, { key: key as any, value });
       break;
     }
 
     case 'apply_style': {
       const updates = action.payload as Partial<LipSyncMainProps>;
       Object.entries(updates).forEach(([key, value]) => {
-        editorStore.updateTemplateProp(
-          key as keyof LipSyncMainProps,
-          value as LipSyncMainProps[keyof LipSyncMainProps]
-        );
+        editorStore.set(updateTemplatePropAtom, { key: key as any, value });
       });
       break;
     }

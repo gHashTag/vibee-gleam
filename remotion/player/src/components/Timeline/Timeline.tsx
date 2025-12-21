@@ -1,5 +1,24 @@
 import { useRef, useCallback, useEffect } from 'react';
-import { useEditorStore } from '@/store/editorStore';
+import { useAtomValue, useSetAtom } from 'jotai';
+import {
+  projectAtom,
+  tracksAtom,
+  currentFrameAtom,
+  isPlayingAtom,
+  playbackRateAtom,
+  timelineZoomAtom,
+  snapSettingsAtom,
+  inPointAtom,
+  outPointAtom,
+  markersAtom,
+  isMutedAtom,
+  volumeAtom,
+  playerRefAtom,
+  playAtom,
+  pauseAtom,
+  setSnapEnabledAtom,
+  updateTrackAtom,
+} from '@/atoms';
 import { TimeRuler } from './TimeRuler';
 import { Track } from './Track';
 import { Playhead } from './Playhead';
@@ -9,28 +28,30 @@ import './Timeline.css';
 export function Timeline() {
   const timelineRef = useRef<HTMLDivElement>(null);
 
-  const project = useEditorStore((s) => s.project);
-  const tracks = useEditorStore((s) => s.tracks);
-  const currentFrame = useEditorStore((s) => s.currentFrame);
-  const isPlaying = useEditorStore((s) => s.isPlaying);
-  const playbackRate = useEditorStore((s) => s.playbackRate);
-  const timelineZoom = useEditorStore((s) => s.timelineZoom);
-  const setCurrentFrame = useEditorStore((s) => s.setCurrentFrame);
-  const playDirect = useEditorStore((s) => s.playDirect);
-  const pauseDirect = useEditorStore((s) => s.pauseDirect);
-  const setPlaybackRate = useEditorStore((s) => s.setPlaybackRate);
-  const setTimelineZoom = useEditorStore((s) => s.setTimelineZoom);
-  const snapSettings = useEditorStore((s) => s.snapSettings);
-  const setSnapEnabled = useEditorStore((s) => s.setSnapEnabled);
-  const updateTrack = useEditorStore((s) => s.updateTrack);
-  const inPoint = useEditorStore((s) => s.inPoint);
-  const outPoint = useEditorStore((s) => s.outPoint);
-  const markers = useEditorStore((s) => s.markers);
-  const isMuted = useEditorStore((s) => s.isMuted);
-  const setIsMuted = useEditorStore((s) => s.setIsMuted);
-  const volume = useEditorStore((s) => s.volume);
-  const setVolume = useEditorStore((s) => s.setVolume);
-  const playerRef = useEditorStore((s) => s.playerRef);
+  // Jotai atoms - прямое использование
+  const project = useAtomValue(projectAtom);
+  const tracks = useAtomValue(tracksAtom);
+  const currentFrame = useAtomValue(currentFrameAtom);
+  const isPlaying = useAtomValue(isPlayingAtom);
+  const playbackRate = useAtomValue(playbackRateAtom);
+  const timelineZoom = useAtomValue(timelineZoomAtom);
+  const snapSettings = useAtomValue(snapSettingsAtom);
+  const inPoint = useAtomValue(inPointAtom);
+  const outPoint = useAtomValue(outPointAtom);
+  const markers = useAtomValue(markersAtom);
+  const isMuted = useAtomValue(isMutedAtom);
+  const volume = useAtomValue(volumeAtom);
+  const playerRef = useAtomValue(playerRefAtom);
+
+  const setCurrentFrame = useSetAtom(currentFrameAtom);
+  const playDirect = useSetAtom(playAtom);
+  const pauseDirect = useSetAtom(pauseAtom);
+  const setPlaybackRate = useSetAtom(playbackRateAtom);
+  const setTimelineZoom = useSetAtom(timelineZoomAtom);
+  const setSnapEnabled = useSetAtom(setSnapEnabledAtom);
+  const updateTrack = useSetAtom(updateTrackAtom);
+  const setIsMuted = useSetAtom(isMutedAtom);
+  const setVolume = useSetAtom(volumeAtom);
 
   // Handle mute toggle - uses both store state and player API
   const handleMuteToggle = useCallback(() => {
@@ -292,7 +313,7 @@ export function Timeline() {
               <span className="track-name">{track.name}</span>
               <button
                 className={`track-lock-btn ${track.locked ? 'active' : ''}`}
-                onClick={() => updateTrack(track.id, { locked: !track.locked })}
+                onClick={() => updateTrack({ trackId: track.id, updates: { locked: !track.locked } })}
                 title={track.locked ? 'Unlock track' : 'Lock track'}
               >
                 {track.locked ? <Lock size={12} /> : <Unlock size={12} />}

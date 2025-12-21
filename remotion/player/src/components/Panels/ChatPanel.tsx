@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useChatStore, initLogCapture } from '@/store/chatStore';
-import { useEditorStore } from '@/store/editorStore';
+import { useAtomValue } from 'jotai';
+import { templatePropsAtom, selectedItemIdsAtom } from '@/atoms';
 import {
   initAgentConnection,
   disconnectAgent,
@@ -53,8 +54,8 @@ export function ChatPanel({ wsConnected, wsSend }: ChatPanelProps) {
   const rejectAction = useChatStore((s) => s.rejectAction);
 
   // Editor store for context
-  const templateProps = useEditorStore((s) => s.templateProps);
-  const selectedItemIds = useEditorStore((s) => s.selectedItemIds);
+  const templateProps = useAtomValue(templatePropsAtom);
+  const selectedItemIds = useAtomValue(selectedItemIdsAtom);
 
   // Initialize log capture and agent connection
   useEffect(() => {

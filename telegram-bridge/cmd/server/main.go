@@ -87,6 +87,10 @@ func main() {
 		log.Printf("   GET  /api/v1/history/:id - Get chat history")
 		log.Printf("   POST /api/v1/send        - Send message")
 		log.Printf("   WS   /api/v1/updates     - WebSocket updates")
+		log.Printf("   POST /api/v1/bot/send-buttons - Send message with inline keyboard")
+		log.Printf("   POST /api/v1/bot/webhook      - Bot callback webhook")
+		log.Printf("   POST /api/v1/bot/answer       - Answer callback query")
+		log.Printf("   GET  /api/v1/bot/status       - Bot API status")
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server error: %v", err)

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { useEditorStore } from '@/store/editorStore';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { selectItemsAtom, selectRangeAtom, moveItemAtom, resizeItemAtom, getAssetByIdAtom } from '@/atoms';
 import { ContextMenu } from './ContextMenu';
 import type { TrackItem as TrackItemType } from '@/store/types';
 
@@ -12,11 +13,11 @@ interface TrackItemProps {
 }
 
 export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected, isLocked = false }: TrackItemProps) {
-  const selectItems = useEditorStore((s) => s.selectItems);
-  const selectRange = useEditorStore((s) => s.selectRange);
-  const moveItem = useEditorStore((s) => s.moveItem);
-  const resizeItem = useEditorStore((s) => s.resizeItem);
-  const getAssetById = useEditorStore((s) => s.getAssetById);
+  const selectItems = useSetAtom(selectItemsAtom);
+  const selectRange = useSetAtom(selectRangeAtom);
+  const moveItem = useSetAtom(moveItemAtom);
+  const resizeItem = useSetAtom(resizeItemAtom);
+  const getAssetById = useAtomValue(getAssetByIdAtom);
 
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState<'left' | 'right' | null>(null);
@@ -40,10 +41,10 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
       selectRange(item.id);
     } else if (e.metaKey || e.ctrlKey) {
       // Cmd/Ctrl+click: toggle selection
-      selectItems([item.id], true);
+      selectItems({ itemIds: [item.id], addToSelection: true });
     } else {
       // Regular click: single select
-      selectItems([item.id], false);
+      selectItems({ itemIds: [item.id], addToSelection: false });
     }
   };
 
@@ -53,7 +54,7 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
 
     // Select item if not already selected
     if (!isSelected) {
-      selectItems([item.id], false);
+      selectItems({ itemIds: [item.id], addToSelection: false });
     }
 
     setContextMenu({ x: e.clientX, y: e.clientY });
@@ -82,7 +83,7 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
 
     // Select item if not already selected (for drag operations)
     if (!isSelected) {
-      selectItems([item.id], false);
+      selectItems({ itemIds: [item.id], addToSelection: false });
     }
   };
 
@@ -93,17 +94,17 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
 
       if (isDragging) {
         const newStart = Math.max(0, initialFrame + deltaFrames);
-        moveItem(item.id, newStart);
+        moveItem({ itemId: item.id, newStartFrame: newStart, snapSettings: { enabled: false, interval: 15 } });
       } else if (isResizing === 'left') {
         const newStart = Math.max(0, initialFrame + deltaFrames);
         const newDuration = initialDuration - deltaFrames;
         if (newDuration > 0) {
-          moveItem(item.id, newStart);
-          resizeItem(item.id, newDuration);
+          moveItem({ itemId: item.id, newStartFrame: newStart, snapSettings: { enabled: false, interval: 15 } });
+          resizeItem({ itemId: item.id, newDuration });
         }
       } else if (isResizing === 'right') {
         const newDuration = Math.max(1, initialDuration + deltaFrames);
-        resizeItem(item.id, newDuration);
+        resizeItem({ itemId: item.id, newDuration });
       }
     },
     [isDragging, isResizing, dragStartX, initialFrame, initialDuration, pxPerFrame, item.id, moveItem, resizeItem]

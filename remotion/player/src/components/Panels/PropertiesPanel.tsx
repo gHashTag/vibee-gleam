@@ -1,23 +1,22 @@
-import { useEditorStore } from '@/store/editorStore';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { templatePropsAtom, updateTemplatePropAtom, selectedItemIdsAtom, updateItemAtom, projectAtom, getSelectedItemsAtom } from '@/atoms';
 import type { LipSyncMainProps, TrackItem, TextItemProps } from '@/store/types';
 import './PropertiesPanel.css';
 
 export function PropertiesPanel() {
-  const templateProps = useEditorStore((s) => s.templateProps);
-  const updateTemplateProp = useEditorStore((s) => s.updateTemplateProp);
-  const selectedItemIds = useEditorStore((s) => s.selectedItemIds);
-  const getSelectedItems = useEditorStore((s) => s.getSelectedItems);
-  const updateItem = useEditorStore((s) => s.updateItem);
-  const project = useEditorStore((s) => s.project);
-
-  const selectedItems = getSelectedItems();
+  const templateProps = useAtomValue(templatePropsAtom);
+  const updateTemplateProp = useSetAtom(updateTemplatePropAtom);
+  const selectedItemIds = useAtomValue(selectedItemIdsAtom);
+  const selectedItems = useAtomValue(getSelectedItemsAtom);
+  const updateItem = useSetAtom(updateItemAtom);
+  const project = useAtomValue(projectAtom);
   const selectedTextItem = selectedItems.find((item): item is TrackItem & TextItemProps => item.type === 'text');
 
   // Batch operations for multiple selected items
   const adjustDuration = (deltaFrames: number) => {
     selectedItems.forEach((item) => {
       const newDuration = Math.max(1, item.durationInFrames + deltaFrames);
-      updateItem(item.id, { durationInFrames: newDuration });
+      updateItem({ itemId: item.id, updates: { durationInFrames: newDuration } });
     });
   };
 
@@ -26,7 +25,7 @@ export function PropertiesPanel() {
     // Use shortest item as baseline
     const minDuration = Math.min(...selectedItems.map((i) => i.durationInFrames));
     selectedItems.forEach((item) => {
-      updateItem(item.id, { durationInFrames: minDuration });
+      updateItem({ itemId: item.id, updates: { durationInFrames: minDuration } });
     });
   };
 
@@ -35,13 +34,13 @@ export function PropertiesPanel() {
     value: LipSyncMainProps[K]
   ) => {
     console.log(`[PropertiesPanel] handleChange called: ${String(key)} =`, value);
-    updateTemplateProp(key, value);
+    updateTemplateProp({ key: key as any, value });
     console.log(`[PropertiesPanel] handleChange done: ${String(key)}`);
   };
 
   const handleTextChange = (key: string, value: any) => {
     if (selectedTextItem) {
-      updateItem(selectedTextItem.id, { [key]: value });
+      updateItem({ itemId: selectedTextItem.id, updates: { [key]: value } });
     }
   };
 

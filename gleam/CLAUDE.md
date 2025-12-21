@@ -18,18 +18,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | Способ | Описание |
 |--------|----------|
-| **MCP Tool** | `e2e_run()` - прямой вызов через MCP (рекомендуется) |
-| **HTTP API** | `GET /api/e2e/run` |
+| **ASYNC HTTP** | `GET /api/e2e/run` → 202 Accepted (мгновенно) |
+| **Status Poll** | `GET /api/e2e/status/{test_run_id}` → результаты |
+| **Legacy Sync** | `GET /api/e2e/run-sync` → может timeout |
 | **Bash** | `./.claude/hooks/e2e-rainbow-bridge.sh` |
-| **PostHook** | Автоматически после `fly deploy` |
+
+### Async E2E Workflow (РЕКОМЕНДУЕТСЯ)
+
+```
+1. GET /api/e2e/run → получить test_run_id (мгновенно)
+2. Подождать ~35 секунд
+3. GET /api/e2e/status/{test_run_id} → получить результаты
+```
+
+**Почему async?** Fly.io proxy timeout ~60 сек. Sync endpoint возвращает 502.
+Async endpoint возвращает 202 Accepted мгновенно, тесты работают в фоне.
 
 ### Быстрая проверка E2E (для Claude Code)
 
-После деплоя:
+После деплоя используй bash скрипт или polling:
+```bash
+# Получить test_run_id
+TEST_RUN=$(curl -s https://vibee-mcp.fly.dev/api/e2e/run | jq -r '.test_run_id')
+
+# Подождать и проверить статус
+sleep 35
+curl -s "https://vibee-mcp.fly.dev/api/e2e/status/$TEST_RUN"
 ```
-WebFetch: https://vibee-mcp.fly.dev/api/e2e/run
-```
-Ожидаемый результат: **passed >= 2, failed == 0**
+Ожидаемый результат: **status: "completed", passed >= 2, failed == 0**
 
 ### Тестовые аккаунты (ПРОВЕРЕНО 21.12.2025)
 
@@ -60,11 +76,41 @@ cp .env.example .env
 
 | Команда | Pattern Matching |
 |---------|------------------|
-| /help | `neurophoto\|video\|/menu\|Komandy` |
+| /help | `neurophoto\|video\|/menu\|Команды` |
 | /pricing | `JUNIOR\|MIDDLE\|Тариф\|$99` |
+| /neuro | `Генерирую\|fal.media\|Промпт:` |
 
 **Важно**: Тесты используют pattern matching (OR с `|`), ищут ЛЮБОЙ ответ бота в истории.
 Это обходит проблемы с задержкой ответов бота.
+
+### Правило: ВСЕГДА ТЕСТИРУЙ СЕБЯ!
+
+**Claude Code ОБЯЗАН** проверять свои изменения через Rainbow Bridge:
+
+1. **После изменений в telegram_agent.gleam**:
+   - `gleam build` - убедиться что билд успешен
+   - `fly deploy -a vibee-mcp` - задеплоить
+   - `fly logs -a vibee-mcp` - проверить логи
+
+2. **Для AI функций (/neuro, /voice, /video)**:
+   - Изменения в FAL.ai polling → увеличить `max_attempts` если timeout
+   - Изменения в сообщениях → использовать КИРИЛЛИЦУ, не транслит!
+   - После деплоя → проверить логи на ошибки FAL.ai
+
+3. **НЕ ПРОСИТЬ ПОЛЬЗОВАТЕЛЯ ТЕСТИРОВАТЬ!**
+   - Использовать `/api/e2e/run` для базовых тестов
+   - Использовать `fly logs` для диагностики
+   - Если E2E timeout → проверить логи на ошибки
+
+### AI Функции - Таймауты
+
+| Функция | API | Timeout |
+|---------|-----|---------|
+| /neuro | FAL.ai | 60 попыток × 3 сек = 3 мин |
+| /voice | ElevenLabs | 30 сек |
+| /video | Kling AI | 5 мин |
+
+**Примечание**: Используй async E2E workflow! Sync endpoint таймаутит (Fly.io ~60 сек).
 
 ### Ручной запуск E2E
 

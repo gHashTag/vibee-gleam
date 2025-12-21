@@ -17,6 +17,7 @@ import React from 'react';
 import {
   AbsoluteFill,
   Video,
+  OffthreadVideo,
   Img,
   Audio,
   Sequence,
@@ -26,6 +27,7 @@ import {
 import { z } from 'zod';
 import { Captions, type Caption } from '../components/Captions';
 import { resolveMediaPath } from '../shared/mediaPath';
+import { CAPTION_DEFAULTS } from '../constants/captions';
 
 // ============================================================
 // Schema
@@ -114,17 +116,15 @@ const BRollLayer: React.FC<BRollLayerProps> = ({ segment, height, splitRatio, se
             }}
           />
         ) : (
-          <Video
+          <OffthreadVideo
             src={resolveMediaPath(segment.bRollUrl)}
             startFrom={0}
-            pauseWhenBuffering
             style={{
               width: '100%',
               height: '100%',
               objectFit: 'cover',
             }}
             muted
-            loop
           />
         )}
       </div>
@@ -213,10 +213,10 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
       {showCaptions && captions && captions.length > 0 && (
         <Captions
           captions={captions}
-          fontSize={captionStyle?.fontSize ?? 56}
-          textColor={captionStyle?.textColor ?? '#FFFF00'} // Yellow like reel_01.mp4
+          fontSize={captionStyle?.fontSize ?? CAPTION_DEFAULTS.fontSize}
+          textColor={captionStyle?.textColor ?? CAPTION_DEFAULTS.textColor}
           topPercent={isSplit ? splitRatio * 100 : 75} // At border in split, BOTTOM in fullscreen
-          maxWords={2}
+          maxWords={CAPTION_DEFAULTS.maxWords}
         />
       )}
 

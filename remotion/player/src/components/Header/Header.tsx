@@ -1,5 +1,25 @@
 import { useState, useRef } from 'react';
-import { useEditorStore, useLipSyncProps } from '@/store/editorStore';
+import { useAtomValue, useSetAtom } from 'jotai';
+import {
+  projectAtom,
+  tracksAtom,
+  assetsAtom,
+  isPlayingAtom,
+  isExportingAtom,
+  exportProgressAtom,
+  playAtom,
+  pauseAtom,
+  setExportingAtom,
+  templatePropsAtom,
+  undoAtom,
+  redoAtom,
+  canUndoAtom,
+  canRedoAtom,
+  resetTracksAtom,
+  segmentsAtom,
+  updateTemplatePropAtom,
+} from '@/atoms';
+import { editorStore } from '@/atoms/Provider';
 import { Download, Play, Pause, Settings, Wifi, WifiOff, Loader2, AlertTriangle, Undo2, Redo2, X, Keyboard, Upload, Save, RotateCcw } from 'lucide-react';
 import { RENDER_SERVER_URL, toAbsoluteUrl } from '@/lib/mediaUrl';
 import { DEFAULT_COMPOSITION_ID } from '@/shared/compositions';
@@ -69,21 +89,32 @@ interface HeaderProps {
 }
 
 export function Header({ wsStatus, wsClientId }: HeaderProps) {
-  const project = useEditorStore((s) => s.project);
-  const tracks = useEditorStore((s) => s.tracks);
-  const isPlaying = useEditorStore((s) => s.isPlaying);
-  const isExporting = useEditorStore((s) => s.isExporting);
-  const exportProgress = useEditorStore((s) => s.exportProgress);
-  const play = useEditorStore((s) => s.play);
-  const pause = useEditorStore((s) => s.pause);
-  const setExporting = useEditorStore((s) => s.setExporting);
-  const templateProps = useLipSyncProps();
-  const assets = useEditorStore((s) => s.assets);
-  const undo = useEditorStore((s) => s.undo);
-  const redo = useEditorStore((s) => s.redo);
-  const canUndo = useEditorStore((s) => s.canUndo);
-  const canRedo = useEditorStore((s) => s.canRedo);
-  const resetToDefaults = useEditorStore((s) => s.resetToDefaults);
+  // Jotai atoms - прямое использование
+  const project = useAtomValue(projectAtom);
+  const tracks = useAtomValue(tracksAtom);
+  const isPlaying = useAtomValue(isPlayingAtom);
+  const isExporting = useAtomValue(isExportingAtom);
+  const exportProgress = useAtomValue(exportProgressAtom);
+  const templateProps = useAtomValue(templatePropsAtom);
+  const assets = useAtomValue(assetsAtom);
+  const canUndoValue = useAtomValue(canUndoAtom);
+  const canRedoValue = useAtomValue(canRedoAtom);
+  const segments = useAtomValue(segmentsAtom);
+
+  const play = useSetAtom(playAtom);
+  const pause = useSetAtom(pauseAtom);
+  const setExportingAction = useSetAtom(setExportingAtom);
+  const undo = useSetAtom(undoAtom);
+  const redo = useSetAtom(redoAtom);
+  const resetTracks = useSetAtom(resetTracksAtom);
+  const updateTemplateProp = useSetAtom(updateTemplatePropAtom);
+  const setProject = useSetAtom(projectAtom);
+
+  // Обертки для совместимости
+  const setExporting = (exporting: boolean, progress?: number) => setExportingAction({ exporting, progress });
+  const canUndo = () => canUndoValue;
+  const canRedo = () => canRedoValue;
+  const resetToDefaults = () => resetTracks({ fps: 30, durationInFrames: 825 });
 
   const [showBlobWarning, setShowBlobWarning] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -137,11 +168,10 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
         }
 
         // Apply imported data to store
-        const store = useEditorStore.getState();
-        if (data.project) store.setProject(data.project);
+        if (data.project) editorStore.set(projectAtom, data.project);
         if (data.templateProps) {
           Object.entries(data.templateProps).forEach(([key, value]) => {
-            store.updateTemplateProp(key as any, value as any);
+            editorStore.set(updateTemplatePropAtom, { key: key as any, value: value as any });
           });
         }
 
@@ -223,7 +253,6 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
       console.log('[Export] Health data:', healthData);
 
       // Get segments from timeline with exact positions
-      const segments = useEditorStore.getState().getSegmentsFromTimeline();
       logExport('Segments from timeline', { count: segments.length, segments });
 
       // Convert segments to absolute URLs
@@ -375,9 +404,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
           type="text"
           className="project-name-input"
           value={project.name}
-          onChange={(e) =>
-            useEditorStore.getState().setProject({ name: e.target.value })
-          }
+          onChange={(e) => setProject({ ...project, name: e.target.value })}
         />
       </div>
 

@@ -13,10 +13,11 @@
  * Montserrat Bold font, and smooth animations.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   AbsoluteFill,
   Video,
+  OffthreadVideo,
   Img,
   Audio,
   Sequence,
@@ -27,6 +28,7 @@ import {
 import { z } from 'zod';
 import { Captions, type Caption } from './Captions';
 import { resolveMediaPath } from '@/shared/mediaPath';
+import { CAPTION_DEFAULTS } from '@/constants/captions';
 
 // ============================================================
 // Schema
@@ -115,17 +117,15 @@ const BRollLayer: React.FC<BRollLayerProps> = ({ segment, height, splitRatio, se
             }}
           />
         ) : (
-          <Video
+          <OffthreadVideo
             src={resolveMediaPath(segment.bRollUrl)}
             startFrom={0}
-            pauseWhenBuffering
             style={{
               width: '100%',
               height: '100%',
               objectFit: 'cover',
             }}
             muted
-            loop
           />
         )}
       </div>
@@ -155,7 +155,72 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
 }) => {
   console.log('[SplitTalkingHead] backgroundMusic:', backgroundMusic, 'musicVolume:', musicVolume);
   const frame = useCurrentFrame();
-  const { height } = useVideoConfig();
+  const { height, fps, durationInFrames } = useVideoConfig();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastFrameRef = useRef(0);
+
+  // 🎵 HTML5 Audio for background music (bypasses Remotion Audio issues)
+  useEffect(() => {
+    if (!backgroundMusic) return;
+
+    const audioSrc = resolveMediaPath(backgroundMusic);
+    console.log('[SplitTalkingHead] Creating HTML5 Audio:', audioSrc);
+
+    const audio = new window.Audio(audioSrc);
+    audio.loop = true;
+    audio.volume = musicVolume;
+    audio.crossOrigin = 'anonymous';
+    audioRef.current = audio;
+
+    return () => {
+      audio.pause();
+      audio.src = '';
+      audioRef.current = null;
+    };
+  }, [backgroundMusic]);
+
+  // Sync audio with player - use interval to detect play/pause
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.volume = musicVolume;
+
+    // Stop audio at video end
+    if (frame >= durationInFrames - 1) {
+      if (!audio.paused) {
+        console.log('[Audio] Stopping - video ended');
+        audio.pause();
+      }
+      return;
+    }
+
+    // Update frame ref and check if playing
+    const wasPlaying = lastFrameRef.current !== frame;
+    lastFrameRef.current = frame;
+
+    if (wasPlaying && audio.paused) {
+      const currentTime = frame / fps;
+      audio.currentTime = currentTime % (audio.duration || 1000);
+      audio.play().catch(e => console.warn('[Audio] Play failed:', e));
+    }
+  }, [frame, fps, musicVolume, durationInFrames]);
+
+  // Detect pause - simplified, less CPU intensive
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    let lastCheck = lastFrameRef.current;
+    const checkPause = setInterval(() => {
+      if (lastFrameRef.current === lastCheck && !audio.paused) {
+        audio.pause();
+      }
+      lastCheck = lastFrameRef.current;
+    }, 300); // Check every 300ms instead of 150ms
+
+    return () => clearInterval(checkPause);
+  }, []);
 
   // 🎬 Prefetch all b-roll videos for smooth playback
   useEffect(() => {
@@ -235,17 +300,15 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
       {showCaptions && captions && captions.length > 0 && (
         <Captions
           captions={captions}
-          fontSize={captionStyle?.fontSize ?? 56}
-          textColor={captionStyle?.textColor ?? '#FFFF00'} // Yellow like reel_01.mp4
+          fontSize={captionStyle?.fontSize ?? CAPTION_DEFAULTS.fontSize}
+          textColor={captionStyle?.textColor ?? CAPTION_DEFAULTS.textColor}
           topPercent={isSplit ? splitRatio * 100 : 75} // At border in split, BOTTOM in fullscreen
-          maxWords={2}
+          maxWords={CAPTION_DEFAULTS.maxWords}
         />
       )}
 
       {/* ========== BACKGROUND MUSIC ========== */}
-      {backgroundMusic && (
-        <Audio src={resolveMediaPath(backgroundMusic)} volume={musicVolume} />
-      )}
+      {/* Audio is handled via HTML5 Audio in useEffect above */}
     </AbsoluteFill>
   );
 };

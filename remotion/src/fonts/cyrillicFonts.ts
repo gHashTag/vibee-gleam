@@ -109,9 +109,12 @@ export async function loadCyrillicFont(fontId: string): Promise<string> {
   try {
     const fontModule = await loader();
 
-    // Load the font
+    // Load the font with specific weights and subsets to avoid timeout
     if (fontModule.loadFont) {
-      fontModule.loadFont();
+      fontModule.loadFont('normal', {
+        weights: ['400', '700', '900'],
+        subsets: ['cyrillic', 'latin'],
+      });
     }
 
     // Get the font family string

@@ -25,6 +25,7 @@ import vibee/logging
 import vibee/mcp/session_manager
 import vibee/telegram/conversation_tracker
 import vibee/telegram/dialog_forwarder
+import vibee/integrations/telegram/bot_api
 
 /// Get VIBEE_API_KEY from environment
 @external(erlang, "vibee_polling_ffi", "get_api_key")
@@ -404,7 +405,11 @@ pub fn handle_incoming_message(
         }
         Some(#("help", _)) -> {
           vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("help")), "Command detected")
-          let help_text = "VIBEE Bot - Komandy:\n\n/neurophoto <prompt> - Generaciya izobrazheniya s FLUX LoRA\n/neuro <prompt> - Korotkaya versiya\n/pricing - Tarify VIBEE\n/quiz - Podobrat' tarif\n\nTrigger slovo NEURO_SAGE dobavlyaetsya avtomaticheski."
+          let is_ru = is_cyrillic_text(text)
+          let help_text = case is_ru {
+            True -> "🤖 VIBEE Bot - Команды:\n\n📸 **Изображения:**\n/neurophoto <prompt> - Генерация с FLUX LoRA\n/neuro <prompt> - Короткая версия\n\n🎬 **Видео:**\n/video <описание> - Text-to-Video (Kling)\n/i2v - Image-to-Video\n/morph - Морфинг изображений\n/broll <тема> - B-Roll генерация\n\n🎤 **Аудио:**\n/voice <текст> - Голосовой синтез (ElevenLabs)\n/talking <текст> - Говорящий аватар (Hedra)\n\n💰 **Тарифы:**\n/pricing - Показать тарифы\n/quiz - Подобрать тариф\n\n💡 Trigger слово NEURO_SAGE добавляется автоматически."
+            False -> "🤖 VIBEE Bot - Commands:\n\n📸 **Images:**\n/neurophoto <prompt> - FLUX LoRA generation\n/neuro <prompt> - Short version\n\n🎬 **Video:**\n/video <description> - Text-to-Video (Kling)\n/i2v - Image-to-Video\n/morph - Image morphing\n/broll <topic> - B-Roll generation\n\n🎤 **Audio:**\n/voice <text> - Voice synthesis (ElevenLabs)\n/talking <text> - Talking avatar (Hedra)\n\n💰 **Pricing:**\n/pricing - Show pricing\n/quiz - Find your plan\n\n💡 Trigger word NEURO_SAGE is added automatically."
+          }
           let _ = send_message(updated_state.config, chat_id, help_text, Some(message_id))
           AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
         }
@@ -427,6 +432,30 @@ pub fn handle_incoming_message(
           }
           let _ = send_message(updated_state.config, chat_id, quiz_text, Some(message_id))
           AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
+        }
+        Some(#("voice", prompt)) -> {
+          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("voice")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
+          handle_voice_command(updated_state, chat_id, message_id, prompt)
+        }
+        Some(#("video", prompt)) -> {
+          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("video")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
+          handle_video_command(updated_state, chat_id, message_id, prompt)
+        }
+        Some(#("talking", prompt)) -> {
+          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("talking")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
+          handle_talking_command(updated_state, chat_id, message_id, prompt)
+        }
+        Some(#("morph", prompt)) -> {
+          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("morph")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
+          handle_morph_command(updated_state, chat_id, message_id, prompt)
+        }
+        Some(#("i2v", prompt)) -> {
+          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("i2v")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
+          handle_i2v_command(updated_state, chat_id, message_id, prompt)
+        }
+        Some(#("broll", prompt)) -> {
+          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("broll")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
+          handle_broll_command(updated_state, chat_id, message_id, prompt)
         }
         _ -> {
           let sniper_log = vibe_logger.new("sniper")
@@ -813,7 +842,7 @@ fn handle_neurophoto_command(
     }
     _ -> {
       // Отправляем сообщение "генерируем..."
-      let _ = send_message(state.config, chat_id, "Generiruyiu izobrazhenie s NEURO_SAGE...\n\nPrompt: " <> prompt, Some(message_id))
+      let _ = send_message(state.config, chat_id, "🎨 Генерирую изображение NEURO_SAGE...\n\nПромпт: " <> prompt, Some(message_id))
 
       let neuro_log = vibe_logger.new("neurophoto")
         |> vibe_logger.with_data("chat_id", json.string(chat_id))
@@ -829,7 +858,7 @@ fn handle_neurophoto_command(
         }
         Error(err) -> {
           vibe_logger.error(neuro_log |> vibe_logger.with_data("error", json.string(err)), "Generation failed")
-          let _ = send_message(state.config, chat_id, "Oshibka generacii: " <> err, Some(message_id))
+          let _ = send_message(state.config, chat_id, "❌ Ошибка генерации: " <> err, Some(message_id))
           AgentState(..state, total_messages: state.total_messages + 1)
         }
       }
@@ -922,7 +951,7 @@ fn extract_image_url(body: String, api_key: String) -> Result(String, String) {
       case extract_request_id(body) {
         Ok(request_id) -> {
           vibe_logger.info(vibe_logger.new("fal") |> vibe_logger.with_data("request_id", json.string(request_id)), "Запрос в очереди, запускаю polling")
-          poll_fal_result(request_id, api_key, 30)  // 30 попыток = ~90 сек
+          poll_fal_result(request_id, api_key, 60)  // 60 попыток = ~3 мин
         }
         Error(_) -> {
           // Проверяем на ошибку
@@ -938,16 +967,30 @@ fn extract_image_url(body: String, api_key: String) -> Result(String, String) {
 
 /// Извлекает request_id из ответа FAL.ai
 fn extract_request_id(body: String) -> Result(String, String) {
-  // Формат: {"request_id":"abc123",...}
-  let pattern = "\"request_id\":\""
-  case string.split(body, pattern) {
+  // Формат может быть: {"request_id":"abc123"} или {"request_id": "abc123"}
+  // Пробуем оба варианта
+  let pattern1 = "\"request_id\":\""
+  let pattern2 = "\"request_id\": \""
+
+  case string.split(body, pattern1) {
     [_, rest, ..] -> {
       case string.split(rest, "\"") {
         [request_id, ..] -> Ok(request_id)
-        _ -> Error("Could not parse request_id")
+        _ -> Error("Could not parse request_id (pattern1)")
       }
     }
-    _ -> Error("No request_id in response")
+    _ -> {
+      // Пробуем второй паттерн (с пробелом)
+      case string.split(body, pattern2) {
+        [_, rest, ..] -> {
+          case string.split(rest, "\"") {
+            [request_id, ..] -> Ok(request_id)
+            _ -> Error("Could not parse request_id (pattern2)")
+          }
+        }
+        _ -> Error("No request_id in response: " <> string.slice(body, 0, 100))
+      }
+    }
   }
 }
 
@@ -958,7 +1001,7 @@ fn poll_fal_result(request_id: String, api_key: String, max_attempts: Int) -> Re
 
 fn poll_fal_loop(request_id: String, api_key: String, max_attempts: Int, attempt: Int) -> Result(String, String) {
   case attempt > max_attempts {
-    True -> Error("Polling timeout after " <> int.to_string(max_attempts) <> " attempts")
+    True -> Error("Таймаут ожидания: " <> int.to_string(max_attempts) <> " попыток (3 мин)")
     False -> {
       // Ждём 3 секунды между попытками
       sleep_ms(3000)
@@ -1036,6 +1079,200 @@ fn extract_image_url_simple(body: String) -> Result(String, String) {
       }
     }
     _ -> Error("No image URL in result: " <> string.slice(body, 0, 200))
+  }
+}
+
+// ============================================================
+// AI Command Handlers
+// ============================================================
+
+/// Обрабатывает команду /voice - голосовой клон (ElevenLabs)
+fn handle_voice_command(
+  state: AgentState,
+  chat_id: String,
+  message_id: Int,
+  prompt: String,
+) -> AgentState {
+  case prompt {
+    "" -> {
+      let hint = "🎤 /voice <текст> - синтез речи\n\nПример: /voice Привет, это мой голосовой клон!"
+      let _ = send_message(state.config, chat_id, hint, Some(message_id))
+      AgentState(..state, total_messages: state.total_messages + 1)
+    }
+    _ -> {
+      let api_key = get_env("ELEVENLABS_API_KEY")
+      case api_key {
+        "" -> {
+          let _ = send_message(state.config, chat_id, "❌ ELEVENLABS_API_KEY не настроен. Голосовой синтез недоступен.", Some(message_id))
+          AgentState(..state, total_messages: state.total_messages + 1)
+        }
+        _ -> {
+          let _ = send_message(state.config, chat_id, "🎤 Синтезирую голос...\n\nТекст: " <> string.slice(prompt, 0, 50) <> "...", Some(message_id))
+          // TODO: Implement ElevenLabs TTS
+          let _ = send_message(state.config, chat_id, "✅ Голосовой синтез в разработке. API ключ настроен!", Some(message_id))
+          AgentState(..state, total_messages: state.total_messages + 1)
+        }
+      }
+    }
+  }
+}
+
+/// Обрабатывает команду /video - генерация видео (Kling)
+fn handle_video_command(
+  state: AgentState,
+  chat_id: String,
+  message_id: Int,
+  prompt: String,
+) -> AgentState {
+  case prompt {
+    "" -> {
+      // SMART ROUTING: Use Bot API to send provider selection with inline buttons
+      // This enables callback queries when user clicks buttons!
+      io.println("[SmartRoute] 🤖 Using Bot API for /video command with buttons")
+
+      let text = "🎬 Выбери провайдер для видео:\n\n" <>
+        "**Kling AI** - Высокое качество, стабильное движение\n" <>
+        "**Veo3** - Google, реалистичное движение"
+
+      let keyboard = [
+        [bot_api.InlineButton("Kling AI", "t2v:kling")],
+        [bot_api.InlineButton("Veo3 (KIE.ai)", "t2v:veo3")],
+        [bot_api.InlineButton("Отмена", "cancel")],
+      ]
+
+      // Parse chat_id to int for Bot API
+      let chat_id_int = case int.parse(chat_id) {
+        Ok(id) -> id
+        Error(_) -> 0
+      }
+
+      // Get Bot API config
+      let bridge_url = telegram_config.bridge_url()
+      let api_key = telegram_config.bridge_api_key()
+      let bot_config = bot_api.with_key(bridge_url, api_key)
+
+      case bot_api.send_with_buttons(bot_config, chat_id_int, text, keyboard) {
+        Ok(_) -> {
+          io.println("[SmartRoute] ✅ Bot API: Buttons sent successfully!")
+          AgentState(..state, total_messages: state.total_messages + 1)
+        }
+        Error(_err) -> {
+          io.println("[SmartRoute] ⚠️ Bot API failed, falling back to MTProto")
+          // Fallback to plain text via MTProto
+          let hint = "🎬 /video <описание> - генерация видео\n\nПример: /video закат над океаном, волны, 4K cinematic"
+          let _ = send_message(state.config, chat_id, hint, Some(message_id))
+          AgentState(..state, total_messages: state.total_messages + 1)
+        }
+      }
+    }
+    _ -> {
+      let access_key = get_env("KLING_ACCESS_KEY")
+      case access_key {
+        "" -> {
+          let _ = send_message(state.config, chat_id, "❌ KLING_ACCESS_KEY не настроен. Генерация видео недоступна.\n\n💡 Для видео нужен Kling AI API ключ: https://klingai.com/", Some(message_id))
+          AgentState(..state, total_messages: state.total_messages + 1)
+        }
+        _ -> {
+          let _ = send_message(state.config, chat_id, "🎬 Генерирую видео...\n\nPrompt: " <> string.slice(prompt, 0, 50) <> "...", Some(message_id))
+          // TODO: Implement Kling video generation
+          let _ = send_message(state.config, chat_id, "✅ Видео генерация в разработке. Kling API настроен!", Some(message_id))
+          AgentState(..state, total_messages: state.total_messages + 1)
+        }
+      }
+    }
+  }
+}
+
+/// Обрабатывает команду /talking - говорящий аватар (Hedra)
+fn handle_talking_command(
+  state: AgentState,
+  chat_id: String,
+  message_id: Int,
+  prompt: String,
+) -> AgentState {
+  case prompt {
+    "" -> {
+      let hint = "🗣️ /talking <текст> - говорящий аватар\n\nПример: /talking Привет! Я цифровой аватар."
+      let _ = send_message(state.config, chat_id, hint, Some(message_id))
+      AgentState(..state, total_messages: state.total_messages + 1)
+    }
+    _ -> {
+      let api_key = get_env("HEDRA_API_KEY")
+      case api_key {
+        "" | "<hedra_key>" -> {
+          let _ = send_message(state.config, chat_id, "❌ HEDRA_API_KEY не настроен. Говорящий аватар недоступен.\n\n💡 Для аватара нужен Hedra API ключ: https://www.hedra.com/", Some(message_id))
+          AgentState(..state, total_messages: state.total_messages + 1)
+        }
+        _ -> {
+          let _ = send_message(state.config, chat_id, "🗣️ Создаю говорящий аватар...\n\nТекст: " <> string.slice(prompt, 0, 50) <> "...", Some(message_id))
+          // TODO: Implement Hedra avatar
+          let _ = send_message(state.config, chat_id, "✅ Hedra avatar в разработке. API настроен!", Some(message_id))
+          AgentState(..state, total_messages: state.total_messages + 1)
+        }
+      }
+    }
+  }
+}
+
+/// Обрабатывает команду /morph - морфинг изображений (Kling)
+fn handle_morph_command(
+  state: AgentState,
+  chat_id: String,
+  message_id: Int,
+  _prompt: String,
+) -> AgentState {
+  let api_key = get_env("KLING_ACCESS_KEY")
+  case api_key {
+    "" -> {
+      let _ = send_message(state.config, chat_id, "❌ KLING_ACCESS_KEY не настроен.\n\n🔄 /morph - отправьте 2 изображения для морфинга\n\n💡 Нужен Kling API: https://klingai.com/", Some(message_id))
+      AgentState(..state, total_messages: state.total_messages + 1)
+    }
+    _ -> {
+      let _ = send_message(state.config, chat_id, "🔄 /morph - отправьте 2 изображения для морфинга\n\n✅ Kling API настроен!", Some(message_id))
+      AgentState(..state, total_messages: state.total_messages + 1)
+    }
+  }
+}
+
+/// Обрабатывает команду /i2v - image to video (Kling)
+fn handle_i2v_command(
+  state: AgentState,
+  chat_id: String,
+  message_id: Int,
+  _prompt: String,
+) -> AgentState {
+  let api_key = get_env("KLING_ACCESS_KEY")
+  case api_key {
+    "" -> {
+      let _ = send_message(state.config, chat_id, "❌ KLING_ACCESS_KEY не настроен.\n\n🎥 /i2v - отправьте изображение для анимации\n\n💡 Нужен Kling API: https://klingai.com/", Some(message_id))
+      AgentState(..state, total_messages: state.total_messages + 1)
+    }
+    _ -> {
+      let _ = send_message(state.config, chat_id, "🎥 /i2v - отправьте изображение для анимации в видео\n\n✅ Kling API настроен!", Some(message_id))
+      AgentState(..state, total_messages: state.total_messages + 1)
+    }
+  }
+}
+
+/// Обрабатывает команду /broll - B-Roll генерация
+fn handle_broll_command(
+  state: AgentState,
+  chat_id: String,
+  message_id: Int,
+  prompt: String,
+) -> AgentState {
+  case prompt {
+    "" -> {
+      let hint = "📹 /broll <тема> - генерация B-Roll видео\n\nПример: /broll бизнес встреча, офис, 4K"
+      let _ = send_message(state.config, chat_id, hint, Some(message_id))
+      AgentState(..state, total_messages: state.total_messages + 1)
+    }
+    _ -> {
+      let _ = send_message(state.config, chat_id, "📹 Генерирую B-Roll...\n\nТема: " <> prompt, Some(message_id))
+      // TODO: Implement B-Roll generation
+      let _ = send_message(state.config, chat_id, "✅ B-Roll генерация в разработке!", Some(message_id))
+      AgentState(..state, total_messages: state.total_messages + 1)
+    }
   }
 }
 

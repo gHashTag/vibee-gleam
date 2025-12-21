@@ -1,5 +1,4 @@
 import React, { Component, type ReactNode } from 'react';
-import { useLanguage } from '@/hooks/useLanguage';
 
 interface Props {
   children: ReactNode;
@@ -70,8 +69,22 @@ interface ErrorFallbackProps {
 }
 
 function ErrorFallback({ error, errorInfo, onReset, onReload, onClearStorage }: ErrorFallbackProps) {
-  const { t } = useLanguage();
+  // Don't use useLanguage() here - it might not be available if error is in providers
   const [showDetails, setShowDetails] = React.useState(false);
+
+  // Hardcoded translations for error boundary (safe fallback)
+  const t = (key: string) => {
+    const translations: Record<string, string> = {
+      'errors.title': 'Something went wrong',
+      'errors.subtitle': 'An error occurred in the application',
+      'errors.tryAgain': 'Try Again',
+      'errors.reload': 'Reload Page',
+      'errors.clearAndReload': 'Clear Data & Reload',
+      'errors.showDetails': 'Show Details',
+      'errors.support': 'If the problem persists, please contact support',
+    };
+    return translations[key] || key;
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">

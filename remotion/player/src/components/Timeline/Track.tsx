@@ -1,5 +1,6 @@
 import { useState, useCallback, memo } from 'react';
-import { useEditorStore } from '@/store/editorStore';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { selectedItemIdsAtom, addItemAtom, updateItemAtom } from '@/atoms';
 import { TrackItem } from './TrackItem';
 import type { Track as TrackType, Asset } from '@/store/types';
 
@@ -9,10 +10,9 @@ interface TrackProps {
 }
 
 export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
-  const selectedItemIds = useEditorStore((s) => s.selectedItemIds);
-  const addItem = useEditorStore((s) => s.addItem);
-  const updateItem = useEditorStore((s) => s.updateItem);
-  const syncBackgroundVideosFromTimeline = useEditorStore((s) => s.syncBackgroundVideosFromTimeline);
+  const selectedItemIds = useAtomValue(selectedItemIdsAtom);
+  const addItem = useSetAtom(addItemAtom);
+  const updateItem = useSetAtom(updateItemAtom);
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -64,46 +64,42 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
 
       if (existingItem) {
         // REPLACE: Update existing item's asset
-        // updateItem() already auto-syncs backgroundVideos when assetId changes
         console.log(`Replacing ${existingItem.id} with ${asset.name}`);
-        updateItem(existingItem.id, { assetId: asset.id });
+        updateItem({ itemId: existingItem.id, updates: { assetId: asset.id } });
         return;
       }
 
       // ADD NEW: Create item based on asset type
       const itemType = asset.type === 'image' ? 'image' : track.type;
 
-      addItem(track.id, {
-        type: itemType as any,
-        assetId: asset.id,
-        startFrame: dropFrame,
-        durationInFrames: asset.duration || 150, // Default 5 seconds at 30fps
-        x: 0,
-        y: 0,
-        width: asset.width || 1080,
-        height: asset.height || 1920,
-        rotation: 0,
-        opacity: 1,
-        ...(itemType === 'video' && { volume: 1, playbackRate: 1 }),
-        ...(itemType === 'audio' && { volume: 1 }),
-        ...(itemType === 'avatar' && {
-          circleSizePercent: 25.2,
-          circleBottomPercent: 15,
-          circleLeftPx: 40,
-        }),
+      addItem({
+        trackId: track.id,
+        itemData: {
+          type: itemType as any,
+          assetId: asset.id,
+          startFrame: dropFrame,
+          durationInFrames: asset.duration || 150, // Default 5 seconds at 30fps
+          x: 0,
+          y: 0,
+          width: asset.width || 1080,
+          height: asset.height || 1920,
+          rotation: 0,
+          opacity: 1,
+          ...(itemType === 'video' && { volume: 1, playbackRate: 1 }),
+          ...(itemType === 'audio' && { volume: 1 }),
+          ...(itemType === 'avatar' && {
+            circleSizePercent: 25.2,
+            circleBottomPercent: 15,
+            circleLeftPx: 40,
+          }),
+        },
       });
-
-      // Sync backgroundVideos with timeline if this is video track
-      if (track.type === 'video') {
-        // Use setTimeout to ensure the item is added first
-        setTimeout(() => syncBackgroundVideosFromTimeline(), 0);
-      }
 
       console.log(`Added ${asset.name} to ${track.name} at frame ${dropFrame}`);
     } catch (error) {
       console.error('Drop error:', error);
     }
-  }, [track, pxPerFrame, addItem, updateItem, syncBackgroundVideosFromTimeline]);
+  }, [track, pxPerFrame, addItem, updateItem]);
 
   return (
     <div

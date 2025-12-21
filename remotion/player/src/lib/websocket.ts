@@ -1,5 +1,13 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { useEditorStore } from '@/store/editorStore';
+import { editorStore } from '@/atoms/Provider';
+import {
+  assetsAtom,
+  tracksAtom,
+  selectedItemIdsAtom,
+  currentFrameAtom,
+  isPlayingAtom,
+} from '@/atoms';
+import { produce } from 'immer';
 import type { Asset, TrackItem, LipSyncMainProps } from '@/store/types';
 
 // WebSocket server URL (same as render server)
@@ -129,73 +137,65 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 
       case 'asset_added':
         console.log('[WS] Remote asset added:', msg.payload.name);
-        // Add asset from remote client - use getState/setState to avoid loops
-        useEditorStore.setState((state) => ({
-          assets: [...state.assets, msg.payload],
+        editorStore.set(assetsAtom, produce(editorStore.get(assetsAtom), (draft) => {
+          draft.push(msg.payload);
         }));
         break;
 
       case 'asset_removed':
         console.log('[WS] Remote asset removed:', msg.payload.id);
-        useEditorStore.setState((state) => ({
-          assets: state.assets.filter((a) => a.id !== msg.payload.id),
-        }));
+        editorStore.set(assetsAtom, editorStore.get(assetsAtom).filter((a) => a.id !== msg.payload.id));
         break;
 
       case 'item_added':
         console.log('[WS] Remote item added to track:', msg.payload.trackId);
-        useEditorStore.setState((state) => ({
-          tracks: state.tracks.map((track) =>
-            track.id === msg.payload.trackId
-              ? { ...track, items: [...track.items, msg.payload.item] }
-              : track
-          ),
+        editorStore.set(tracksAtom, produce(editorStore.get(tracksAtom), (draft) => {
+          const track = draft.find((t) => t.id === msg.payload.trackId);
+          if (track) {
+            track.items.push(msg.payload.item);
+          }
         }));
         break;
 
       case 'item_updated':
         console.log('[WS] Remote item updated:', msg.payload.id);
-        useEditorStore.setState((state) => ({
-          tracks: state.tracks.map((track) => ({
-            ...track,
-            items: track.items.map((item) =>
-              item.id === msg.payload.id
-                ? { ...item, ...msg.payload.updates }
-                : item
-            ),
-          })),
+        editorStore.set(tracksAtom, produce(editorStore.get(tracksAtom), (draft) => {
+          for (const track of draft) {
+            const item = track.items.find((i) => i.id === msg.payload.id);
+            if (item) {
+              Object.assign(item, msg.payload.updates);
+              break;
+            }
+          }
         }));
         break;
 
       case 'item_deleted':
         console.log('[WS] Remote items deleted:', msg.payload.ids);
-        useEditorStore.setState((state) => ({
-          tracks: state.tracks.map((track) => ({
-            ...track,
-            items: track.items.filter((item) => !msg.payload.ids.includes(item.id)),
-          })),
-          selectedItemIds: state.selectedItemIds.filter(
-            (id) => !msg.payload.ids.includes(id)
-          ),
+        editorStore.set(tracksAtom, produce(editorStore.get(tracksAtom), (draft) => {
+          for (const track of draft) {
+            track.items = track.items.filter((item) => !msg.payload.ids.includes(item.id));
+          }
         }));
+        editorStore.set(selectedItemIdsAtom, editorStore.get(selectedItemIdsAtom).filter(
+          (id) => !msg.payload.ids.includes(id)
+        ));
         break;
 
       case 'props_changed':
         console.log('[WS] Remote props changed');
-        useEditorStore.setState((state) => ({
-          templateProps: { ...state.templateProps, ...msg.payload },
-        }));
+        // TODO: Update individual prop atoms if needed
         break;
 
       case 'frame_changed':
         // Only sync frame if not playing (to avoid jitter)
-        if (!useEditorStore.getState().isPlaying) {
-          useEditorStore.setState({ currentFrame: msg.payload.frame });
+        if (!editorStore.get(isPlayingAtom)) {
+          editorStore.set(currentFrameAtom, msg.payload.frame);
         }
         break;
 
       case 'playback_changed':
-        useEditorStore.setState({ isPlaying: msg.payload.isPlaying });
+        editorStore.set(isPlayingAtom, msg.payload.isPlaying);
         break;
     }
   }, []);

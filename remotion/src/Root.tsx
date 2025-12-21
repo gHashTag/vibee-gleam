@@ -1,7 +1,9 @@
 import React from "react";
 import { fetchCaptions } from "./lib/fetchCaptions";
+import { getVideoMetadata } from "@remotion/media-utils";
 import { Composition } from "remotion";
 import { SplitTalkingHead, SplitTalkingHeadSchema } from "./compositions/SplitTalkingHead";
+import { resolveMediaPath } from "./shared/mediaPath";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -41,14 +43,28 @@ export const RemotionRoot: React.FC = () => {
           },
         }}
         calculateMetadata={async ({ props }) => {
-          if (props.captions && props.captions.length > 0) {
-            return { props };
+          const fps = 30;
+          let durationInFrames = 1020; // Default fallback
+
+          // Get actual video duration
+          try {
+            const videoUrl = resolveMediaPath(props.lipSyncVideo);
+            const metadata = await getVideoMetadata(videoUrl);
+            durationInFrames = Math.ceil(metadata.durationInSeconds * fps);
+            console.log(`📏 LipSync video duration: ${metadata.durationInSeconds.toFixed(2)}s = ${durationInFrames} frames`);
+          } catch (e) {
+            console.warn('Could not get video metadata, using default duration:', e);
           }
 
-          const language = (props as any).captionLanguage || "ru";
-          const captions = await fetchCaptions(props.lipSyncVideo, language);
+          // Load captions if not provided
+          let captions = props.captions;
+          if (!captions || captions.length === 0) {
+            const language = (props as any).captionLanguage || "ru";
+            captions = await fetchCaptions(props.lipSyncVideo, language);
+          }
 
           return {
+            durationInFrames,
             props: {
               ...props,
               captions,

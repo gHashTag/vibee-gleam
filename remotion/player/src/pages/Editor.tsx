@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useEditorStore } from '@/store/editorStore';
+import { useEffect, useState, Suspense } from 'react';
+import { useSetAtom } from 'jotai';
+import { loadCaptionsAtom, updateDurationFromLipSyncAtom, captionsAtom } from '@/atoms';
 import { Header } from '@/components/Header';
 import { AssetsPanel } from '@/components/Panels/AssetsPanel';
 import { PropertiesPanel } from '@/components/Panels/PropertiesPanel';
@@ -15,12 +16,14 @@ import { Film, Layers, Settings, Subtitles } from 'lucide-react';
 
 type LeftPanelTab = 'assets' | 'layers' | 'props' | 'captions';
 
-export function EditorPage() {
+function EditorContent() {
   const [leftTab, setLeftTab] = useState<LeftPanelTab>('assets');
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const updateDurationFromLipSync = useEditorStore((s) => s.updateDurationFromLipSync);
-  const loadCaptions = useEditorStore((s) => s.loadCaptions);
-  const updateTemplateProp = useEditorStore((s) => s.updateTemplateProp);
+
+  // Use atoms directly instead of bridge
+  const updateDurationFromLipSync = useSetAtom(updateDurationFromLipSyncAtom);
+  const loadCaptions = useSetAtom(loadCaptionsAtom);
+  const setCaptions = useSetAtom(captionsAtom);
 
   // Enable keyboard shortcuts
   useKeyboardShortcuts();
@@ -28,10 +31,9 @@ export function EditorPage() {
   // Auto-detect duration from lipsync video and force reload captions on mount
   useEffect(() => {
     updateDurationFromLipSync();
-    // Force reload captions by clearing first
-    updateTemplateProp('captions', []);
+    setCaptions([]);
     loadCaptions();
-  }, [updateDurationFromLipSync, loadCaptions, updateTemplateProp]);
+  }, [updateDurationFromLipSync, loadCaptions, setCaptions]);
 
   // Initialize WebSocket for real-time sync
   const { send, isConnected, clientId } = useWebSocket({
@@ -47,34 +49,27 @@ export function EditorPage() {
   // Handle '?' key for shortcuts modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if focus is on input/textarea
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
         return;
       }
-
-      // ? key (Shift + /) or F1
       if ((e.shiftKey && e.code === 'Slash') || e.code === 'F1') {
         e.preventDefault();
         setShowShortcuts(true);
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   return (
     <div className="editor">
-      {/* Header with connection status */}
       <Header
         wsStatus={isConnected ? 'connected' : 'disconnected'}
         wsClientId={clientId}
       />
 
-      {/* Main content */}
       <main className="editor-main">
-        {/* Left sidebar - Assets, Layers, Properties */}
         <aside className="sidebar sidebar-left">
           <div className="sidebar-header sidebar-tabs">
             <button
@@ -118,30 +113,28 @@ export function EditorPage() {
           </div>
         </aside>
 
-        {/* Center - Canvas */}
         <section className="canvas-area">
           <InteractiveCanvas />
         </section>
 
-        {/* Right sidebar - AI Agent Chat */}
         <aside className="sidebar sidebar-right">
-          <ChatPanel
-            wsConnected={isConnected}
-            wsSend={send}
-          />
+          <ChatPanel wsConnected={isConnected} wsSend={send} />
         </aside>
       </main>
 
-      {/* Bottom - Timeline */}
       <footer className="timeline-area">
         <Timeline />
       </footer>
 
-      {/* Shortcuts Modal */}
-      <ShortcutsModal
-        isOpen={showShortcuts}
-        onClose={() => setShowShortcuts(false)}
-      />
+      <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
+  );
+}
+
+export function EditorPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Loading Editor...</div>}>
+      <EditorContent />
+    </Suspense>
   );
 }

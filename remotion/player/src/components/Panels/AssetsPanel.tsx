@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { useEditorStore } from '@/store/editorStore';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { assetsAtom, addAssetAtom, removeAssetAtom, addItemAtom } from '@/atoms';
 import { Film, Image, Music, Plus, Trash2, Upload, Loader2 } from 'lucide-react';
 import type { Asset, AssetType } from '@/store/types';
 import { broadcastAssetAdded, broadcastAssetRemoved } from '@/lib/websocket';
@@ -22,10 +23,10 @@ interface UploadProgress {
 }
 
 export function AssetsPanel() {
-  const assets = useEditorStore((s) => s.assets);
-  const addAsset = useEditorStore((s) => s.addAsset);
-  const removeAsset = useEditorStore((s) => s.removeAsset);
-  const addItem = useEditorStore((s) => s.addItem);
+  const assets = useAtomValue(assetsAtom);
+  const addAsset = useSetAtom(addAssetAtom);
+  const removeAsset = useSetAtom(removeAssetAtom);
+  const addItem = useSetAtom(addItemAtom);
   const [uploads, setUploads] = useState<UploadProgress[]>([]);
 
   const uploadToS3 = async (file: File): Promise<string | null> => {
@@ -101,9 +102,7 @@ export function AssetsPanel() {
         };
 
         // Add to local store
-        useEditorStore.setState((state) => ({
-          assets: [...state.assets, newAsset],
-        }));
+        addAsset(newAsset);
 
         // Broadcast to other clients via WebSocket
         broadcastAssetAdded(newAsset);
@@ -152,19 +151,22 @@ export function AssetsPanel() {
         ? 'track-audio'
         : 'track-video';
 
-    addItem(trackId, {
-      type: asset.type as any,
-      assetId: asset.id,
-      startFrame: 0,
-      durationInFrames: asset.duration || 150,
-      x: 0,
-      y: 0,
-      width: 1080,
-      height: 1920,
-      rotation: 0,
-      opacity: 1,
-      ...(asset.type === 'video' && { volume: 1, playbackRate: 1 }),
-      ...(asset.type === 'audio' && { volume: 1 }),
+    addItem({
+      trackId,
+      itemData: {
+        type: asset.type as any,
+        assetId: asset.id,
+        startFrame: 0,
+        durationInFrames: asset.duration || 150,
+        x: 0,
+        y: 0,
+        width: 1080,
+        height: 1920,
+        rotation: 0,
+        opacity: 1,
+        ...(asset.type === 'video' && { volume: 1, playbackRate: 1 }),
+        ...(asset.type === 'audio' && { volume: 1 }),
+      },
     });
   };
 

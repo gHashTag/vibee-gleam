@@ -22,6 +22,7 @@ import vibee/events/event_bus
 import vibee/mcp/config
 import vibee/integrations/telegram/client as tg_client
 import vibee/integrations/telegram/types as tg_types
+import vibee/integrations/telegram/bot_api
 import vibee/logging
 import vibee/web/html
 import vibee/web/p2p_panel
@@ -48,6 +49,7 @@ import vibee/api/agent_websocket
 import vibee/api/agent_metrics
 import vibee/api/agent_handlers
 import vibee/api/e2e_handlers
+import vibee/api/editor_agent_ws
 
 /// WebSocket message types
 pub type WsMessage {
@@ -278,8 +280,20 @@ fn route_request(
     // Test endpoint for simulating messages (for development)
     http.Post, ["api", "test", "message"] -> test_message_handler(req)
 
-    // E2E Rainbow Bridge testing endpoint
+    // E2E Rainbow Bridge testing endpoint (ASYNC - returns 202 Accepted)
     http.Get, ["api", "e2e", "run"] -> e2e_handlers.run_handler()
+    // E2E test run status (poll for results)
+    http.Get, ["api", "e2e", "status", test_run_id] -> e2e_handlers.status_handler(test_run_id)
+    // Legacy synchronous E2E (WARNING: may timeout)
+    http.Get, ["api", "e2e", "run-sync"] -> e2e_handlers.run_sync_handler()
+    // E2E AI function tests (longer timeout)
+    http.Get, ["api", "e2e", "ai"] -> e2e_handlers.ai_handler()
+    // Quick /neuro test (60s timeout)
+    http.Get, ["api", "e2e", "neuro"] -> e2e_handlers.neuro_test_handler()
+    // ETS debug endpoint
+    http.Get, ["api", "e2e", "test-ets"] -> e2e_handlers.test_ets_handler()
+    // Video E2E multi-step test (5+ minute timeout)
+    http.Get, ["api", "e2e", "video"] -> e2e_handlers.video_handler()
 
     // Logs page - real-time log viewer
     http.Get, ["logs"] -> logs_page_handler()
@@ -294,11 +308,25 @@ fn route_request(
     http.Get, ["ws", "events"] -> events_websocket_handler_with_bus(req, bus)
     http.Get, ["ws", "agents"] -> agent_websocket.handler(req)
 
+    // Editor Agent WebSocket for AI template editing (supports both paths)
+    http.Get, ["ws", "agent"] -> {
+      io.println("[Router] 🎯 Matched /ws/agent route, calling editor_agent_ws.handler")
+      editor_agent_ws.handler(req)
+    }
+    http.Get, ["agent"] -> {
+      io.println("[Router] 🎯 Matched /agent route, calling editor_agent_ws.handler")
+      editor_agent_ws.handler(req)
+    }
+
     // Payment webhooks
     http.Post, ["api", "robokassa-result"] -> payment_webhooks.handle_robokassa(req)
     http.Post, ["api", "payment-success"] -> payment_webhooks.handle_robokassa(req)
     http.Post, ["api", "webhooks", "ton"] -> payment_webhooks.handle_ton(req)
     http.Post, ["api", "webhooks", "stars"] -> payment_webhooks.handle_stars(req)
+
+    // Bot API callback (forwarded from Go bridge webhook)
+    http.Post, ["api", "v1", "bot", "callback"] -> handle_bot_callback(req)
+    http.Get, ["api", "v1", "bot", "status"] -> handle_bot_status(req)
 
     // AI Service Webhooks (Replicate, Hedra, HeyGen, Kling, KIE.ai, BFL, ElevenLabs)
     http.Post, ["api", "webhooks", service] -> webhook_handlers.handle_webhook(req, service)
@@ -2341,6 +2369,106 @@ fn handle_twin_prompt_get() -> Response(ResponseData) {
           json_response(404, body)
         }
       }
+    }
+  }
+}
+
+// ==========================================================================
+// Bot API Callback Handler (receives callbacks from Go bridge webhook)
+// ==========================================================================
+
+/// Handle incoming bot callback from Go bridge
+fn handle_bot_callback(req: Request(Connection)) -> Response(ResponseData) {
+  io.println("[BotCallback] 📥 Received callback from Go bridge")
+
+  case mist.read_body(req, 1024 * 1024) {
+    Ok(req_with_body) -> {
+      let body = bit_array.to_string(req_with_body.body)
+      case body {
+        Ok(json_body) -> {
+          io.println("[BotCallback] Body: " <> string.slice(json_body, 0, 200))
+
+          // Parse the callback query
+          case bot_api.parse_callback_query(json_body) {
+            Ok(callback) -> {
+              io.println("[BotCallback] ✅ Parsed: query_id=" <> callback.query_id <> ", data=" <> callback.data)
+
+              // Route through scene FSM (similar to telegram_agent handling)
+              // For now, just log and acknowledge
+              let bridge_url = telegram_config.bridge_url()
+              let api_key = telegram_config.bridge_api_key()
+              let bot_config = bot_api.with_key(bridge_url, api_key)
+
+              // Answer the callback to remove "loading" indicator
+              case bot_api.answer_callback(bot_config, callback.query_id, "✅ Processing...", False) {
+                Ok(_) -> io.println("[BotCallback] Callback answered")
+                Error(_) -> io.println("[BotCallback] ⚠️ Failed to answer callback")
+              }
+
+              // Process the callback data through scene router
+              let chat_id = callback.chat_id
+              let user_id = callback.user_id
+              let callback_data = callback.data
+
+              io.println("[BotCallback] 🎯 Routing: chat=" <> int.to_string(chat_id) <> ", user=" <> int.to_string(user_id) <> ", data=" <> callback_data)
+
+              // TODO: Call scene router to process callback
+              // For now, return success
+              let response_body = json.object([
+                #("success", json.bool(True)),
+                #("chat_id", json.int(chat_id)),
+                #("callback_data", json.string(callback_data)),
+                #("message", json.string("Callback processed")),
+              ])
+              json_response(200, response_body)
+            }
+            Error(_) -> {
+              io.println("[BotCallback] ❌ Failed to parse callback query")
+              let body = json.object([#("error", json.string("Invalid callback format"))])
+              json_response(400, body)
+            }
+          }
+        }
+        Error(_) -> {
+          let body = json.object([#("error", json.string("Invalid body encoding"))])
+          json_response(400, body)
+        }
+      }
+    }
+    Error(_) -> {
+      let body = json.object([#("error", json.string("Failed to read body"))])
+      json_response(500, body)
+    }
+  }
+}
+
+/// Get Bot API status
+fn handle_bot_status(_req: Request(Connection)) -> Response(ResponseData) {
+  let bridge_url = telegram_config.bridge_url()
+  let api_key = telegram_config.bridge_api_key()
+  let bot_config = bot_api.with_key(bridge_url, api_key)
+
+  case bot_api.get_status(bot_config) {
+    Ok(status) -> {
+      let body = json.object([
+        #("configured", json.bool(status.configured)),
+        #("bot_id", case status.bot_id {
+          Some(id) -> json.int(id)
+          None -> json.null()
+        }),
+        #("username", case status.username {
+          Some(u) -> json.string(u)
+          None -> json.null()
+        }),
+      ])
+      json_response(200, body)
+    }
+    Error(_) -> {
+      let body = json.object([
+        #("configured", json.bool(False)),
+        #("error", json.string("Failed to get bot status from bridge")),
+      ])
+      json_response(200, body)
     }
   }
 }

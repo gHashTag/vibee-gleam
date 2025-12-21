@@ -1,4 +1,5 @@
 import { createServer, IncomingMessage } from "node:http";
+import os from "node:os";
 import { WebSocketServer, WebSocket } from "ws";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition, renderStill } from "@remotion/renderer";
@@ -26,6 +27,10 @@ function getVideoDuration(videoPath: string): number {
 
 const PORT = process.env.PORT || 3333;
 const OUTPUT_DIR = process.env.OUTPUT_DIR || "./out";
+
+// Optimal concurrency based on CPU cores (75% of available cores, min 2)
+const OPTIMAL_CONCURRENCY = Math.max(2, Math.floor(os.cpus().length * 0.75));
+console.log(`🔧 CPU cores: ${os.cpus().length}, using concurrency: ${OPTIMAL_CONCURRENCY}`);
 
 // S3/Tigris Configuration
 const S3_ENDPOINT = process.env.AWS_ENDPOINT_URL_S3 || "https://fly.storage.tigris.dev";
@@ -371,7 +376,8 @@ function startRenderAsync(req: RenderRequest): string {
         codec,
         outputLocation: outputPath,
         inputProps,
-        concurrency: 4,
+        concurrency: OPTIMAL_CONCURRENCY,
+        audioCodec: 'mp3', // Faster than AAC for concatenation
         chromiumOptions: {
           enableMultiProcessOnLinux: true,
           disableWebSecurity: true,
@@ -744,6 +750,7 @@ const server = createServer(async (req, res) => {
           "Content-Length": chunksize,
           "Content-Type": contentType,
           "Cache-Control": getCacheControl(filePath),
+          "Access-Control-Allow-Origin": "*",
         });
         file.pipe(res);
         return;
@@ -754,6 +761,7 @@ const server = createServer(async (req, res) => {
         "Content-Length": stat.size,
         "Accept-Ranges": "bytes",
         "Cache-Control": getCacheControl(filePath),
+        "Access-Control-Allow-Origin": "*",
       });
       fs.createReadStream(filePath).pipe(res);
       return;

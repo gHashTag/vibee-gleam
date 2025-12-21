@@ -24,6 +24,8 @@ import vibee/bot/scene.{
 }
 import vibee/bot/ws_client.{type WsActorMessage, type WsConfig, type WsMessage, WsConnected, WsDisconnected, WsError, WsTextMessage}
 import vibee/logging
+import vibee/integrations/telegram/bot_api
+import vibee/config/telegram_config
 
 // ============================================================
 // Types
@@ -494,36 +496,65 @@ fn send_text_message(
   text: String,
   keyboard: Option(List(List(InlineButton))),
 ) -> Result(Nil, String) {
-  let base_body = [
-    #("chat_id", json.string(chat_id)),
-    #("text", json.string(text)),
-  ]
-
-  let body_with_keyboard = case keyboard {
+  // SMART ROUTING: Use Bot API for messages with keyboards (callback support)
+  // Use MTProto for plain text messages (Digital Twin feel)
+  case keyboard {
     Some(kb) -> {
-      let inline_keyboard =
-        json.array(kb, fn(row) {
-          json.array(row, fn(btn) {
-            json.object([
-              #("text", json.string(btn.text)),
-              #("callback_data", json.string(btn.callback_data)),
-            ])
-          })
-        })
-      [
-        #(
-          "reply_markup",
-          json.object([#("inline_keyboard", inline_keyboard)]),
-        ),
-        ..base_body
-      ]
+      // Use Bot API for keyboards - this enables callback queries!
+      logging.quick_info("[SmartRoute] 🤖 Using Bot API for keyboard message")
+      send_via_bot_api(config, chat_id, text, kb)
     }
-    None -> base_body
+    None -> {
+      // Use MTProto for plain text - keeps Digital Twin personality
+      send_via_mtproto(config, chat_id, text)
+    }
+  }
+}
+
+/// Send message with keyboard via Bot API (for callback support)
+fn send_via_bot_api(
+  config: BotConfig,
+  chat_id: String,
+  text: String,
+  keyboard: List(List(InlineButton)),
+) -> Result(Nil, String) {
+  let bridge_url = "http://" <> config.telegram_bridge_host <> ":" <> int.to_string(config.telegram_bridge_port)
+  let api_key = telegram_config.bridge_api_key()
+  let bot_config = bot_api.with_key(bridge_url, api_key)
+
+  // Convert InlineButton to bot_api.InlineButton
+  let bot_keyboard = list.map(keyboard, fn(row) {
+    list.map(row, fn(btn) {
+      bot_api.InlineButton(text: btn.text, callback_data: btn.callback_data)
+    })
+  })
+
+  // Parse chat_id to int
+  let chat_id_int = case int.parse(chat_id) {
+    Ok(id) -> id
+    Error(_) -> 0
   }
 
-  let body = json.to_string(json.object(body_with_keyboard))
+  case bot_api.send_with_buttons(bot_config, chat_id_int, text, bot_keyboard) {
+    Ok(_) -> Ok(Nil)
+    Error(_) -> {
+      logging.quick_error("[SmartRoute] Bot API send failed, falling back to MTProto")
+      // Fallback to MTProto without keyboard
+      send_via_mtproto(config, chat_id, text)
+    }
+  }
+}
 
-  let url = "http://" <> config.telegram_bridge_host <> ":" <> int.to_string(config.telegram_bridge_port)
+/// Send plain text via MTProto (for Digital Twin messages)
+fn send_via_mtproto(
+  config: BotConfig,
+  chat_id: String,
+  text: String,
+) -> Result(Nil, String) {
+  let body = json.to_string(json.object([
+    #("chat_id", json.string(chat_id)),
+    #("text", json.string(text)),
+  ]))
 
   let req =
     request.new()

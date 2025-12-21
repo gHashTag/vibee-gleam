@@ -1,4 +1,15 @@
-import { useEditorStore } from '@/store/editorStore';
+import { useAtomValue, useSetAtom } from 'jotai';
+import {
+  tracksAtom,
+  selectedItemIdsAtom,
+  currentFrameAtom,
+  updateTrackAtom,
+  selectItemsAtom,
+  deleteItemsAtom,
+  addItemAtom,
+  getAssetByIdAtom,
+  reorderItemsAtom,
+} from '@/atoms';
 import {
   Eye,
   EyeOff,
@@ -51,15 +62,15 @@ const TRACK_COLORS: Record<TrackType, string> = {
 };
 
 export function LayersPanel() {
-  const tracks = useEditorStore((s) => s.tracks);
-  const selectedItemIds = useEditorStore((s) => s.selectedItemIds);
-  const currentFrame = useEditorStore((s) => s.currentFrame);
-  const updateTrack = useEditorStore((s) => s.updateTrack);
-  const selectItems = useEditorStore((s) => s.selectItems);
-  const deleteItems = useEditorStore((s) => s.deleteItems);
-  const addItem = useEditorStore((s) => s.addItem);
-  const getAssetById = useEditorStore((s) => s.getAssetById);
-  const reorderItems = useEditorStore((s) => s.reorderItems);
+  const tracks = useAtomValue(tracksAtom);
+  const selectedItemIds = useAtomValue(selectedItemIdsAtom);
+  const currentFrame = useAtomValue(currentFrameAtom);
+  const updateTrack = useSetAtom(updateTrackAtom);
+  const selectItems = useSetAtom(selectItemsAtom);
+  const deleteItems = useSetAtom(deleteItemsAtom);
+  const addItem = useSetAtom(addItemAtom);
+  const getAssetById = useAtomValue(getAssetByIdAtom);
+  const reorderItems = useSetAtom(reorderItemsAtom);
 
   const [expandedTracks, setExpandedTracks] = useState<Set<string>>(
     new Set(tracks.map((t) => t.id))
@@ -80,7 +91,7 @@ export function LayersPanel() {
   const handleDragEnd = (event: DragEndEvent, trackId: string) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      reorderItems(trackId, String(active.id), String(over.id));
+      reorderItems({ trackId, activeId: String(active.id), overId: String(over.id), fps: 30, coverDuration: 0.5 });
     }
   };
 
@@ -97,18 +108,18 @@ export function LayersPanel() {
   };
 
   const toggleVisibility = (trackId: string, visible: boolean) => {
-    updateTrack(trackId, { visible: !visible });
+    updateTrack({ trackId, updates: { visible: !visible } });
   };
 
   const toggleLock = (trackId: string, locked: boolean) => {
-    updateTrack(trackId, { locked: !locked });
+    updateTrack({ trackId, updates: { locked: !locked } });
   };
 
   const handleItemClick = (itemId: string, e: React.MouseEvent) => {
     if (e.shiftKey) {
-      selectItems([itemId], true); // Add to selection
+      selectItems({ itemIds: [itemId], addToSelection: true }); // Add to selection
     } else {
-      selectItems([itemId]); // Replace selection
+      selectItems({ itemIds: [itemId], addToSelection: false }); // Replace selection
     }
   };
 
@@ -134,26 +145,29 @@ export function LayersPanel() {
     const textTrack = tracks.find((t) => t.type === 'text');
     if (!textTrack) return;
 
-    const newItemId = addItem(textTrack.id, {
-      type: 'text',
-      startFrame: currentFrame,
-      durationInFrames: 90, // 3 seconds at 30fps
-      x: 540, // center x (1080/2)
-      y: 960, // center y (1920/2)
-      width: 800,
-      height: 100,
-      rotation: 0,
-      opacity: 1,
-      text: 'New Text',
-      fontSize: 48,
-      fontFamily: 'Inter, sans-serif',
-      fontWeight: 700,
-      color: '#ffffff',
-      textAlign: 'center',
-    } as any);
+    const newItemId = addItem({
+      trackId: textTrack.id,
+      itemData: {
+        type: 'text',
+        startFrame: currentFrame,
+        durationInFrames: 90, // 3 seconds at 30fps
+        x: 540, // center x (1080/2)
+        y: 960, // center y (1920/2)
+        width: 800,
+        height: 100,
+        rotation: 0,
+        opacity: 1,
+        text: 'New Text',
+        fontSize: 48,
+        fontFamily: 'Inter, sans-serif',
+        fontWeight: 700,
+        color: '#ffffff',
+        textAlign: 'center',
+      } as any,
+    });
 
     // Select the new item
-    selectItems([newItemId]);
+    selectItems({ itemIds: [newItemId], addToSelection: false });
   };
 
   return (

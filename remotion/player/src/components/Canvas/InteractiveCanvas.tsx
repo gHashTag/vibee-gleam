@@ -1,7 +1,21 @@
 import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { Player } from '@remotion/player';
 import type { PlayerRef } from '@remotion/player';
-import { useEditorStore, useLipSyncProps } from '@/store/editorStore';
+import { useAtomValue, useSetAtom } from 'jotai';
+import {
+  projectAtom,
+  currentFrameAtom,
+  isPlayingAtom,
+  isMutedAtom,
+  volumeAtom,
+  playbackRateAtom,
+  canvasZoomAtom,
+  tracksAtom,
+  assetsAtom,
+  playerRefAtom,
+  clearSelectionAtom,
+  templatePropsAtom,
+} from '@/atoms';
 import { SplitTalkingHead, type SplitTalkingHeadProps, type Segment } from '@compositions/SplitTalkingHead';
 import { ZoomIn, ZoomOut, Maximize, Minimize } from 'lucide-react';
 import { convertPropsToAbsoluteUrls, toAbsoluteUrl } from '@/lib/mediaUrl';
@@ -75,6 +89,8 @@ function convertToSplitTalkingHeadProps(
     }
   }
 
+  console.log('[convertToSplitTalkingHeadProps] backgroundMusic:', props.backgroundMusic, 'musicVolume:', props.musicVolume);
+
   return {
     lipSyncVideo: props.lipSyncVideo,
     segments,
@@ -99,24 +115,27 @@ export function InteractiveCanvas() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenZoom, setFullscreenZoom] = useState(1);
 
-  const project = useEditorStore((s) => s.project);
-  const currentFrame = useEditorStore((s) => s.currentFrame);
-  const isPlaying = useEditorStore((s) => s.isPlaying);
-  const isMuted = useEditorStore((s) => s.isMuted);
-  const playbackRate = useEditorStore((s) => s.playbackRate);
-  const canvasZoom = useEditorStore((s) => s.canvasZoom);
-  const tracks = useEditorStore((s) => s.tracks);
-  const assets = useEditorStore((s) => s.assets);
-  const setCurrentFrame = useEditorStore((s) => s.setCurrentFrame);
-  const setIsPlaying = useEditorStore((s) => s.setIsPlaying);
-  const setCanvasZoom = useEditorStore((s) => s.setCanvasZoom);
-  const clearSelection = useEditorStore((s) => s.clearSelection);
-  const setPlayerRef = useEditorStore((s) => s.setPlayerRef);
+  // Jotai atoms - прямое использование
+  const project = useAtomValue(projectAtom);
+  const currentFrame = useAtomValue(currentFrameAtom);
+  const isPlaying = useAtomValue(isPlayingAtom);
+  const isMuted = useAtomValue(isMutedAtom);
+  const volume = useAtomValue(volumeAtom);
+  const playbackRate = useAtomValue(playbackRateAtom);
+  const canvasZoom = useAtomValue(canvasZoomAtom);
+  const tracks = useAtomValue(tracksAtom);
+  const assets = useAtomValue(assetsAtom);
+
+  const setCurrentFrame = useSetAtom(currentFrameAtom);
+  const setIsPlaying = useSetAtom(isPlayingAtom);
+  const setCanvasZoom = useSetAtom(canvasZoomAtom);
+  const clearSelection = useSetAtom(clearSelectionAtom);
+  const setPlayerRefAtom = useSetAtom(playerRefAtom);
 
   // Store player ref for direct control (needed for autoplay policy)
   useEffect(() => {
-    setPlayerRef(playerRef);
-  }, [setPlayerRef]);
+    setPlayerRefAtom(playerRef);
+  }, [setPlayerRefAtom]);
 
   // Get video track items for timeline position sync
   const videoTrackItems = useMemo(() => {
@@ -125,7 +144,7 @@ export function InteractiveCanvas() {
   }, [tracks]);
 
   // Get computed props for LipSyncMain (base props from store)
-  const lipSyncPropsRaw = useLipSyncProps();
+  const lipSyncPropsRaw = useAtomValue(templatePropsAtom);
 
   // Convert relative paths to absolute URLs
   const lipSyncPropsWithUrls = useMemo(
@@ -139,17 +158,17 @@ export function InteractiveCanvas() {
     [lipSyncPropsWithUrls, project.durationInFrames, project.fps, videoTrackItems, assets]
   );
 
-  // Apply mute state to music volume - FORCE 0.8 volume for now
+  // Apply mute/volume state to music
   const splitTalkingHeadProps = useMemo(
     () => {
       const props = {
         ...splitTalkingHeadPropsBase,
-        // Background music volume (0.15 = 15% - quiet background)
-        musicVolume: isMuted ? 0 : 0.15,
+        // Background music volume - use store volume (0.5 base * volume slider)
+        musicVolume: isMuted ? 0 : 0.05 * volume,
       };
       return props;
     },
-    [splitTalkingHeadPropsBase, isMuted]
+    [splitTalkingHeadPropsBase, isMuted, volume]
   );
 
   // Calculate zoom to fit height
@@ -317,8 +336,8 @@ export function InteractiveCanvas() {
             width: project.width,
             height: project.height,
           }}
-          controls={false}
-          showVolumeControls={false}
+          controls={true}
+          showVolumeControls={true}
           loop
           clickToPlay={true}
           playbackRate={playbackRate}
