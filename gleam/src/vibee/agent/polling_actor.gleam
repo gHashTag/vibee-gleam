@@ -34,6 +34,9 @@ pub type PollingState {
     seen_ids: Set(String),
     agent_id: String,
     logger: vibe_logger.VibeLogger,
+    /// Флаг: первый poll выполнен (seen_ids заполнен)
+    /// При первом poll мы только заполняем seen_ids, не обрабатываем сообщения
+    initial_poll_done: Bool,
   )
 }
 
@@ -75,6 +78,7 @@ fn init_state(config: telegram_agent.TelegramAgentConfig) -> PollingState {
     seen_ids: set.new(),
     agent_id: agent_id,
     logger: logger,
+    initial_poll_done: False,
   )
 }
 
@@ -113,6 +117,7 @@ fn init_state_with_events(
     seen_ids: set.new(),
     agent_id: agent_id,
     logger: logger,
+    initial_poll_done: False,
   )
 }
 
@@ -246,16 +251,38 @@ fn do_poll(state: PollingState) -> PollingState {
         1 -> vibe_logger.info(log, "Connected to Telegram bridge successfully")
         _ -> Nil
       }
-      // Парсим и обрабатываем диалоги, передаём seen_ids для дедупликации
-      let #(new_agent_state, new_seen_ids) = process_dialogs_with_events(
-        state.agent_state,
-        dialogs_json,
-        state.event_bus,
-        state.seen_ids,
-        state.agent_id,
-        log,
-      )
-      PollingState(..state, agent_state: new_agent_state, poll_count: poll_num, seen_ids: new_seen_ids)
+
+      // ВАЖНО: При первом poll только заполняем seen_ids, не обрабатываем сообщения
+      // Это предотвращает ответы на старые сообщения после деплоя
+      case state.initial_poll_done {
+        False -> {
+          // Первый poll - только заполнить seen_ids
+          vibe_logger.info(log, "Initial poll: populating seen_ids without processing")
+          let new_seen_ids = populate_seen_ids(
+            dialogs_json,
+            state.config,
+            state.seen_ids,
+            state.agent_id,
+            log,
+          )
+          vibe_logger.info(log
+            |> vibe_logger.with_data("seen_count", json.int(set.size(new_seen_ids))),
+            "Initial poll complete, ready for new messages")
+          PollingState(..state, poll_count: poll_num, seen_ids: new_seen_ids, initial_poll_done: True)
+        }
+        True -> {
+          // Обычный poll - обрабатываем новые сообщения
+          let #(new_agent_state, new_seen_ids) = process_dialogs_with_events(
+            state.agent_state,
+            dialogs_json,
+            state.event_bus,
+            state.seen_ids,
+            state.agent_id,
+            log,
+          )
+          PollingState(..state, agent_state: new_agent_state, poll_count: poll_num, seen_ids: new_seen_ids)
+        }
+      }
     }
   }
 }
@@ -369,6 +396,42 @@ fn get_history(config: telegram_agent.TelegramAgentConfig, chat_id: String) -> R
     }
     Error(_) -> Error("HTTP request failed after retries")
   }
+}
+
+/// Заполнить seen_ids для всех существующих сообщений БЕЗ обработки
+/// Вызывается при первом poll после старта/рестарта актора
+/// Предотвращает ответы на старые сообщения после деплоя
+fn populate_seen_ids(
+  dialogs_json: String,
+  config: telegram_agent.TelegramAgentConfig,
+  seen_ids: Set(String),
+  _agent_id: String,
+  logger: vibe_logger.VibeLogger,
+) -> Set(String) {
+  // Находим все ID чатов
+  let group_ids = extract_group_ids(dialogs_json, logger)
+  let target_ids = target_chats.target_chats()
+  let all_ids = list.unique(list.append(group_ids, target_ids))
+
+  vibe_logger.debug(logger
+    |> vibe_logger.with_data("chat_count", json.int(list.length(all_ids))),
+    "Populating seen_ids from existing chats")
+
+  // Обходим все чаты и добавляем их сообщения в seen_ids
+  list.fold(all_ids, seen_ids, fn(acc_seen, chat_id) {
+    case get_history(config, chat_id) {
+      Error(_) -> acc_seen
+      Ok(history_json) -> {
+        let messages = extract_messages(history_json)
+        // Добавляем ВСЕ сообщения (входящие и исходящие) в seen_ids
+        list.fold(messages, acc_seen, fn(acc, msg) {
+          let #(msg_id, _, _, _, _, _) = msg
+          let unique_id = chat_id <> ":" <> int.to_string(msg_id)
+          set.insert(acc, unique_id)
+        })
+      }
+    }
+  })
 }
 
 /// Обработать список диалогов with event bus и дедупликацией

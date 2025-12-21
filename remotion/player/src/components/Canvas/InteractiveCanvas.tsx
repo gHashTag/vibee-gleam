@@ -232,11 +232,13 @@ export function InteractiveCanvas() {
   // Use autoZoom if canvasZoom hasn't been manually set
   const effectiveZoom = canvasZoom || autoZoom;
 
-  const handleZoomIn = useCallback(() => {
+  const handleZoomIn = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     setCanvasZoom(Math.min(effectiveZoom + 0.05, 1));
   }, [effectiveZoom, setCanvasZoom]);
 
-  const handleZoomOut = useCallback(() => {
+  const handleZoomOut = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     setCanvasZoom(Math.max(effectiveZoom - 0.05, 0.1));
   }, [effectiveZoom, setCanvasZoom]);
 
@@ -245,13 +247,15 @@ export function InteractiveCanvas() {
   }, [autoZoom, setCanvasZoom]);
 
   // Fullscreen toggle
-  const handleFullscreen = useCallback(() => {
+  const handleFullscreen = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     const container = containerRef.current;
     if (!container) return;
 
     if (!document.fullscreenElement) {
       container.requestFullscreen().catch((err) => {
         console.error('Fullscreen error:', err);
+        alert('Fullscreen not supported or blocked');
       });
     } else {
       document.exitFullscreen();
