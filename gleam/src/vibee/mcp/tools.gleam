@@ -15,6 +15,7 @@ import gleam/result
 import gleam/string
 import simplifile
 import vibee/logging
+import vibee/vibe_logger
 import vibee/mcp/a2a_protocol
 import vibee/mcp/agent_memory
 import vibee/mcp/autonomous
@@ -47,8 +48,13 @@ import vibee/earning/tools as earning_tools
 import vibee/mcp/github_tools
 import vibee/mcp/content_tools
 import vibee/mcp/sales_tools
+import vibee/api/e2e_handlers
 import vibee/mcp/config_tools
+import vibee/config/dynamic_config
+import vibee/db/postgres
 import vibee/mcp/twin_tools
+import vibee/reports/owner_reports
+import vibee/agent/agent_registry
 
 /// Tool handler function type
 pub type ToolHandler =
@@ -86,6 +92,7 @@ pub type ToolCategory {
   CategorySales
   CategoryConfig
   CategoryTwin
+  CategoryReports
 }
 
 /// Tool registry
@@ -337,8 +344,18 @@ pub fn get_tool_category(name: String) -> ToolCategory {
                                                                                                                     True ->
                                                                                                                       CategoryTwin
                                                                                                                     False ->
-                                                                                                                      CategorySystem
-                                                                                                                    // Default
+                                                                                                                      case
+                                                                                                                        string.starts_with(
+                                                                                                                          name,
+                                                                                                                          "reports_",
+                                                                                                                        )
+                                                                                                                      {
+                                                                                                                        True ->
+                                                                                                                          CategoryReports
+                                                                                                                        False ->
+                                                                                                                          CategorySystem
+                                                                                                                        // Default
+                                                                                                                      }
                                                                                                                   }
                                                                                                               }
                                                                                                           }
@@ -420,6 +437,7 @@ pub fn category_to_string(cat: ToolCategory) -> String {
     CategorySales -> "sales"
     CategoryConfig -> "config"
     CategoryTwin -> "twin"
+    CategoryReports -> "reports"
   }
 }
 
@@ -456,6 +474,7 @@ pub fn parse_category(s: String) -> Result(ToolCategory, Nil) {
     "sales" -> Ok(CategorySales)
     "config" -> Ok(CategoryConfig)
     "twin" -> Ok(CategoryTwin)
+    "reports" -> Ok(CategoryReports)
     _ -> Error(Nil)
   }
 }
@@ -513,11 +532,13 @@ pub fn init_registry() -> ToolRegistry {
       test_create_tool(),
       test_coverage_tool(),
       test_validate_tool(),
+      e2e_run_tool(),
 
       // Agent tools
       agent_spawn_tool(),
       agent_message_tool(),
       agent_status_tool(),
+      agent_list_tool(),
       agent_kill_tool(),
 
       // Bot Analysis tools
@@ -549,6 +570,8 @@ pub fn init_registry() -> ToolRegistry {
       payment_tools.payment_create_tool(),
       payment_tools.payment_status_tool(),
       payment_tools.payment_verify_tool(),
+      payment_tools.payment_refund_tool(),
+      payment_tools.payment_cancel_tool(),
       payment_tools.balance_get_tool(),
       payment_tools.balance_topup_options_tool(),
 
@@ -629,6 +652,14 @@ pub fn init_registry() -> ToolRegistry {
     |> list.append(config_tools.get_all_tools())
     // Add Twin tools (Digital Twin configuration, ElizaOS compatible)
     |> list.append(twin_tools.get_all_tools())
+    // Add Reports tools (Owner activity reports and growth strategies)
+    |> list.append([
+      reports_daily_stats_tool(),
+      reports_weekly_tool(),
+      reports_growth_strategies_tool(),
+      reports_send_daily_tool(),
+      reports_send_weekly_tool(),
+    ])
 
   let tool_dict =
     list.fold(tools, dict.new(), fn(acc, tool) {
@@ -679,6 +710,7 @@ pub fn init_registry() -> ToolRegistry {
     |> dict.insert("agent_spawn", handle_agent_spawn)
     |> dict.insert("agent_message", handle_agent_message)
     |> dict.insert("agent_status", handle_agent_status)
+    |> dict.insert("agent_list", handle_agent_list)
     |> dict.insert("agent_kill", handle_agent_kill)
     // Bot Analysis handlers
     |> dict.insert("bot_analyze", handle_bot_analyze)
@@ -686,6 +718,8 @@ pub fn init_registry() -> ToolRegistry {
     |> dict.insert("bot_monitor", handle_bot_monitor)
     |> dict.insert("bot_extract_commands", handle_bot_extract_commands)
     |> dict.insert("bot_test_interaction", handle_bot_test_interaction)
+    // E2E Testing handler
+    |> dict.insert("e2e_run", handle_e2e_run)
     // Auth handlers
     |> dict.insert("auth_status", handle_auth_status)
     |> dict.insert("auth_send_code", handle_auth_send_code)
@@ -705,6 +739,8 @@ pub fn init_registry() -> ToolRegistry {
     |> dict.insert("payment_create", payment_tools.handle_payment_create)
     |> dict.insert("payment_status", payment_tools.handle_payment_status)
     |> dict.insert("payment_verify", payment_tools.handle_payment_verify)
+    |> dict.insert("payment_refund", payment_tools.handle_payment_refund)
+    |> dict.insert("payment_cancel", payment_tools.handle_payment_cancel)
     |> dict.insert("balance_get", payment_tools.handle_balance_get)
     |> dict.insert("balance_topup_options", payment_tools.handle_balance_topup_options)
     // Invoice handlers (xRocket, CryptoBot - send invoices to users)
@@ -841,6 +877,12 @@ pub fn init_registry() -> ToolRegistry {
     |> dict.insert("twin_import", twin_tools.handle_twin_import)
     |> dict.insert("twin_prompt_get", twin_tools.handle_twin_prompt_get)
     |> dict.insert("twin_cache_clear", twin_tools.handle_twin_cache_clear)
+    // Reports tools handlers (Owner activity and growth reports)
+    |> dict.insert("reports_daily_stats", handle_reports_daily_stats)
+    |> dict.insert("reports_weekly", handle_reports_weekly)
+    |> dict.insert("reports_growth_strategies", handle_reports_growth_strategies)
+    |> dict.insert("reports_send_daily", handle_reports_send_daily)
+    |> dict.insert("reports_send_weekly", handle_reports_send_weekly)
 
   // Build categories dict
   let category_dict =
@@ -934,24 +976,33 @@ fn get_tool_annotations(name: String) -> protocol.ToolAnnotations {
   }
 }
 
-/// Execute a tool
+/// Execute a tool with structured logging and span tracking
 pub fn execute_tool(
   registry: ToolRegistry,
   name: String,
   args: json.Json,
 ) -> ToolResult {
-  logging.quick_info("[TOOL] Executing: " <> name)
+  // Create tool logger with span for distributed tracing
+  let span_id = vibe_logger.generate_span_id()
+  let tool_log = vibe_logger.new("mcp")
+    |> vibe_logger.with_tool(name)
+    |> vibe_logger.with_span_id(span_id)
+
+  vibe_logger.info(tool_log, "Tool execution started")
 
   case dict.get(registry.handlers, name) {
     Ok(handler) -> {
       let result = handler(args)
       case result.is_error {
-        True -> logging.quick_error("[TOOL] " <> name <> " failed")
-        False -> logging.quick_info("[TOOL] " <> name <> " completed")
+        True -> vibe_logger.error(tool_log |> vibe_logger.with_data("error", json.bool(True)), "Tool failed")
+        False -> vibe_logger.info(tool_log |> vibe_logger.with_data("success", json.bool(True)), "Tool completed")
       }
       result
     }
-    Error(_) -> protocol.error_result("Unknown tool: " <> name)
+    Error(_) -> {
+      vibe_logger.error(tool_log |> vibe_logger.with_data("error", json.string("unknown_tool")), "Unknown tool")
+      protocol.error_result("Unknown tool: " <> name)
+    }
   }
 }
 
@@ -1674,8 +1725,15 @@ fn event_list_tool() -> Tool {
 // ============================================================
 
 fn bridge_url() -> String {
+  // Приоритет: ENV -> Database -> Production fallback
   case config.get_env("VIBEE_BRIDGE_URL") {
-    "" -> "http://localhost:8081"
+    "" -> {
+      // Пробуем из базы данных
+      case postgres.get_global_pool() {
+        Some(pool) -> dynamic_config.get_bridge_url(pool)
+        None -> "https://vibee-telegram-bridge.fly.dev"  // Production fallback
+      }
+    }
     url -> url
   }
 }
@@ -1966,7 +2024,8 @@ fn get_query_embedding(text: String) -> Result(List(Float), String) {
     ])
     |> json.to_string()
 
-  case http_post("http://localhost:11434/api/embeddings", body) {
+  let embedding_url = get_embedding_url()
+  case http_post(embedding_url, body) {
     Error(err) -> Error(err)
     Ok(resp) -> {
       // Parse embedding from response
@@ -1975,6 +2034,20 @@ fn get_query_embedding(text: String) -> Result(List(Float), String) {
         Error(_) -> Error("Failed to parse embedding response")
       }
     }
+  }
+}
+
+/// Получить URL для embedding API
+fn get_embedding_url() -> String {
+  // Приоритет: ENV -> Database -> Production fallback
+  case config.get_env("EMBEDDING_URL") {
+    "" -> {
+      case postgres.get_global_pool() {
+        Some(pool) -> dynamic_config.get_embedding_url(pool)
+        None -> "https://api.openai.com/v1/embeddings"  // Production fallback
+      }
+    }
+    url -> url
   }
 }
 
@@ -3323,6 +3396,39 @@ fn test_validate_tool() -> Tool {
   )
 }
 
+/// Rainbow Bridge E2E Testing Tool
+fn e2e_run_tool() -> Tool {
+  Tool(
+    name: "e2e_run",
+    description: "Run Rainbow Bridge E2E tests. MUST be called after any bot changes to verify functionality. Tests /help, /pricing commands and lead forwarding.",
+    input_schema: json.object([
+      #("type", json.string("object")),
+      #("properties", json.object([])),
+    ]),
+  )
+}
+
+/// Handle E2E test run
+fn handle_e2e_run(_args: json.Json) -> ToolResult {
+  logging.quick_info("[E2E_TOOL] Running Rainbow Bridge E2E tests...")
+
+  case e2e_handlers.run_e2e_tests() {
+    Ok(results) -> {
+      let result_json = e2e_handlers.encode_results(results)
+      let status = case results.failed {
+        0 -> "PASSED"
+        _ -> "FAILED"
+      }
+      logging.quick_info("[E2E_TOOL] Tests " <> status <> ": " <> int.to_string(results.passed) <> "/" <> int.to_string(results.total))
+      protocol.text_result(json.to_string(result_json))
+    }
+    Error(err) -> {
+      logging.quick_error("[E2E_TOOL] Tests failed with error: " <> err)
+      protocol.error_result("E2E tests failed: " <> err)
+    }
+  }
+}
+
 // ============================================================
 // AGENT TOOLS - Definitions
 // ============================================================
@@ -3440,6 +3546,18 @@ fn agent_status_tool() -> Tool {
           ),
         ]),
       ),
+      #("required", json.array([], json.string)),
+    ]),
+  )
+}
+
+fn agent_list_tool() -> Tool {
+  Tool(
+    name: "agent_list",
+    description: "List all active VIBEE agents with their status, message counts, and uptime. Shows polling agents, generic agents, and super agents.",
+    input_schema: json.object([
+      #("type", json.string("object")),
+      #("properties", json.object([])),
       #("required", json.array([], json.string)),
     ]),
   )
@@ -4274,46 +4392,58 @@ fn handle_agent_message(args: json.Json) -> ToolResult {
 }
 
 fn handle_agent_status(args: json.Json) -> ToolResult {
+  // Initialize agent registry
+  agent_registry.init()
+
   case decoders.decode_agent_status(args) {
     Error(err) -> protocol.error_result(decoders.error_to_string(err))
     Ok(parsed) -> {
-      let event_file =
-        "/Users/playra/vibee-eliza-999/vibee/gleam/data/agents.jsonl"
       let agent_id = option.unwrap(parsed.agent_id, "")
 
-      case simplifile.read(event_file) {
-        Ok(content) -> {
-          let lines =
-            string.split(content, "\n")
-            |> list.filter(fn(l) { l != "" })
+      case agent_id {
+        "" -> {
+          // List all agents
+          let agents = agent_registry.list_all()
+          let running_count = agent_registry.count_running()
 
-          let filtered = case agent_id {
-            "" -> lines
-            aid -> list.filter(lines, fn(l) { string.contains(l, aid) })
-          }
-
-          protocol.text_result(
+          protocol.text_result(json.to_string(
             json.object([
-              #("agent_id_filter", json.string(agent_id)),
-              #("agents", json.array(filtered, json.string)),
-              #("count", json.int(list.length(filtered))),
+              #("agents", json.array(agents, agent_registry.to_json)),
+              #("total", json.int(list.length(agents))),
+              #("running", json.int(running_count)),
             ])
-            |> json.to_string(),
-          )
+          ))
         }
-        Error(_) -> {
-          protocol.text_result(
-            json.object([
-              #("agents", json.array([], json.string)),
-              #("count", json.int(0)),
-              #("message", json.string("No agents found")),
-            ])
-            |> json.to_string(),
-          )
+        aid -> {
+          // Get specific agent
+          case agent_registry.get(aid) {
+            Some(agent) ->
+              protocol.text_result(json.to_string(agent_registry.to_json(agent)))
+            None ->
+              protocol.error_result("Agent not found: " <> aid)
+          }
         }
       }
     }
   }
+}
+
+fn handle_agent_list(_args: json.Json) -> ToolResult {
+  // Initialize agent registry
+  agent_registry.init()
+
+  let agents = agent_registry.list_all()
+  let total = list.length(agents)
+  let running = agent_registry.count_running()
+
+  protocol.text_result(json.to_string(
+    json.object([
+      #("agents", json.array(agents, agent_registry.to_json)),
+      #("total", json.int(total)),
+      #("running", json.int(running)),
+      #("stopped", json.int(total - running)),
+    ])
+  ))
 }
 
 fn handle_agent_kill(args: json.Json) -> ToolResult {
@@ -6735,4 +6865,150 @@ fn handle_storage_list(_args: json.Json) -> ToolResult {
 
 fn handle_storage_config(_args: json.Json) -> ToolResult {
   storage_tools.handle_config()
+}
+
+// ============================================================
+// Reports Tool Definitions
+// ============================================================
+
+fn reports_daily_stats_tool() -> Tool {
+  Tool(
+    name: "reports_daily_stats",
+    description: "Get daily activity statistics for the owner (messages, users, generations, revenue)",
+    input_schema: json.object([
+      #("type", json.string("object")),
+      #("properties", json.object([])),
+    ]),
+  )
+}
+
+fn reports_weekly_tool() -> Tool {
+  Tool(
+    name: "reports_weekly",
+    description: "Get weekly growth report with metrics and trends",
+    input_schema: json.object([
+      #("type", json.string("object")),
+      #("properties", json.object([])),
+    ]),
+  )
+}
+
+fn reports_growth_strategies_tool() -> Tool {
+  Tool(
+    name: "reports_growth_strategies",
+    description: "Get AI-generated growth strategy recommendations based on data analysis",
+    input_schema: json.object([
+      #("type", json.string("object")),
+      #("properties", json.object([])),
+    ]),
+  )
+}
+
+fn reports_send_daily_tool() -> Tool {
+  Tool(
+    name: "reports_send_daily",
+    description: "Send daily activity report to owner via Telegram",
+    input_schema: json.object([
+      #("type", json.string("object")),
+      #(
+        "properties",
+        json.object([
+          #(
+            "owner_telegram_id",
+            json.object([
+              #("type", json.string("string")),
+              #("description", json.string("Telegram ID of the owner to receive the report")),
+            ]),
+          ),
+        ]),
+      ),
+      #("required", json.array([json.string("owner_telegram_id")], fn(x) { x })),
+    ]),
+  )
+}
+
+fn reports_send_weekly_tool() -> Tool {
+  Tool(
+    name: "reports_send_weekly",
+    description: "Send weekly growth report to owner via Telegram",
+    input_schema: json.object([
+      #("type", json.string("object")),
+      #(
+        "properties",
+        json.object([
+          #(
+            "owner_telegram_id",
+            json.object([
+              #("type", json.string("string")),
+              #("description", json.string("Telegram ID of the owner to receive the report")),
+            ]),
+          ),
+        ]),
+      ),
+      #("required", json.array([json.string("owner_telegram_id")], fn(x) { x })),
+    ]),
+  )
+}
+
+// ============================================================
+// Reports Tool Handlers
+// ============================================================
+
+fn handle_reports_daily_stats(_args: json.Json) -> ToolResult {
+  let stats_json = owner_reports.get_daily_stats_json()
+  protocol.text_result(stats_json)
+}
+
+fn handle_reports_weekly(_args: json.Json) -> ToolResult {
+  case owner_reports.generate_weekly_report() {
+    Ok(#(metrics, strategies)) -> {
+      let report = owner_reports.WeeklyGrowthReport(metrics, strategies)
+      let message = owner_reports.format_report_message(report)
+      protocol.text_result(message)
+    }
+    Error(err) -> protocol.error_result(err)
+  }
+}
+
+fn handle_reports_growth_strategies(_args: json.Json) -> ToolResult {
+  let strategies_json = owner_reports.get_growth_strategies_json()
+  protocol.text_result(strategies_json)
+}
+
+fn handle_reports_send_daily(args: json.Json) -> ToolResult {
+  let args_str = json.to_string(args)
+  let owner_id = json_get_optional_string(args_str, "owner_telegram_id") |> option.unwrap("")
+
+  case owner_id {
+    "" -> protocol.error_result("owner_telegram_id is required")
+    id -> {
+      let cfg = config.get_config()
+      let bridge_url = config.bridge_base_url(cfg)
+      let session_id = session_manager.get_active() |> option.unwrap("")
+
+      case owner_reports.send_daily_report(id, bridge_url, session_id) {
+        Ok(_) -> protocol.text_result("Daily report sent to " <> id)
+        Error(err) -> protocol.error_result(err)
+      }
+    }
+  }
+}
+
+fn handle_reports_send_weekly(args: json.Json) -> ToolResult {
+  let args_str = json.to_string(args)
+  let owner_id = json_get_optional_string(args_str, "owner_telegram_id") |> option.unwrap("")
+
+  case owner_id {
+    "" -> protocol.error_result("owner_telegram_id is required")
+    id -> {
+      let cfg = config.get_config()
+      let bridge_url = config.bridge_base_url(cfg)
+      let session_id = session_manager.get_active() |> option.unwrap("")
+
+      case owner_reports.send_weekly_report(id, bridge_url, session_id) {
+        Ok(_) -> protocol.text_result("Weekly report sent to " <> id)
+        Error(err) -> protocol.error_result(err)
+      }
+    }
+  }
 }

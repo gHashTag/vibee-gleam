@@ -137,6 +137,50 @@ pub fn balance_topup_options_tool() -> Tool {
   )
 }
 
+/// Tool: payment_refund
+pub fn payment_refund_tool() -> Tool {
+  Tool(
+    name: "payment_refund",
+    description: "Initiate a refund for a completed payment. Returns refund status and details.",
+    input_schema: json.object([
+      #("type", json.string("object")),
+      #("properties", json.object([
+        #("inv_id", json.object([
+          #("type", json.string("string")),
+          #("description", json.string("Invoice ID of the payment to refund")),
+        ])),
+        #("reason", json.object([
+          #("type", json.string("string")),
+          #("description", json.string("Reason for refund (optional)")),
+        ])),
+      ])),
+      #("required", json.array(["inv_id"], json.string)),
+    ]),
+  )
+}
+
+/// Tool: payment_cancel
+pub fn payment_cancel_tool() -> Tool {
+  Tool(
+    name: "payment_cancel",
+    description: "Cancel a pending payment. Only works for payments in PENDING status.",
+    input_schema: json.object([
+      #("type", json.string("object")),
+      #("properties", json.object([
+        #("inv_id", json.object([
+          #("type", json.string("string")),
+          #("description", json.string("Invoice ID of the payment to cancel")),
+        ])),
+        #("reason", json.object([
+          #("type", json.string("string")),
+          #("description", json.string("Reason for cancellation (optional)")),
+        ])),
+      ])),
+      #("required", json.array(["inv_id"], json.string)),
+    ]),
+  )
+}
+
 // =============================================================================
 // HANDLERS
 // =============================================================================
@@ -241,6 +285,84 @@ pub fn handle_balance_topup_options(args: json.Json) -> ToolResult {
         #("method", json.string(method_str)),
         #("options", json.array(options_json, fn(x) { x })),
       ])))
+    }
+  }
+}
+
+/// Handle payment_refund
+pub fn handle_payment_refund(args: json.Json) -> ToolResult {
+  case get_string_field(args, "inv_id") {
+    None -> protocol.error_result("Missing required field: inv_id")
+    Some(inv_id) -> {
+      let reason = option.unwrap(get_string_field(args, "reason"), "User requested refund")
+      logging.quick_info("[PAYMENT] Refund request for: " <> inv_id <> " reason: " <> reason)
+
+      case get_payment(inv_id) {
+        Ok(payment_map) -> {
+          // Check if payment is completed
+          case get_payment_status(payment_map) {
+            "COMPLETED" -> {
+              // Get payment details
+              let telegram_id = get_payment_telegram_id(payment_map)
+              let stars = get_payment_stars(payment_map)
+
+              // Deduct stars from user balance
+              let _ = update_user_balance(telegram_id, -stars)
+
+              // Update payment status to REFUNDED
+              let _ = update_payment_status(inv_id, "REFUNDED")
+
+              protocol.text_result(json.to_string(json.object([
+                #("inv_id", json.string(inv_id)),
+                #("status", json.string("REFUNDED")),
+                #("stars_deducted", json.int(stars)),
+                #("reason", json.string(reason)),
+                #("message", json.string("Refund processed successfully. Stars deducted from user balance.")),
+              ])))
+            }
+            "PENDING" -> protocol.error_result("Cannot refund pending payment. Use payment_cancel instead.")
+            "REFUNDED" -> protocol.error_result("Payment already refunded.")
+            "CANCELLED" -> protocol.error_result("Payment was cancelled, nothing to refund.")
+            status -> protocol.error_result("Cannot refund payment with status: " <> status)
+          }
+        }
+        Error(_) -> protocol.error_result("Payment not found: " <> inv_id)
+      }
+    }
+  }
+}
+
+/// Handle payment_cancel
+pub fn handle_payment_cancel(args: json.Json) -> ToolResult {
+  case get_string_field(args, "inv_id") {
+    None -> protocol.error_result("Missing required field: inv_id")
+    Some(inv_id) -> {
+      let reason = option.unwrap(get_string_field(args, "reason"), "User cancelled")
+      logging.quick_info("[PAYMENT] Cancel request for: " <> inv_id <> " reason: " <> reason)
+
+      case get_payment(inv_id) {
+        Ok(payment_map) -> {
+          // Check if payment is pending
+          case get_payment_status(payment_map) {
+            "PENDING" -> {
+              // Update payment status to CANCELLED
+              let _ = update_payment_status(inv_id, "CANCELLED")
+
+              protocol.text_result(json.to_string(json.object([
+                #("inv_id", json.string(inv_id)),
+                #("status", json.string("CANCELLED")),
+                #("reason", json.string(reason)),
+                #("message", json.string("Payment cancelled successfully.")),
+              ])))
+            }
+            "COMPLETED" -> protocol.error_result("Cannot cancel completed payment. Use payment_refund instead.")
+            "REFUNDED" -> protocol.error_result("Payment already refunded.")
+            "CANCELLED" -> protocol.error_result("Payment already cancelled.")
+            status -> protocol.error_result("Cannot cancel payment with status: " <> status)
+          }
+        }
+        Error(_) -> protocol.error_result("Payment not found: " <> inv_id)
+      }
     }
   }
 }
@@ -622,6 +744,39 @@ fn get_user_balance(telegram_id: Int) -> Int
 
 @external(erlang, "vibee_payment_ffi", "update_balance")
 fn update_user_balance(telegram_id: Int, delta_stars: Int) -> Dynamic
+
+@external(erlang, "vibee_payment_ffi", "update_status")
+fn update_payment_status(inv_id: String, status: String) -> Result(Dynamic, Dynamic)
+
+/// Helper to get status from payment map (Erlang map)
+fn get_payment_status(payment: Dynamic) -> String {
+  case get_payment_field_string(payment, "status") {
+    Ok(status) -> status
+    Error(_) -> "UNKNOWN"
+  }
+}
+
+/// Helper to get telegram_id from payment map
+fn get_payment_telegram_id(payment: Dynamic) -> Int {
+  case get_payment_field_int(payment, "telegram_id") {
+    Ok(id) -> id
+    Error(_) -> 0
+  }
+}
+
+/// Helper to get stars from payment map
+fn get_payment_stars(payment: Dynamic) -> Int {
+  case get_payment_field_int(payment, "stars") {
+    Ok(stars) -> stars
+    Error(_) -> 0
+  }
+}
+
+@external(erlang, "vibee_payment_tools_ffi", "get_payment_field_string")
+fn get_payment_field_string(payment: Dynamic, field: String) -> Result(String, Nil)
+
+@external(erlang, "vibee_payment_tools_ffi", "get_payment_field_int")
+fn get_payment_field_int(payment: Dynamic, field: String) -> Result(Int, Nil)
 
 // Helper to create Erlang map
 @external(erlang, "vibee_payment_tools_ffi", "create_payment_map")

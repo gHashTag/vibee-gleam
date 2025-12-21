@@ -3,7 +3,7 @@ import { useEditorStore } from '@/store/editorStore';
 import { TimeRuler } from './TimeRuler';
 import { Track } from './Track';
 import { Playhead } from './Playhead';
-import { Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, ChevronDown, ChevronUp, Magnet, Lock, Unlock, Maximize2 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, ChevronDown, ChevronUp, Magnet, Lock, Unlock, Maximize2, Volume2, VolumeX } from 'lucide-react';
 import './Timeline.css';
 
 export function Timeline() {
@@ -11,13 +11,14 @@ export function Timeline() {
 
   const project = useEditorStore((s) => s.project);
   const tracks = useEditorStore((s) => s.tracks);
+  console.log('[Timeline] tracks:', tracks.length, tracks.map(t => t.type));
   const currentFrame = useEditorStore((s) => s.currentFrame);
   const isPlaying = useEditorStore((s) => s.isPlaying);
   const playbackRate = useEditorStore((s) => s.playbackRate);
   const timelineZoom = useEditorStore((s) => s.timelineZoom);
   const setCurrentFrame = useEditorStore((s) => s.setCurrentFrame);
-  const play = useEditorStore((s) => s.play);
-  const pause = useEditorStore((s) => s.pause);
+  const playDirect = useEditorStore((s) => s.playDirect);
+  const pauseDirect = useEditorStore((s) => s.pauseDirect);
   const setPlaybackRate = useEditorStore((s) => s.setPlaybackRate);
   const setTimelineZoom = useEditorStore((s) => s.setTimelineZoom);
   const snapSettings = useEditorStore((s) => s.snapSettings);
@@ -26,6 +27,54 @@ export function Timeline() {
   const inPoint = useEditorStore((s) => s.inPoint);
   const outPoint = useEditorStore((s) => s.outPoint);
   const markers = useEditorStore((s) => s.markers);
+  const isMuted = useEditorStore((s) => s.isMuted);
+  const setIsMuted = useEditorStore((s) => s.setIsMuted);
+  const playerRef = useEditorStore((s) => s.playerRef);
+
+  // Handle mute toggle - uses both store state and player API
+  const handleMuteToggle = useCallback(() => {
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+
+    // Also control the Remotion Player's mute state
+    if (playerRef?.current) {
+      if (newMuted) {
+        console.log('[Timeline] Muting player');
+        playerRef.current.mute?.();
+      } else {
+        console.log('[Timeline] Unmuting player');
+        playerRef.current.unmute?.();
+        playerRef.current.setVolume?.(1);
+      }
+    }
+  }, [isMuted, setIsMuted, playerRef]);
+
+  // Audio warmup - required for browser autoplay policy
+  const warmupAudio = useCallback(() => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContext) {
+        const audioContext = new AudioContext();
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+      }
+    } catch (e) {
+      console.warn('[Timeline] Audio warmup failed:', e);
+    }
+  }, []);
+
+  // Handle play with audio warmup - uses playDirect for user gesture context
+  // CRITICAL: Must pass event to playDirect for browser autoplay policy!
+  // See: https://www.remotion.dev/docs/player/autoplay
+  const handlePlay = useCallback((e: React.MouseEvent) => {
+    warmupAudio();
+    if (isPlaying) {
+      pauseDirect();
+    } else {
+      playDirect(e); // Pass event for audio to work!
+    }
+  }, [isPlaying, playDirect, pauseDirect, warmupAudio]);
 
   const fps = project.fps;
   const duration = project.durationInFrames;
@@ -130,7 +179,7 @@ export function Timeline() {
           </button>
           <button
             className="transport-btn play-btn"
-            onClick={() => (isPlaying ? pause() : play())}
+            onClickCapture={handlePlay}
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           >
             {isPlaying ? <Pause size={18} /> : <Play size={18} />}
@@ -167,6 +216,14 @@ export function Timeline() {
             <ChevronUp size={12} />
           </button>
         </div>
+
+        <button
+          className={`transport-btn ${isMuted ? '' : 'active'}`}
+          onClick={handleMuteToggle}
+          title={isMuted ? 'Unmute audio' : 'Mute audio'}
+        >
+          {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+        </button>
 
         <button
           className={`transport-btn snap-btn ${snapSettings.enabled ? 'active' : ''}`}

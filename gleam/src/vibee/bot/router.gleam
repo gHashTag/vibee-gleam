@@ -29,7 +29,9 @@ import vibee/sales/paywall
 import vibee/sales/proposal_generator
 import vibee/sales/lead_service
 import vibee/bot/scenes/voice_clone as voice_clone_scene
+import vibee/bot/scenes/neuro_photo as neuro_photo_scene
 import vibee/bot/session_store
+import vibee/bot/job_executor
 
 // ============================================================
 // Types
@@ -89,13 +91,17 @@ fn handle_command(
       ))
     }
 
-    "neurophoto" | "neuro" -> {
-      let new_session = scene.set_scene(session, NeuroPhoto(NeuroPhotoSelectModel))
-      let _ = session_store.save_session(pool, new_session)
-      Ok(RouterResult(
-        session: new_session,
-        response: Some(neuro_photo_select_model_response()),
-      ))
+    "neurophoto" | "neuro" | "photo" -> {
+      case neuro_photo_scene.enter(session) {
+        Ok(result) -> {
+          let _ = session_store.save_session(pool, result.session)
+          Ok(RouterResult(
+            session: result.session,
+            response: result.response,
+          ))
+        }
+        Error(_) -> Error(SceneError("Failed to enter NeuroPhoto scene"))
+      }
     }
 
     "avatar" -> {
@@ -282,8 +288,8 @@ fn route_to_scene(
   case session.scene {
     Main(Idle) -> handle_idle(pool, session, message)
     Main(MainMenu) -> handle_main_menu(pool, session, message)
-    NeuroPhoto(scene_state) ->
-      handle_neuro_photo(pool, session, scene_state, message)
+    NeuroPhoto(_) ->
+      handle_new_scene(pool, session, message, neuro_photo_scene.handle_message, neuro_photo_scene.handle_callback)
     Avatar(scene_state) -> handle_avatar(pool, session, scene_state, message)
     TextToVideo(_) -> handle_new_scene(pool, session, message, text_to_video_scene.handle_message, text_to_video_scene.handle_callback)
     ImageToVideo(_) -> handle_new_scene(pool, session, message, image_to_video_scene.handle_message, image_to_video_scene.handle_callback)
@@ -314,6 +320,23 @@ fn handle_new_scene(
   case result {
     Ok(scene_result) -> {
       let _ = session_store.save_session(pool, scene_result.session)
+
+      // Handle next_action - execute jobs asynchronously
+      case scene_result.next_action {
+        scene_handler.StartJob(job_type, params) -> {
+          // Execute job in background (sends result to chat when done)
+          let _ = job_executor.execute(
+            job_type,
+            params,
+            scene_result.session.chat_id,
+          )
+          Nil
+        }
+        scene_handler.NoAction -> Nil
+        scene_handler.PollJob(_job_id, _job_type) -> Nil
+        scene_handler.SendNotification(_chat_id, _text) -> Nil
+      }
+
       Ok(RouterResult(
         session: scene_result.session,
         response: scene_result.response,
@@ -415,15 +438,19 @@ fn handle_idle(
       case
         string.contains(lower, "нейрофото")
         || string.contains(lower, "neuro")
+        || string.contains(lower, "фото")
       {
         True -> {
-          let new_session =
-            scene.set_scene(session, NeuroPhoto(NeuroPhotoSelectModel))
-          let _ = session_store.save_session(pool, new_session)
-          Ok(RouterResult(
-            session: new_session,
-            response: Some(neuro_photo_select_model_response()),
-          ))
+          case neuro_photo_scene.enter(session) {
+            Ok(result) -> {
+              let _ = session_store.save_session(pool, result.session)
+              Ok(RouterResult(
+                session: result.session,
+                response: result.response,
+              ))
+            }
+            Error(_) -> Error(SceneError("Failed to enter NeuroPhoto scene"))
+          }
         }
         False ->
           case
@@ -478,13 +505,16 @@ fn handle_main_menu_callback(
 ) -> Result(RouterResult, RouterError) {
   case data {
     "neuro_photo" -> {
-      let new_session =
-        scene.set_scene(session, NeuroPhoto(NeuroPhotoSelectModel))
-      let _ = session_store.save_session(pool, new_session)
-      Ok(RouterResult(
-        session: new_session,
-        response: Some(neuro_photo_select_model_response()),
-      ))
+      case neuro_photo_scene.enter(session) {
+        Ok(result) -> {
+          let _ = session_store.save_session(pool, result.session)
+          Ok(RouterResult(
+            session: result.session,
+            response: result.response,
+          ))
+        }
+        Error(_) -> Error(SceneError("Failed to enter NeuroPhoto scene"))
+      }
     }
     "avatar" -> {
       let new_session = scene.set_scene(session, Avatar(AvatarStart))
@@ -564,136 +594,6 @@ fn handle_main_menu_callback(
       Ok(RouterResult(session: result.session, response: result.response))
     }
     _ -> Ok(RouterResult(session: session, response: None))
-  }
-}
-
-// ============================================================
-// NeuroPhoto Scene Handlers
-// ============================================================
-
-fn handle_neuro_photo(
-  pool: pog.Connection,
-  session: UserSession,
-  scene_state: scene.NeuroPhotoScene,
-  message: IncomingMessage,
-) -> Result(RouterResult, RouterError) {
-  case scene_state {
-    NeuroPhotoSelectModel -> handle_neuro_photo_select_model(pool, session, message)
-    NeuroPhotoEnterPrompt(model) ->
-      handle_neuro_photo_enter_prompt(pool, session, model, message)
-    NeuroPhotoGenerating(model, prompt, job_id) -> {
-      // Already generating, just acknowledge
-      Ok(RouterResult(
-        session: session,
-        response: Some(TextReply(
-          "Still generating your image... Please wait.",
-        )),
-      ))
-    }
-    NeuroPhotoResult(_images) -> {
-      // Show result and offer to generate more
-      let new_session =
-        scene.set_scene(session, NeuroPhoto(NeuroPhotoSelectModel))
-      let _ = session_store.save_session(pool, new_session)
-      Ok(RouterResult(
-        session: new_session,
-        response: Some(neuro_photo_select_model_response()),
-      ))
-    }
-  }
-}
-
-fn handle_neuro_photo_select_model(
-  pool: pog.Connection,
-  session: UserSession,
-  message: IncomingMessage,
-) -> Result(RouterResult, RouterError) {
-  case message {
-    CallbackQuery(data) -> {
-      case string.starts_with(data, "np_model_") {
-        True -> {
-          let model = string.drop_start(data, 9)
-          let new_session =
-            scene.set_scene(session, NeuroPhoto(NeuroPhotoEnterPrompt(model)))
-          let _ = session_store.save_session(pool, new_session)
-          Ok(RouterResult(
-            session: new_session,
-            response: Some(TextReply(
-              "Model: " <> model <> "\n\nNow enter your prompt for the image:",
-            )),
-          ))
-        }
-        False -> Ok(RouterResult(session: session, response: None))
-      }
-    }
-    _ -> {
-      Ok(RouterResult(
-        session: session,
-        response: Some(neuro_photo_select_model_response()),
-      ))
-    }
-  }
-}
-
-fn handle_neuro_photo_enter_prompt(
-  pool: pog.Connection,
-  session: UserSession,
-  model: String,
-  message: IncomingMessage,
-) -> Result(RouterResult, RouterError) {
-  case message {
-    TextMessage(prompt) -> {
-      // Check paywall before starting generation
-      case paywall.check_access(session.user_id, paywall.Generation) {
-        paywall.AccessGranted(_) -> {
-          // Start generation
-          // In real implementation, call AI service and get job_id
-          let job_id = "job_" <> model <> "_placeholder"
-          let new_session =
-            scene.set_scene(
-              session,
-              NeuroPhoto(NeuroPhotoGenerating(model, prompt, job_id)),
-            )
-          let _ = session_store.save_session(pool, new_session)
-
-          // Record usage after successful generation start
-          let _ = paywall.record_usage(session.user_id, paywall.Generation)
-
-          // TODO: Actually call FAL.ai or other service here
-          // For now, just acknowledge
-          Ok(RouterResult(
-            session: new_session,
-            response: Some(TextReply(
-              "Generating image with " <> model <> "...\n\nPrompt: " <> prompt,
-            )),
-          ))
-        }
-        access_result -> {
-          // Access denied - show paywall message
-          let message = paywall.get_access_message(access_result, "ru")
-            <> "\n\n💎 /pricing - просмотр тарифов\n🎯 /quiz - подобрать тариф"
-          Ok(RouterResult(
-            session: session,
-            response: Some(TextReply(message)),
-          ))
-        }
-      }
-    }
-    CallbackQuery("back") -> {
-      let new_session =
-        scene.set_scene(session, NeuroPhoto(NeuroPhotoSelectModel))
-      let _ = session_store.save_session(pool, new_session)
-      Ok(RouterResult(
-        session: new_session,
-        response: Some(neuro_photo_select_model_response()),
-      ))
-    }
-    _ -> {
-      Ok(RouterResult(
-        session: session,
-        response: Some(TextReply("Please enter your prompt:")),
-      ))
-    }
   }
 }
 
@@ -1004,18 +904,6 @@ fn main_menu_response() -> OutgoingMessage {
       [button("Train Avatar", "avatar"), button("Voice Clone", "voice_clone")],
       [button("💎 Тарифы", "pricing"), button("🎯 Квиз", "quiz")],
       [button("📊 Моя подписка", "subscription")],
-    ],
-  )
-}
-
-fn neuro_photo_select_model_response() -> OutgoingMessage {
-  TextWithKeyboard(
-    "NeuroPhoto - AI Image Generation\n\nSelect a model:",
-    [
-      [button("FLUX LoRA (Best)", "np_model_flux-lora")],
-      [button("Nano Banana Pro (Fast)", "np_model_nano-banana")],
-      [button("FLUX Kontext", "np_model_flux-kontext")],
-      [button("Back to Menu", "back")],
     ],
   )
 }

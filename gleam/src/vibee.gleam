@@ -9,6 +9,7 @@ import gleam/option.{None, Some}
 import gleam/string
 import vibee/api/router
 import vibee/agent/polling_actor
+import vibee/agent/websocket_actor
 import vibee/config/telegram_config
 import vibee/events/event_bus
 import vibee/health
@@ -24,6 +25,7 @@ import vibee/onboarding/state as onboarding_state
 import vibee/log_aggregator
 import vibee/db/postgres
 import gleam/int
+import gleam/list
 
 // Payment store initialization
 @external(erlang, "vibee_payment_ffi", "init")
@@ -136,31 +138,88 @@ fn run_telegram_agent() {
         }
       }
 
-      let agent_config = TelegramAgentConfig(
-        bridge_url: telegram_config.bridge_url(),
-        session_id: session_id,
-        llm_api_key: llm_api_key,
-        llm_model: "x-ai/grok-4.1-fast",
-        auto_reply_enabled: True,
-        cooldown_ms: 30_000,
-        // Digital Twin mode - enabled for @neuro_sage
-        digital_twin_enabled: True,
-        owner_id: 144_022_504,
-      )
+      // Start agents for configured sessions only (session_1 and session_2 from ENV)
+      // Check for WebSocket mode feature flag
+      let use_websocket = config.get_env("VIBEE_USE_WEBSOCKET") == "true"
+      io.println("[AGENT] Starting VIBEE Telegram Agents...")
+      io.println("[AGENT] Mode: " <> case use_websocket { True -> "WebSocket (real-time)" False -> "HTTP Polling" })
 
-      // Запускаем Polling Actor (Telegram Agent) with event bus
-      io.println("[AGENT] Starting VIBEE Telegram Agent...")
-      case polling_actor.start_with_events(agent_config, event_bus_subject) {
-        Ok(agent_subject) -> {
-          io.println("[AGENT] ✓ Polling Actor started with event bus")
+      // Build list of sessions from ENV
+      let sessions_to_poll = case session_1 {
+        "" -> case session_2 {
+          "" -> []
+          _ -> [session_2]
+        }
+        _ -> case session_2 {
+          "" -> [session_1]
+          _ -> [session_1, session_2]
+        }
+      }
+      io.println("[AGENT] Will connect " <> int_to_string(list.length(sessions_to_poll)) <> " configured sessions")
 
-          // Setup graceful shutdown
-          shutdown.setup_handler(agent_subject)
-          io.println("[SHUTDOWN] ✓ Graceful shutdown handler registered")
+      // Track first polling agent for shutdown handler and count successful agents
+      let #(first_agent_subject, agents_started) = list.fold(sessions_to_poll, #(None, 0), fn(acc, sid) {
+        let #(first_subject, count) = acc
+        let agent_config = TelegramAgentConfig(
+          bridge_url: telegram_config.bridge_url(),
+          session_id: sid,
+          llm_api_key: llm_api_key,
+          llm_model: "x-ai/grok-4.1-fast",
+          auto_reply_enabled: True,
+          cooldown_ms: 30_000,
+          // Digital Twin enabled only for primary session
+          digital_twin_enabled: sid == session_id,
+          owner_id: 144_022_504,
+        )
 
-          // Запускаем polling loop
-          polling_actor.start_polling(agent_subject)
-          io.println("[AGENT] ✓ Polling loop started (every 5s)")
+        case use_websocket {
+          True -> {
+            // WebSocket mode - real-time updates
+            case websocket_actor.start_with_events(agent_config, event_bus_subject) {
+              Ok(ws_subject) -> {
+                websocket_actor.connect(ws_subject)
+                io.println("[AGENT] ✓ WebSocket started for session: " <> mask_sensitive(sid))
+                #(first_subject, count + 1)
+              }
+              Error(_) -> {
+                io.println("[AGENT] ! Failed to start WebSocket for session: " <> mask_sensitive(sid))
+                acc
+              }
+            }
+          }
+          False -> {
+            // Polling mode - HTTP polling
+            case polling_actor.start_with_events(agent_config, event_bus_subject) {
+              Ok(agent_subject) -> {
+                polling_actor.start_polling(agent_subject)
+                io.println("[AGENT] ✓ Polling started for session: " <> mask_sensitive(sid))
+                case first_subject {
+                  None -> #(Some(agent_subject), count + 1)
+                  _ -> #(first_subject, count + 1)
+                }
+              }
+              Error(_) -> {
+                io.println("[AGENT] ! Failed to start polling for session: " <> mask_sensitive(sid))
+                acc
+              }
+            }
+          }
+        }
+      })
+
+      // Check if any agents were started
+      case agents_started > 0 {
+        True -> {
+          io.println("[AGENT] ✓ Started " <> int_to_string(agents_started) <> " agents")
+
+          // Setup graceful shutdown for first polling agent (if any)
+          case first_agent_subject {
+            Some(agent_subject) -> {
+              shutdown.setup_handler(agent_subject)
+              io.println("[SHUTDOWN] ✓ Graceful shutdown handler registered")
+            }
+            None -> io.println("[SHUTDOWN] WebSocket mode - no shutdown handler needed")
+          }
 
           // Initialize stores
           init_payment_store()
@@ -219,8 +278,8 @@ fn run_telegram_agent() {
             }
           }
         }
-        Error(_) -> {
-          io.println("[ERROR] Failed to start Polling Actor")
+        False -> {
+          io.println("[ERROR] No agents started - check session configuration")
           Nil
         }
       }
@@ -366,10 +425,14 @@ fn run_mcp_server() {
     Ok(bus) -> {
       io.println("[EVENTS] ✓ Event bus started")
 
-      // === Digital Twin: Start polling actor ===
-      // Get session for Digital Twin
-      let session_id = case config.get_env("TELEGRAM_SESSION_ID") {
-        "" -> config.get_env("TELEGRAM_SESSION_ID_2")
+      // === Start agents for configured sessions only ===
+      let use_websocket = config.get_env("VIBEE_USE_WEBSOCKET") == "true"
+      io.println("[AGENT] Mode: " <> case use_websocket { True -> "WebSocket (real-time)" False -> "HTTP Polling" })
+
+      let session_1 = config.get_env("TELEGRAM_SESSION_ID")
+      let session_2 = config.get_env("TELEGRAM_SESSION_ID_2")
+      let primary_session_id = case session_1 {
+        "" -> session_2
         sid -> sid
       }
 
@@ -378,27 +441,56 @@ fn run_mcp_server() {
         key -> Some(key)
       }
 
-      // Configure Digital Twin agent
-      let agent_config = TelegramAgentConfig(
-        bridge_url: telegram_config.bridge_url(),
-        session_id: session_id,
-        llm_api_key: llm_api_key,
-        llm_model: "x-ai/grok-4.1-fast",
-        auto_reply_enabled: True,
-        cooldown_ms: 30_000,
-        digital_twin_enabled: True,
-        owner_id: 144_022_504,
-      )
-
-      // Start polling actor for Digital Twin (responds to messages as owner)
-      case polling_actor.start_with_events(agent_config, bus) {
-        Ok(agent_subject) -> {
-          polling_actor.start_polling(agent_subject)
-          io.println("[AGENT] ✓ Digital Twin polling started (every 5s)")
+      // Build list of sessions from ENV only
+      let sessions_to_poll = case session_1 {
+        "" -> case session_2 {
+          "" -> []
+          _ -> [session_2]
         }
-        Error(_) -> io.println("[AGENT] ! Digital Twin polling failed to start")
+        _ -> case session_2 {
+          "" -> [session_1]
+          _ -> [session_1, session_2]
+        }
       }
-      // === End Digital Twin ===
+      io.println("[AGENT] Will connect " <> int.to_string(list.length(sessions_to_poll)) <> " configured sessions")
+
+      list.each(sessions_to_poll, fn(sid) {
+        let agent_config = TelegramAgentConfig(
+          bridge_url: telegram_config.bridge_url(),
+          session_id: sid,
+          llm_api_key: llm_api_key,
+          llm_model: "x-ai/grok-4.1-fast",
+          auto_reply_enabled: True,
+          cooldown_ms: 30_000,
+          // Digital Twin enabled only for primary session
+          digital_twin_enabled: sid == primary_session_id,
+          owner_id: 144_022_504,
+        )
+
+        case use_websocket {
+          True -> {
+            // WebSocket mode - real-time updates
+            case websocket_actor.start_with_events(agent_config, bus) {
+              Ok(ws_subject) -> {
+                websocket_actor.connect(ws_subject)
+                io.println("[AGENT] ✓ WebSocket started for: " <> mask_sensitive(sid))
+              }
+              Error(_) -> io.println("[AGENT] ! WebSocket failed for: " <> mask_sensitive(sid))
+            }
+          }
+          False -> {
+            // Polling mode - HTTP polling
+            case polling_actor.start_with_events(agent_config, bus) {
+              Ok(agent_subject) -> {
+                polling_actor.start_polling(agent_subject)
+                io.println("[AGENT] ✓ Polling started for: " <> mask_sensitive(sid))
+              }
+              Error(_) -> io.println("[AGENT] ! Polling failed for: " <> mask_sensitive(sid))
+            }
+          }
+        }
+      })
+      // === End multi-session agents ===
 
       // Read port from ENV (for Fly.io) or use default
       let port = case config.get_env("PORT") {

@@ -10,8 +10,8 @@ import gleam/io
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
-
 import gleam/string
+import vibee/vibe_logger
 import shellout
 import vibee/mcp/config
 import vibee/config/dynamic_config
@@ -23,7 +23,12 @@ import vibee/db/postgres
 import vibee/leads/lead_logger
 import vibee/logging
 import vibee/mcp/session_manager
+import vibee/telegram/conversation_tracker
 import vibee/telegram/dialog_forwarder
+
+/// Get VIBEE_API_KEY from environment
+@external(erlang, "vibee_polling_ffi", "get_api_key")
+fn get_api_key() -> String
 
 /// Конфигурация Telegram агента
 pub type TelegramAgentConfig {
@@ -148,22 +153,25 @@ pub fn init(config: TelegramAgentConfig) -> AgentState {
 
 /// Get user_id from session (lazy initialization)
 fn get_or_fetch_user_id(state: AgentState) -> #(AgentState, Option(Int)) {
+  let log = vibe_logger.new("user_id")
+    |> vibe_logger.with_session_id(state.config.session_id)
+
   case state.bot_user_id {
     Some(id) -> {
-      io.println("[USER_ID] Using cached bot_user_id: " <> int.to_string(id))
+      vibe_logger.debug(log |> vibe_logger.with_data("bot_user_id", json.int(id)), "Using cached bot_user_id")
       #(state, Some(id))
     }
     None -> {
-      io.println("[USER_ID] Fetching bot_user_id from session...")
+      vibe_logger.debug(log, "Fetching bot_user_id from session")
       // Fetch user_id from getMe
       case get_me(state.config.bridge_url, state.config.session_id) {
         Ok(user_id) -> {
-          io.println("[USER_ID] ✅ Bot user_id fetched: " <> int.to_string(user_id))
+          vibe_logger.info(log |> vibe_logger.with_data("user_id", json.int(user_id)), "Bot user_id fetched")
           let new_state = AgentState(..state, bot_user_id: Some(user_id))
           #(new_state, Some(user_id))
         }
         Error(reason) -> {
-          io.println("[USER_ID] ❌ Failed to get user_id: " <> reason)
+          vibe_logger.error(log |> vibe_logger.with_data("error", json.string(reason)), "Failed to get user_id")
           #(state, None)
         }
       }
@@ -173,39 +181,49 @@ fn get_or_fetch_user_id(state: AgentState) -> #(AgentState, Option(Int)) {
 
 /// Get current user info from Telegram
 fn get_me(bridge_url: String, session_id: String) -> Result(Int, String) {
-  // Parse bridge_url to get scheme, host, port
-  let url_parts = case string.split(bridge_url, "://") {
-    [scheme, rest] -> {
-      case string.split(rest, ":") {
-        [host, port_str] -> #(scheme, host, port_str)
-        [host] -> #(scheme, host, "8081")
-        _ -> #("http", "localhost", "8081")
+  // Parse bridge_url properly for https
+  let #(scheme, host, port) = case string.starts_with(bridge_url, "https://") {
+    True -> {
+      let h = string.drop_start(bridge_url, 8)
+        |> string.split("/")
+        |> list.first
+        |> fn(r) { case r { Ok(v) -> v _ -> "localhost" } }
+      #(http.Https, h, 443)
+    }
+    False -> {
+      case string.starts_with(bridge_url, "http://") {
+        True -> {
+          let rest = string.drop_start(bridge_url, 7)
+            |> string.split("/")
+            |> list.first
+            |> fn(r) { case r { Ok(v) -> v _ -> "localhost:8081" } }
+          case string.split(rest, ":") {
+            [h, p] -> #(http.Http, h, case int.parse(p) { Ok(n) -> n Error(_) -> 8081 })
+            [h] -> #(http.Http, h, 80)
+            _ -> #(http.Http, "localhost", 8081)
+          }
+        }
+        False -> #(http.Http, "localhost", 8081)
       }
     }
-    _ -> #("http", "localhost", "8081")
   }
-  
-  let #(scheme, host, port_str) = url_parts
-  let body = "{\"session_id\": \"" <> session_id <> "\"}"
-  
+
+  let api_key = get_api_key()
+
   let req = request.new()
-    |> request.set_method(http.Post)
-    |> request.set_scheme(case scheme {
-      "https" -> http.Https
-      _ -> http.Http
-    })
+    |> request.set_method(http.Get)
+    |> request.set_scheme(scheme)
     |> request.set_host(host)
-    |> request.set_port(case int.parse(port_str) {
-      Ok(p) -> p
-      Error(_) -> 8081
-    })
-    |> request.set_path("/getMe")
-    |> request.set_body(body)
-    |> request.prepend_header("content-type", "application/json")
-  
+    |> request.set_port(port)
+    |> request.set_path("/api/v1/me")
+    |> request.set_header("X-Session-ID", session_id)
+    |> request.set_header("Authorization", "Bearer " <> api_key)
+
+  let log = vibe_logger.new("getme") |> vibe_logger.with_session_id(session_id)
+
   case httpc.send(req) {
     Ok(response) -> {
-      io.println("[GETME] Response: " <> response.body)
+      vibe_logger.debug(log |> vibe_logger.with_data("body", json.string(string.slice(response.body, 0, 200))), "Response received")
       // Parse JSON response to get user_id
       // Expected: {"id": 123456789, "username": "...", ...}
       case string.split(response.body, "\"id\":") {
@@ -216,7 +234,10 @@ fn get_me(bridge_url: String, session_id: String) -> Result(Int, String) {
                 |> string.replace("}", "")
                 |> string.replace("\"", "")
               case int.parse(cleaned) {
-                Ok(id) -> Ok(id)
+                Ok(id) -> {
+                  vibe_logger.info(log |> vibe_logger.with_data("user_id", json.int(id)), "Got user_id")
+                  Ok(id)
+                }
                 Error(_) -> Error("Failed to parse user_id")
               }
             }
@@ -226,8 +247,8 @@ fn get_me(bridge_url: String, session_id: String) -> Result(Int, String) {
         _ -> Error("No id field in response")
       }
     }
-    Error(err) -> {
-      io.println("[GETME] HTTP error")
+    Error(_err) -> {
+      vibe_logger.error(log, "HTTP error")
       Error("HTTP request failed")
     }
   }
@@ -286,59 +307,109 @@ pub fn handle_incoming_message(
   from_name: String,
   text: String,
   message_id: Int,
+  reply_to_id: Int,
 ) -> AgentState {
-  // Логируем в stdout для Fly.io видимости
-  io.println("[MSG] chat=" <> chat_id <> " from_id=" <> int.to_string(from_id) <> " from=" <> from_name <> " text=" <> string.slice(text, 0, 50))
+  let log = vibe_logger.new("msg")
+    |> vibe_logger.with_session_id(state.config.session_id)
+    |> vibe_logger.with_data("chat_id", json.string(chat_id))
+    |> vibe_logger.with_data("from_id", json.int(from_id))
+    |> vibe_logger.with_data("from", json.string(from_name))
+    |> vibe_logger.with_data("text", json.string(string.slice(text, 0, 50)))
+    |> vibe_logger.with_data("reply_to", json.int(reply_to_id))
+
+  // Логируем если это reply на сообщение
+  case reply_to_id > 0 {
+    True -> vibe_logger.info(log, "Incoming REPLY message")
+    False -> vibe_logger.info(log, "Incoming message")
+  }
 
   // Get or fetch bot user_id
   let #(updated_state, bot_id) = get_or_fetch_user_id(state)
 
   // Не отвечаем на собственные сообщения (по user_id или owner_id, предотвращаем бесконечный цикл)
+  // НО! В trigger-чатах (SNIPER MODE) разрешаем сообщения от owner для тестирования
+  let filter_log = vibe_logger.new("filter")
+    |> vibe_logger.with_data("from_id", json.int(from_id))
+    |> vibe_logger.with_data("owner_id", json.int(updated_state.config.owner_id))
+    |> vibe_logger.with_data("chat_id", json.string(chat_id))
+
+  // Проверяем, является ли это trigger-чатом (SNIPER MODE)
+  let is_trigger_chat = trigger_chats.is_trigger_chat_active(chat_id)
+  io.println("[FILTER] Checking chat " <> chat_id <> " is_trigger_chat=" <> case is_trigger_chat { True -> "YES" False -> "NO" })
+
+  // Проверяем, это команда (начинается с /)
+  let is_command = string.starts_with(text, "/")
+  // Личный чат = положительный chat_id
+  let is_private_chat = case int.parse(chat_id) {
+    Ok(cid) -> cid > 0
+    Error(_) -> False
+  }
+
   let should_skip = case bot_id {
     Some(id) -> {
       let is_bot = from_id == id
       let is_owner = from_id == updated_state.config.owner_id
-      io.println("[FILTER] from_id=" <> int.to_string(from_id) <> " bot_id=" <> int.to_string(id) <> " owner_id=" <> int.to_string(updated_state.config.owner_id))
-      io.println("[FILTER] is_bot=" <> case is_bot { True -> "YES" False -> "NO" } <> " is_owner=" <> case is_owner { True -> "YES" False -> "NO" })
-      is_bot || is_owner
+      vibe_logger.debug(filter_log
+        |> vibe_logger.with_data("bot_id", json.int(id))
+        |> vibe_logger.with_data("is_bot", json.bool(is_bot))
+        |> vibe_logger.with_data("is_owner", json.bool(is_owner))
+        |> vibe_logger.with_data("is_command", json.bool(is_command))
+        |> vibe_logger.with_data("is_private_chat", json.bool(is_private_chat))
+        |> vibe_logger.with_data("is_trigger_chat", json.bool(is_trigger_chat)), "Filter check")
+      // В trigger-чатах или при отправке команды в личном чате разрешаем сообщения от owner
+      case is_trigger_chat || { is_command && is_private_chat } {
+        True -> is_bot  // Только пропускаем сообщения бота, owner разрешён
+        False -> is_bot || is_owner  // В обычных чатах пропускаем и бота, и owner (защита от цикла)
+      }
     }
     None -> {
-      io.println("[FILTER] No bot_id cached, checking owner_id only")
-      from_id == updated_state.config.owner_id
+      vibe_logger.debug(filter_log
+        |> vibe_logger.with_data("is_trigger_chat", json.bool(is_trigger_chat))
+        |> vibe_logger.with_data("is_command", json.bool(is_command))
+        |> vibe_logger.with_data("is_private_chat", json.bool(is_private_chat)), "No bot_id cached, checking owner_id only")
+      // В trigger-чатах или при отправке команды в личном чате разрешаем сообщения от owner
+      case is_trigger_chat || { is_command && is_private_chat } {
+        True -> False  // Не пропускаем - разрешаем owner
+        False -> from_id == updated_state.config.owner_id  // В обычных чатах пропускаем owner
+      }
     }
   }
 
   case should_skip {
     True -> {
-      io.println("[MSG] ⏭️  SKIPPING own message from user_id: " <> int.to_string(from_id))
+      vibe_logger.debug(log |> vibe_logger.with_data("action", json.string("skip")), "Skipping own message")
       updated_state
     }
     False -> {
-      io.println("[MSG] ✅ PROCESSING message from user_id: " <> int.to_string(from_id))
+      vibe_logger.debug(log |> vibe_logger.with_data("action", json.string("process")), "Processing message")
+      let cmd_log = vibe_logger.new("cmd")
+        |> vibe_logger.with_session_id(updated_state.config.session_id)
+        |> vibe_logger.with_data("chat_id", json.string(chat_id))
+
       // Сначала проверяем команды (работают везде, включая личные чаты)
       case parse_command(text) {
         Some(#("neurophoto", prompt)) -> {
-          io.println("[CMD] /neurophoto detected! Prompt: " <> prompt)
+          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("neurophoto")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
           handle_neurophoto_command(updated_state, chat_id, message_id, prompt)
         }
         Some(#("neuro", prompt)) -> {
-          io.println("[CMD] /neuro detected! Prompt: " <> prompt)
+          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("neuro")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
           handle_neurophoto_command(updated_state, chat_id, message_id, prompt)
         }
         Some(#("start", _)) -> {
-          io.println("[CMD] /start detected!")
+          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("start")), "Command detected")
           let welcome = "Privet! Ya VIBEE - AI agent dlya generacii izobrazhenij.\n\nKomandy:\n/neurophoto <prompt> - generaciya izobrazheniya\n/neuro <prompt> - korotkaya versiya\n\nPrimer: /neurophoto cyberpunk portrait neon lights"
           let _ = send_message(updated_state.config, chat_id, welcome, Some(message_id))
           AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
         }
         Some(#("help", _)) -> {
-          io.println("[CMD] /help detected!")
+          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("help")), "Command detected")
           let help_text = "VIBEE Bot - Komandy:\n\n/neurophoto <prompt> - Generaciya izobrazheniya s FLUX LoRA\n/neuro <prompt> - Korotkaya versiya\n/pricing - Tarify VIBEE\n/quiz - Podobrat' tarif\n\nTrigger slovo NEURO_SAGE dobavlyaetsya avtomaticheski."
           let _ = send_message(updated_state.config, chat_id, help_text, Some(message_id))
           AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
         }
         Some(#("pricing", _)) -> {
-          io.println("[CMD] /pricing detected!")
+          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("pricing")), "Command detected")
           let is_ru = is_cyrillic_text(text)
           let pricing_text = case is_ru {
             True -> "💎 VIBEE Тарифы:\n\n🥉 JUNIOR - $99/мес\n• 100 генераций\n• Telegram бот\n• Email поддержка\n\n🥈 MIDDLE - $299/мес\n• 500 генераций\n• Custom персона\n• CRM + Аналитика\n\n🥇 SENIOR - $999/мес\n• Безлимит генераций\n• Мультиканал\n• API доступ + SLA\n\n👉 /quiz - подобрать тариф"
@@ -348,7 +419,7 @@ pub fn handle_incoming_message(
           AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
         }
         Some(#("quiz", _)) -> {
-          io.println("[CMD] /quiz detected!")
+          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("quiz")), "Command detected")
           let is_ru = is_cyrillic_text(text)
           let quiz_text = case is_ru {
             True -> "🎯 Quiz: Какой тариф вам подходит?\n\n1️⃣ Сколько генераций в месяц вам нужно?\n   A) До 100\n   B) 100-500\n   C) Больше 500\n\n2️⃣ Нужна ли интеграция с CRM?\n   A) Нет\n   B) Да\n\n3️⃣ Нужен ли API доступ?\n   A) Нет\n   B) Да\n\nОтветьте буквами, например: ABA\n\n💡 Или напишите 'помощь' для консультации"
@@ -358,20 +429,35 @@ pub fn handle_incoming_message(
           AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
         }
         _ -> {
+          let sniper_log = vibe_logger.new("sniper")
+            |> vibe_logger.with_session_id(updated_state.config.session_id)
+            |> vibe_logger.with_data("chat_id", json.string(chat_id))
+
           // Проверяем, является ли это триггерным чатом (Sniper Mode)
           case trigger_chats.is_trigger_chat_active(chat_id) {
             True -> {
-              // SNIPER MODE: отвечаем ТОЛЬКО на триггеры
-              io.println("[SNIPER] 🎯 Chat " <> chat_id <> " is in SNIPER MODE")
-              io.println("[SNIPER] Message text: " <> text)
+              // SNIPER MODE: отвечаем на триггеры ИЛИ проактивно
+              vibe_logger.info(sniper_log |> vibe_logger.with_data("mode", json.string("sniper")), "Chat in SNIPER MODE")
+
+              // 1. Сначала проверяем триггеры (быстрый путь)
               case trigger_chats.should_respond_to_trigger(chat_id, text) {
                 True -> {
-                  io.println("[SNIPER] 🔥 TRIGGER FOUND! Generating response...")
-                  process_with_digital_twin(updated_state, chat_id, message_id, text, from_name)
+                  vibe_logger.info(sniper_log |> vibe_logger.with_data("trigger", json.bool(True)), "TRIGGER FOUND! Generating response")
+                  process_with_digital_twin(updated_state, chat_id, message_id, text, from_name, from_id)
                 }
                 False -> {
-                  io.println("[SNIPER] 🤫 No trigger detected, staying silent")
-                  AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
+                  // 2. Нет триггера - проверяем проактивный режим
+                  let current_time = get_current_timestamp()
+                  case should_respond_proactively(chat_id, from_id, reply_to_id, text, current_time) {
+                    True -> {
+                      vibe_logger.info(sniper_log |> vibe_logger.with_data("proactive", json.bool(True)), "PROACTIVE MODE: Responding without trigger")
+                      process_with_digital_twin(updated_state, chat_id, message_id, text, from_name, from_id)
+                    }
+                    False -> {
+                      vibe_logger.debug(sniper_log |> vibe_logger.with_data("trigger", json.bool(False)), "No trigger/proactive signal, staying silent")
+                      AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
+                    }
+                  }
                 }
               }
             }
@@ -380,8 +466,8 @@ pub fn handle_incoming_message(
               case updated_state.config.digital_twin_enabled {
                 True -> {
                   // Digital Twin отвечает на ВСЕ сообщения (кроме sniper чатов)
-                  io.println("[DIGITAL_TWIN] Responding to message in chat " <> chat_id)
-                  process_with_digital_twin(updated_state, chat_id, message_id, text, from_name)
+                  vibe_logger.info(vibe_logger.new("twin") |> vibe_logger.with_data("chat_id", json.string(chat_id)), "Responding to message")
+                  process_with_digital_twin(updated_state, chat_id, message_id, text, from_name, from_id)
                 }
                 False -> {
                   // Обычный режим - проверяем target_chats и триггеры
@@ -396,21 +482,85 @@ pub fn handle_incoming_message(
   }
 }
 
+/// Проверяет, нужно ли отвечать проактивно (без триггера)
+/// Возвращает True если:
+/// 1. Сообщение - ответ на предыдущее сообщение агента
+/// 2. Активный диалог (агент ответил в последние 5 минут)
+/// 3. Упоминание агента (@vibee_agent, бот, агент)
+pub fn should_respond_proactively(
+  chat_id: String,
+  from_id: Int,
+  reply_to_id: Int,
+  text: String,
+  current_time: Int,
+) -> Bool {
+  let log = vibe_logger.new("proactive")
+    |> vibe_logger.with_data("chat_id", json.string(chat_id))
+    |> vibe_logger.with_data("from_id", json.int(from_id))
+    |> vibe_logger.with_data("reply_to", json.int(reply_to_id))
+
+  // 1. Проверяем reply на сообщение агента
+  case conversation_tracker.is_reply_to_agent(chat_id, from_id, reply_to_id) {
+    True -> {
+      vibe_logger.info(log, "PROACTIVE: Reply to agent message detected")
+      True
+    }
+    False -> {
+      // 2. Проверяем активный диалог (5 минут)
+      case conversation_tracker.is_active_conversation(chat_id, from_id, current_time) {
+        True -> {
+          vibe_logger.info(log, "PROACTIVE: Active conversation detected")
+          True
+        }
+        False -> {
+          // 3. Проверяем упоминание агента
+          let lower_text = string.lowercase(text)
+          let mentions_agent =
+            string.contains(lower_text, "@vibee_agent") ||
+            string.contains(lower_text, "вибе") ||
+            string.contains(lower_text, "vibee") ||
+            string.contains(lower_text, "бот") ||
+            string.contains(lower_text, "агент")
+
+          case mentions_agent {
+            True -> {
+              vibe_logger.info(log, "PROACTIVE: Agent mention detected")
+              True
+            }
+            False -> {
+              vibe_logger.debug(log, "No proactive trigger found")
+              False
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/// Get current Unix timestamp
+@external(erlang, "vibee_ffi", "get_unix_timestamp")
+fn get_current_timestamp() -> Int
+
 /// Обработка группового сообщения (проверка триггеров)
 fn handle_group_message(state: AgentState, chat_id: String, message_id: Int, text: String) -> AgentState {
+  let log = vibe_logger.new("group")
+    |> vibe_logger.with_session_id(state.config.session_id)
+    |> vibe_logger.with_data("chat_id", json.string(chat_id))
+
   case target_chats.should_process_chat(chat_id) {
     False -> {
-      io.println("[MSG] Skipping non-target group: " <> chat_id)
+      vibe_logger.debug(log, "Skipping non-target group")
       state
     }
     True -> {
       case should_reply(state, text) {
         False -> {
-          io.println("[MSG] No trigger in group: " <> string.slice(text, 0, 30))
+          vibe_logger.debug(log |> vibe_logger.with_data("text", json.string(string.slice(text, 0, 30))), "No trigger in group")
           AgentState(..state, total_messages: state.total_messages + 1)
         }
         True -> {
-          io.println("[TRIGGER] Found in group! Generating reply")
+          vibe_logger.info(log, "Trigger found in group! Generating reply")
           process_with_llm(state, chat_id, message_id, text)
         }
       }
@@ -420,28 +570,32 @@ fn handle_group_message(state: AgentState, chat_id: String, message_id: Int, tex
 
 /// Обработка в обычном режиме (без Digital Twin)
 fn handle_normal_mode(state: AgentState, chat_id: String, message_id: Int, text: String) -> AgentState {
+  let log = vibe_logger.new("normal")
+    |> vibe_logger.with_session_id(state.config.session_id)
+    |> vibe_logger.with_data("chat_id", json.string(chat_id))
+
   case target_chats.should_process_chat(chat_id) {
     False -> {
       case int.parse(chat_id) {
         Ok(n) if n > 0 -> {
-          io.println("[MSG] Personal chat, processing without triggers")
+          vibe_logger.debug(log, "Personal chat, processing without triggers")
           process_with_llm(state, chat_id, message_id, text)
         }
         _ -> {
-          io.println("[MSG] Skipping non-target chat: " <> chat_id)
+          vibe_logger.debug(log, "Skipping non-target chat")
           state
         }
       }
     }
     True -> {
-      io.println("[MSG] Processing target chat: " <> chat_id)
+      vibe_logger.debug(log, "Processing target chat")
       case should_reply(state, text) {
         False -> {
-          io.println("[MSG] No trigger found in: " <> string.slice(text, 0, 30))
+          vibe_logger.debug(log |> vibe_logger.with_data("text", json.string(string.slice(text, 0, 30))), "No trigger found")
           AgentState(..state, total_messages: state.total_messages + 1)
         }
         True -> {
-          io.println("[TRIGGER] Found! Generating reply for: " <> string.slice(text, 0, 30))
+          vibe_logger.info(log |> vibe_logger.with_data("text", json.string(string.slice(text, 0, 30))), "Trigger found! Generating reply")
           process_with_llm(state, chat_id, message_id, text)
         }
       }
@@ -450,58 +604,80 @@ fn handle_normal_mode(state: AgentState, chat_id: String, message_id: Int, text:
 }
 
 /// Digital Twin обработка - отвечает в стиле владельца аккаунта
-fn process_with_digital_twin(state: AgentState, chat_id: String, message_id: Int, text: String, from_name: String) -> AgentState {
-  io.println("[TWIN] Processing message from " <> from_name <> " in chat " <> chat_id)
-  
+fn process_with_digital_twin(state: AgentState, chat_id: String, message_id: Int, text: String, from_name: String, from_id: Int) -> AgentState {
+  let log = vibe_logger.new("twin")
+    |> vibe_logger.with_session_id(state.config.session_id)
+    |> vibe_logger.with_data("chat_id", json.string(chat_id))
+    |> vibe_logger.with_data("from", json.string(from_name))
+    |> vibe_logger.with_data("from_id", json.int(from_id))
+
+  vibe_logger.info(log, "Processing message")
+
+  // Initialize conversation tracker
+  conversation_tracker.init()
+
   // Проверяем триггерные слова для этого чата
   let has_trigger = trigger_chats.should_respond_to_trigger(chat_id, text)
-  
+
   case has_trigger {
     True -> {
-      io.println("[TRIGGER] Found trigger word in chat " <> chat_id)
-      
+      vibe_logger.info(log |> vibe_logger.with_data("trigger", json.bool(True)), "Trigger word found")
+
       // Генерируем ответ с учетом шаблона для триггерного чата
       case generate_trigger_reply(state.config, text, from_name, chat_id) {
         Ok(reply) -> {
-          io.println("[TWIN] Generated reply: " <> string.slice(reply, 0, 80) <> "...")
-          
+          vibe_logger.info(log |> vibe_logger.with_data("reply", json.string(string.slice(reply, 0, 80))), "Reply generated")
+
           // Отправляем ответ
           case send_message(state.config, chat_id, reply, Some(message_id)) {
             Ok(msg_id) -> {
-              io.println("[TWIN] Message sent OK, id=" <> int.to_string(msg_id))
-              
+              vibe_logger.info(log |> vibe_logger.with_data("msg_id", json.int(msg_id)), "Message sent")
+
               // Сохраняем ответ в БД
               let dialog_id = case int.parse(chat_id) {
                 Ok(id) -> id
                 Error(_) -> 0
               }
-              io.println("[DB] Saving reply to dialog=" <> int.to_string(dialog_id) <> " msg_id=" <> int.to_string(msg_id))
+              let db_log = vibe_logger.new("db")
+                |> vibe_logger.with_data("dialog_id", json.int(dialog_id))
+                |> vibe_logger.with_data("msg_id", json.int(msg_id))
               case postgres.insert_message_simple(dialog_id, msg_id, state.config.owner_id, "Я", reply) {
-                Ok(_) -> io.println("[DB] Reply saved OK")
-                Error(e) -> io.println("[DB] ERROR saving reply: " <> e)
+                Ok(_) -> vibe_logger.debug(db_log, "Reply saved")
+                Error(e) -> vibe_logger.error(db_log |> vibe_logger.with_data("error", json.string(e)), "Failed to save reply")
               }
-              
+
+              // Трекаем ответ агента для проактивного режима
+              let current_time = get_current_timestamp()
+              conversation_tracker.agent_responded(chat_id, from_id, msg_id, current_time)
+              vibe_logger.debug(log, "Conversation tracked for proactive mode")
+
               // Пересылаем диалог в целевую группу
-              case trigger_chats.get_forward_chat_id(chat_id) {
-                Ok(forward_chat_id) -> {
-                  io.println("[FORWARD] Forwarding dialog to " <> forward_chat_id)
-                  
+              case trigger_chats.find_chat_config(chat_id) {
+                Ok(chat_config) -> {
+                  let forward_chat_id = chat_config.forward_chat_id
+                  let chat_name = chat_config.chat_name
+                  let fwd_log = vibe_logger.new("forward")
+                    |> vibe_logger.with_data("target", json.string(forward_chat_id))
+                  vibe_logger.debug(fwd_log, "Forwarding dialog")
+
                   let original_msg = dialog_forwarder.MessageInfo(
                     chat_id: chat_id,
+                    chat_name: chat_name,
                     message_id: message_id,
                     from_name: from_name,
                     text: text,
                     timestamp: 0,
                   )
-                  
+
                   let agent_msg = dialog_forwarder.MessageInfo(
                     chat_id: chat_id,
+                    chat_name: chat_name,
                     message_id: msg_id,
-                    from_name: "Федор (Agent)",
+                    from_name: "Agent",
                     text: reply,
                     timestamp: 0,
                   )
-                  
+
                   case dialog_forwarder.forward_dialog(
                     state.config.session_id,
                     original_msg,
@@ -509,32 +685,28 @@ fn process_with_digital_twin(state: AgentState, chat_id: String, message_id: Int
                     forward_chat_id,
                   ) {
                     dialog_forwarder.ForwardSuccess(fwd_id) -> {
-                      io.println("[FORWARD] Dialog forwarded successfully, msg_id=" <> int.to_string(fwd_id))
-                      
-                      // TODO: Сохранить лид в базу данных
-                      // Нужен from_id из контекста
-                      io.println("[LEAD] 💾 Lead would be saved here")
+                      vibe_logger.info(fwd_log |> vibe_logger.with_data("fwd_msg_id", json.int(fwd_id)), "Dialog forwarded")
                     }
                     dialog_forwarder.ForwardError(reason) -> {
-                      io.println("[FORWARD] Failed to forward: " <> reason)
+                      vibe_logger.error(fwd_log |> vibe_logger.with_data("error", json.string(reason)), "Forward failed")
                     }
                   }
                 }
                 Error(_) -> {
-                  io.println("[FORWARD] No forward target configured for chat " <> chat_id)
+                  vibe_logger.debug(log, "No forward target configured")
                 }
               }
-              
+
               AgentState(..state, total_messages: state.total_messages + 1)
             }
             Error(send_err) -> {
-              io.println("[TWIN] SEND FAILED: " <> send_err)
+              vibe_logger.error(log |> vibe_logger.with_data("error", json.string(send_err)), "Send failed")
               AgentState(..state, total_messages: state.total_messages + 1)
             }
           }
         }
         Error(err) -> {
-          io.println("[TWIN] GENERATE FAILED: " <> err)
+          vibe_logger.error(log |> vibe_logger.with_data("error", json.string(err)), "Generate failed")
           state
         }
       }
@@ -543,29 +715,31 @@ fn process_with_digital_twin(state: AgentState, chat_id: String, message_id: Int
       // Нет триггера - обычная обработка Digital Twin
       case generate_digital_twin_reply(state.config, text, from_name, chat_id) {
         Ok(reply) -> {
-          io.println("[TWIN] Generated reply: " <> string.slice(reply, 0, 80) <> "...")
+          vibe_logger.info(log |> vibe_logger.with_data("reply", json.string(string.slice(reply, 0, 80))), "Reply generated")
           case send_message(state.config, chat_id, reply, Some(message_id)) {
             Ok(msg_id) -> {
-              io.println("[TWIN] Message sent OK, id=" <> int.to_string(msg_id))
+              vibe_logger.info(log |> vibe_logger.with_data("msg_id", json.int(msg_id)), "Message sent")
               let dialog_id = case int.parse(chat_id) {
                 Ok(id) -> id
                 Error(_) -> 0
               }
-              io.println("[DB] Saving reply to dialog=" <> int.to_string(dialog_id) <> " msg_id=" <> int.to_string(msg_id))
+              let db_log = vibe_logger.new("db")
+                |> vibe_logger.with_data("dialog_id", json.int(dialog_id))
+                |> vibe_logger.with_data("msg_id", json.int(msg_id))
               case postgres.insert_message_simple(dialog_id, msg_id, state.config.owner_id, "Я", reply) {
-                Ok(_) -> io.println("[DB] Reply saved OK")
-                Error(e) -> io.println("[DB] ERROR saving reply: " <> e)
+                Ok(_) -> vibe_logger.debug(db_log, "Reply saved")
+                Error(e) -> vibe_logger.error(db_log |> vibe_logger.with_data("error", json.string(e)), "Failed to save reply")
               }
               AgentState(..state, total_messages: state.total_messages + 1)
             }
             Error(send_err) -> {
-              io.println("[TWIN] SEND FAILED: " <> send_err)
+              vibe_logger.error(log |> vibe_logger.with_data("error", json.string(send_err)), "Send failed")
               AgentState(..state, total_messages: state.total_messages + 1)
             }
           }
         }
         Error(err) -> {
-          io.println("[TWIN] GENERATE FAILED: " <> err)
+          vibe_logger.error(log |> vibe_logger.with_data("error", json.string(err)), "Generate failed")
           state
         }
       }
@@ -641,16 +815,20 @@ fn handle_neurophoto_command(
       // Отправляем сообщение "генерируем..."
       let _ = send_message(state.config, chat_id, "Generiruyiu izobrazhenie s NEURO_SAGE...\n\nPrompt: " <> prompt, Some(message_id))
 
+      let neuro_log = vibe_logger.new("neurophoto")
+        |> vibe_logger.with_data("chat_id", json.string(chat_id))
+        |> vibe_logger.with_data("prompt", json.string(prompt))
+
       // Вызываем FAL.ai
       case generate_image_fal(prompt) {
         Ok(image_url) -> {
-          io.println("[NEUROPHOTO] Generated: " <> image_url)
+          vibe_logger.info(neuro_log |> vibe_logger.with_data("url", json.string(image_url)), "Image generated")
           // Отправляем изображение
           let _ = send_photo(state.config, chat_id, image_url, Some("Generated: " <> prompt))
           AgentState(..state, total_messages: state.total_messages + 1)
         }
         Error(err) -> {
-          io.println("[NEUROPHOTO ERROR] " <> err)
+          vibe_logger.error(neuro_log |> vibe_logger.with_data("error", json.string(err)), "Generation failed")
           let _ = send_message(state.config, chat_id, "Oshibka generacii: " <> err, Some(message_id))
           AgentState(..state, total_messages: state.total_messages + 1)
         }
@@ -691,13 +869,15 @@ fn generate_image_fal(prompt: String) -> Result(String, String) {
         ])),
         #("enable_safety_checker", json.bool(True)),
         #("output_format", json.string("jpeg")),
-        #("sync_mode", json.bool(True)),
+        // НЕ используем sync_mode - всегда async с polling для надёжности
         #("guidance_scale", json.float(3.5)),
         #("num_inference_steps", json.int(28)),
       ])
       |> json.to_string()
 
-      io.println("[FAL] Calling FAL.ai with prompt: " <> string.slice(full_prompt, 0, 50))
+      let fal_log = vibe_logger.new("fal")
+        |> vibe_logger.with_data("prompt", json.string(string.slice(full_prompt, 0, 50)))
+      vibe_logger.info(fal_log, "Calling FAL.ai")
 
       let req = request.new()
         |> request.set_scheme(http.Https)
@@ -710,7 +890,7 @@ fn generate_image_fal(prompt: String) -> Result(String, String) {
 
       case httpc.send(req) {
         Ok(response) -> {
-          io.println("[FAL] Response status: " <> int.to_string(response.status))
+          vibe_logger.debug(fal_log |> vibe_logger.with_data("status", json.int(response.status)), "Response received")
           case response.status {
             200 -> {
               // Парсим ответ и извлекаем URL изображения
@@ -726,31 +906,31 @@ fn generate_image_fal(prompt: String) -> Result(String, String) {
 }
 
 /// Извлекает URL изображения из ответа FAL.ai
-/// Если статус IN_QUEUE - запускает polling
+/// Async режим: сначала получаем request_id, потом делаем polling
 fn extract_image_url(body: String, api_key: String) -> Result(String, String) {
-  // Формат: {"images":[{"url":"https://..."}],...}
+  // Сначала проверяем - может изображение уже готово (sync успех)
   let pattern = "\"url\":\""
   case string.split(body, pattern) {
     [_, rest, ..] -> {
       case string.split(rest, "\"") {
         [url, ..] -> Ok(url)
-        _ -> Error("Could not parse image URL")
+        _ -> Error("Не удалось распарсить URL изображения")
       }
     }
     _ -> {
-      // Проверяем на IN_QUEUE статус
-      case string.contains(body, "IN_QUEUE") {
-        True -> {
-          // Извлекаем request_id для polling
-          case extract_request_id(body) {
-            Ok(request_id) -> {
-              io.println("[FAL] Request queued, starting polling for: " <> request_id)
-              poll_fal_result(request_id, api_key, 20)  // 20 попыток = ~60 сек
-            }
-            Error(err) -> Error("IN_QUEUE but no request_id: " <> err)
+      // Async режим: FAL.ai вернул request_id, нужен polling
+      case extract_request_id(body) {
+        Ok(request_id) -> {
+          vibe_logger.info(vibe_logger.new("fal") |> vibe_logger.with_data("request_id", json.string(request_id)), "Запрос в очереди, запускаю polling")
+          poll_fal_result(request_id, api_key, 30)  // 30 попыток = ~90 сек
+        }
+        Error(_) -> {
+          // Проверяем на ошибку
+          case string.contains(body, "error") || string.contains(body, "Error") {
+            True -> Error("Ошибка FAL.ai: " <> string.slice(body, 0, 200))
+            False -> Error("Неожиданный ответ FAL.ai: " <> string.slice(body, 0, 200))
           }
         }
-        False -> Error("No image URL in response: " <> string.slice(body, 0, 200))
       }
     }
   }
@@ -792,14 +972,18 @@ fn poll_fal_loop(request_id: String, api_key: String, max_attempts: Int, attempt
         |> request.set_header("Authorization", "Key " <> api_key)
         |> request.set_header("Content-Type", "application/json")
 
+      let poll_log = vibe_logger.new("fal_poll")
+        |> vibe_logger.with_data("request_id", json.string(request_id))
+        |> vibe_logger.with_data("attempt", json.int(attempt))
+
       case httpc.send(status_req) {
         Ok(status_response) -> {
-          io.println("[FAL] Poll #" <> int.to_string(attempt) <> " status: " <> string.slice(status_response.body, 0, 100))
+          vibe_logger.debug(poll_log |> vibe_logger.with_data("body", json.string(string.slice(status_response.body, 0, 100))), "Poll response")
 
           case string.contains(status_response.body, "COMPLETED") {
             True -> {
               // Получаем результат
-              io.println("[FAL] Request COMPLETED, fetching result...")
+              vibe_logger.info(poll_log, "Request COMPLETED, fetching result")
               fetch_fal_result(request_id, api_key)
             }
             False -> {
@@ -814,7 +998,7 @@ fn poll_fal_loop(request_id: String, api_key: String, max_attempts: Int, attempt
           }
         }
         Error(_) -> {
-          io.println("[FAL] Poll request failed, retrying...")
+          vibe_logger.warn(poll_log, "Poll request failed, retrying")
           poll_fal_loop(request_id, api_key, max_attempts, attempt + 1)
         }
       }
@@ -834,7 +1018,7 @@ fn fetch_fal_result(request_id: String, api_key: String) -> Result(String, Strin
 
   case httpc.send(result_req) {
     Ok(result_response) -> {
-      io.println("[FAL] Result response: " <> string.slice(result_response.body, 0, 200))
+      vibe_logger.debug(vibe_logger.new("fal") |> vibe_logger.with_data("body", json.string(string.slice(result_response.body, 0, 200))), "Result response")
       extract_image_url_simple(result_response.body)
     }
     Error(_) -> Error("Failed to fetch FAL.ai result")
@@ -866,14 +1050,18 @@ fn get_env(name: String) -> String
 
 /// Обработка через LLM
 fn process_with_llm(state: AgentState, chat_id: String, message_id: Int, text: String) -> AgentState {
+  let llm_log = vibe_logger.new("llm")
+    |> vibe_logger.with_session_id(state.config.session_id)
+    |> vibe_logger.with_data("chat_id", json.string(chat_id))
+
   case generate_reply(state.config, text) {
     Ok(reply) -> {
-      io.println("[LLM] Reply: " <> string.slice(reply, 0, 50) <> "...")
+      vibe_logger.info(llm_log |> vibe_logger.with_data("reply", json.string(string.slice(reply, 0, 50))), "Reply generated")
       let _ = send_message(state.config, chat_id, reply, Some(message_id))
       AgentState(..state, total_messages: state.total_messages + 1)
     }
     Error(err) -> {
-      io.println("[LLM ERROR] Failed to generate reply: " <> err)
+      vibe_logger.error(llm_log |> vibe_logger.with_data("error", json.string(err)), "Failed to generate reply")
       AgentState(..state, total_messages: state.total_messages + 1)
     }
   }
@@ -916,15 +1104,20 @@ fn generate_digital_twin_reply(
   from_name: String,
   chat_id: String,
 ) -> Result(String, String) {
-  io.println("[TWIN] Generating reply for: " <> from_name <> " in chat " <> chat_id)
+  let twin_log = vibe_logger.new("twin_reply")
+    |> vibe_logger.with_session_id(config.session_id)
+    |> vibe_logger.with_data("chat_id", json.string(chat_id))
+    |> vibe_logger.with_data("from", json.string(from_name))
+
+  vibe_logger.debug(twin_log, "Generating reply")
 
   // Получаем контекст из истории (RAG) - TODO: интегрировать с conversation_get_context
   let conversation_context = get_conversation_context(chat_id, user_message)
-  io.println("[TWIN] Context received, length: " <> int.to_string(string.length(conversation_context)))
+  vibe_logger.debug(twin_log |> vibe_logger.with_data("context_len", json.int(string.length(conversation_context))), "Context received")
 
   // Строим улучшенный промпт с примерами и контекстом
   let system_prompt = build_digital_twin_prompt(from_name, conversation_context)
-  io.println("[TWIN] Prompt built, length: " <> int.to_string(string.length(system_prompt)))
+  vibe_logger.debug(twin_log |> vibe_logger.with_data("prompt_len", json.int(string.length(system_prompt))), "Prompt built")
 
   let api_key = case config.llm_api_key {
     Some(key) -> key
@@ -957,27 +1150,29 @@ fn get_conversation_context(chat_id: String, _query: String) -> String {
          ORDER BY timestamp DESC
          LIMIT 50"
 
-      io.println("[RAG] Getting context for chat " <> chat_id <> " via psql...")
+      let rag_log = vibe_logger.new("rag")
+        |> vibe_logger.with_data("chat_id", json.string(chat_id))
+      vibe_logger.debug(rag_log, "Getting context via psql")
       // First check message count in DB
       let count_sql = "SELECT COUNT(*) FROM telegram_messages WHERE dialog_id = " <> chat_id
       case shellout.command(run: "psql", with: [url, "-t", "-c", count_sql], in: ".", opt: []) {
-        Ok(cnt) -> io.println("[RAG] Messages in DB for dialog " <> chat_id <> ": " <> string.trim(cnt))
-        Error(_) -> io.println("[RAG] Could not count messages")
+        Ok(cnt) -> vibe_logger.debug(rag_log |> vibe_logger.with_data("msg_count", json.string(string.trim(cnt))), "Messages in DB")
+        Error(_) -> vibe_logger.warn(rag_log, "Could not count messages")
       }
       case shellout.command(run: "psql", with: [url, "-t", "-c", sql], in: ".", opt: []) {
         Ok(result) -> {
           let ctx = format_context(result)
           let ctx_len = string.length(ctx)
-          io.println("[RAG] Got " <> int.to_string(ctx_len) <> " chars of context")
+          vibe_logger.debug(rag_log |> vibe_logger.with_data("ctx_len", json.int(ctx_len)), "Context retrieved")
           // Показываем превью контекста для отладки
           case ctx_len > 0 {
-            True -> io.println("[RAG] Preview: " <> string.slice(ctx, 0, 150) <> "...")
-            False -> io.println("[RAG] WARNING: Context is empty! No messages saved for this chat yet")
+            True -> vibe_logger.debug(rag_log |> vibe_logger.with_data("preview", json.string(string.slice(ctx, 0, 150))), "Context preview")
+            False -> vibe_logger.warn(rag_log, "Context is empty! No messages saved for this chat yet")
           }
           ctx
         }
         Error(#(code, err)) -> {
-          io.println("[RAG] ERROR psql failed! code=" <> int.to_string(code) <> " err=" <> err)
+          vibe_logger.error(rag_log |> vibe_logger.with_data("code", json.int(code)) |> vibe_logger.with_data("error", json.string(err)), "psql failed")
           ""
         }
       }
@@ -1076,7 +1271,9 @@ fn call_openrouter_with_system(
   ])
   |> json.to_string()
 
-  io.println("[DIGITAL_TWIN] Calling OpenRouter with model: " <> model)
+  let openrouter_log = vibe_logger.new("openrouter")
+    |> vibe_logger.with_data("model", json.string(model))
+  vibe_logger.info(openrouter_log, "Calling OpenRouter")
 
   let req = request.new()
     |> request.set_scheme(http.Https)
@@ -1091,25 +1288,25 @@ fn call_openrouter_with_system(
 
   case httpc.send(req) {
     Ok(response) -> {
-      io.println("[DIGITAL_TWIN] Response status: " <> int.to_string(response.status))
+      vibe_logger.debug(openrouter_log |> vibe_logger.with_data("status", json.int(response.status)), "Response received")
       case response.status {
         200 -> {
           case extract_content_from_response(response.body) {
             Ok(content) -> Ok(content)
             Error(err) -> {
-              io.println("[DIGITAL_TWIN ERROR] Parse error: " <> err)
+              vibe_logger.error(openrouter_log |> vibe_logger.with_data("error", json.string(err)), "Parse error")
               Error("Parse error: " <> err)
             }
           }
         }
         status -> {
-          io.println("[DIGITAL_TWIN ERROR] HTTP " <> int.to_string(status))
+          vibe_logger.error(openrouter_log |> vibe_logger.with_data("status", json.int(status)), "HTTP error")
           Error("API error: HTTP " <> int.to_string(status))
         }
       }
     }
     Error(_) -> {
-      io.println("[DIGITAL_TWIN ERROR] HTTP request failed")
+      vibe_logger.error(openrouter_log, "HTTP request failed")
       Error("HTTP request failed")
     }
   }
@@ -1281,7 +1478,11 @@ pub fn send_message(
   // Parse bridge URL dynamically
   let #(scheme, host, port) = parse_bridge_url(config.bridge_url)
 
-  io.println("[SEND] Sending message to chat " <> chat_id <> " via " <> host <> ":" <> int.to_string(port))
+  let send_log = vibe_logger.new("send")
+    |> vibe_logger.with_session_id(config.session_id)
+    |> vibe_logger.with_data("chat_id", json.string(chat_id))
+    |> vibe_logger.with_data("host", json.string(host))
+  vibe_logger.debug(send_log, "Sending message")
 
   // Get bridge API key for authorization
   let api_key = telegram_config.bridge_api_key()
@@ -1299,21 +1500,21 @@ pub fn send_message(
 
   case httpc.send(req) {
     Ok(response) -> {
-      io.println("[SEND] Response status: " <> int.to_string(response.status))
+      vibe_logger.debug(send_log |> vibe_logger.with_data("status", json.int(response.status)), "Response received")
       case response.status {
         200 -> {
-          io.println("[SEND] Message sent successfully!")
+          vibe_logger.info(send_log, "Message sent successfully")
           Ok(0)
         }
         status -> {
           let err = "HTTP " <> int.to_string(status) <> ": " <> response.body
-          io.println("[SEND ERROR] " <> err)
+          vibe_logger.error(send_log |> vibe_logger.with_data("error", json.string(err)), "Send failed")
           Error(err)
         }
       }
     }
     Error(_) -> {
-      io.println("[SEND ERROR] HTTP request failed")
+      vibe_logger.error(send_log, "HTTP request failed")
       Error("Network error")
     }
   }
@@ -1343,7 +1544,11 @@ pub fn send_photo(
 
   let #(scheme, host, port) = parse_bridge_url(config.bridge_url)
 
-  io.println("[PHOTO] Sending photo to chat " <> chat_id <> " via " <> host)
+  let photo_log = vibe_logger.new("photo")
+    |> vibe_logger.with_session_id(config.session_id)
+    |> vibe_logger.with_data("chat_id", json.string(chat_id))
+    |> vibe_logger.with_data("host", json.string(host))
+  vibe_logger.debug(photo_log, "Sending photo")
 
   // Get bridge API key for authorization
   let api_key = telegram_config.bridge_api_key()
@@ -1361,21 +1566,21 @@ pub fn send_photo(
 
   case httpc.send(req) {
     Ok(response) -> {
-      io.println("[PHOTO] Response status: " <> int.to_string(response.status))
+      vibe_logger.debug(photo_log |> vibe_logger.with_data("status", json.int(response.status)), "Response received")
       case response.status {
         200 -> {
-          io.println("[PHOTO] Photo sent successfully!")
+          vibe_logger.info(photo_log, "Photo sent successfully")
           Ok(0)
         }
         status -> {
           let err = "HTTP " <> int.to_string(status) <> ": " <> response.body
-          io.println("[PHOTO ERROR] " <> err)
+          vibe_logger.error(photo_log |> vibe_logger.with_data("error", json.string(err)), "Send failed")
           Error(err)
         }
       }
     }
     Error(_) -> {
-      io.println("[PHOTO ERROR] HTTP request failed")
+      vibe_logger.error(photo_log, "HTTP request failed")
       Error("Network error")
     }
   }
@@ -1460,14 +1665,17 @@ fn generate_trigger_reply(
         None -> ""
       }
       
+      let trigger_log = vibe_logger.new("trigger_reply")
+        |> vibe_logger.with_data("chat_id", json.string(chat_id))
+
       // Проверяем API key
       case api_key {
         "" -> {
-          io.println("[TRIGGER_REPLY] ❌ No API key, using template")
+          vibe_logger.warn(trigger_log, "No API key, using template")
           Ok(chat_config.response_template)
         }
         key -> {
-          io.println("[TRIGGER_REPLY] 🤖 Calling AI to generate variation...")
+          vibe_logger.info(trigger_log, "Calling AI to generate variation")
           // Вызываем OpenRouter для генерации
           case call_openrouter_with_system(
             key,
@@ -1478,12 +1686,12 @@ fn generate_trigger_reply(
             Ok(reply) -> {
               // Очищаем ответ от @ и markdown
               let cleaned_reply = clean_trigger_response(reply)
-              io.println("[TRIGGER_REPLY] ✅ Generated variation: " <> string.slice(cleaned_reply, 0, 60) <> "...")
+              vibe_logger.info(trigger_log |> vibe_logger.with_data("reply", json.string(string.slice(cleaned_reply, 0, 60))), "Variation generated")
               Ok(cleaned_reply)
             }
             Error(err) -> {
               // Fallback на шаблон если AI не сработал
-              io.println("[TRIGGER_REPLY] ❌ AI failed, using template: " <> err)
+              vibe_logger.error(trigger_log |> vibe_logger.with_data("error", json.string(err)), "AI failed, using template")
               Ok(chat_config.response_template)
             }
           }

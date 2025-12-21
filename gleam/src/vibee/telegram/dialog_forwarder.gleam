@@ -19,6 +19,7 @@ import vibee/http_retry
 pub type MessageInfo {
   MessageInfo(
     chat_id: String,
+    chat_name: String,
     message_id: Int,
     from_name: String,
     text: String,
@@ -39,12 +40,14 @@ pub fn forward_dialog(
   agent_reply: MessageInfo,
   target_chat_id: String,
 ) -> ForwardResult {
-  // Для supergroup нужен префикс -100
-  let full_chat_id = case string.starts_with(target_chat_id, "-") {
-    True -> target_chat_id  // Уже с минусом
-    False -> "-100" <> target_chat_id  // Добавляем префикс для supergroup
-  }
-  
+  io.println("[FORWARD] ═══════════════════════════════════════")
+  io.println("[FORWARD] 🎯 INPUT target_chat_id: " <> target_chat_id)
+  io.println("[FORWARD] 🔑 session_id: " <> session_id)
+
+  // Передаём chat_id как есть - без модификации!
+  // Go Bridge сам разберется с форматом
+  let full_chat_id = target_chat_id
+
   io.println("[FORWARD] 📤 Forwarding dialog to chat " <> full_chat_id)
   io.println("[FORWARD] Original: " <> original_message.from_name <> ": " <> string.slice(original_message.text, 0, 50))
   io.println("[FORWARD] Reply: " <> string.slice(agent_reply.text, 0, 50))
@@ -70,12 +73,35 @@ pub fn forward_dialog(
 
 /// Форматирует диалог для пересылки
 fn format_dialog(original: MessageInfo, reply: MessageInfo) -> String {
-  "🔥 НОВЫЙ ЛИД\n\n"
-  <> "👤 Клиент: " <> original.from_name <> "\n"
-  <> "💬 Вопрос: " <> original.text <> "\n\n"
-  <> "✅ Ответ агента:\n"
-  <> reply.text <> "\n\n"
-  <> "📱 Действие: Клиент приглашён в личку"
+  // Генерируем ссылку на сообщение (t.me/c/{channel_id}/{message_id})
+  let message_link = make_message_link(original.chat_id, original.message_id)
+
+  "🔔 НОВЫЙ ЛИД\n"
+  <> "━━━━━━━━━━━━━━━\n\n"
+  <> "📍 " <> original.chat_name <> "\n"
+  <> "👤 " <> original.from_name <> "\n\n"
+  <> "💬 Вопрос:\n" <> original.text <> "\n\n"
+  <> "🤖 Ответ:\n" <> reply.text <> "\n\n"
+  <> "━━━━━━━━━━━━━━━\n"
+  <> message_link
+}
+
+/// Создаёт ссылку на сообщение в Telegram
+/// Формат t.me/c/ работает ТОЛЬКО для Supergroups/Channels (с -100 prefix)
+/// Для Basic Groups (без -100) ссылка технически невозможна
+/// Документация: https://core.telegram.org/api/bots/ids
+fn make_message_link(chat_id: String, message_id: Int) -> String {
+  case string.starts_with(chat_id, "-100") {
+    True -> {
+      // Supergroup/Channel: кликабельная ссылка
+      let channel_id = string.drop_start(chat_id, 4)
+      "🔗 [Перейти к сообщению](https://t.me/c/" <> channel_id <> "/" <> int.to_string(message_id) <> ")"
+    }
+    False -> {
+      // Basic Group: ссылка невозможна
+      "📌 Сообщение #" <> int.to_string(message_id)
+    }
+  }
 }
 
 /// Отправляет сообщение через telegram-bridge
@@ -85,18 +111,38 @@ fn send_message(
   text: String,
 ) -> Result(Int, String) {
   let bridge_url = telegram_config.bridge_url()
-  
+
+  io.println("[FORWARD] send_message called")
+  io.println("[FORWARD] chat_id (string): " <> chat_id)
+  io.println("[FORWARD] session_id: " <> session_id)
+  io.println("[FORWARD] bridge_url: " <> bridge_url)
+
   // Парсим URL в компоненты
   let #(scheme, host, port) = parse_bridge_url(bridge_url)
-  
-  // Формируем JSON body
+
+  // Парсим chat_id как int - Go Bridge ожидает int!
+  let chat_id_int = case int.parse(chat_id) {
+    Ok(id) -> id
+    Error(_) -> {
+      io.println("[FORWARD] ❌ Failed to parse chat_id as int: " <> chat_id)
+      0
+    }
+  }
+  io.println("[FORWARD] chat_id_int: " <> int.to_string(chat_id_int))
+
+  // Формируем JSON body с INT (не STRING!)
   let body_json =
     json.object([
-      #("chat_id", json.string(chat_id)),
+      #("chat_id", json.int(chat_id_int)),  // ИСПРАВЛЕНО: int вместо string!
       #("text", json.string(text)),
     ])
     |> json.to_string
+
+  io.println("[FORWARD] request body: " <> body_json)
   
+  // Получаем API ключ для авторизации
+  let api_key = telegram_config.bridge_api_key()
+
   // Создаем запрос с правильными scheme, host, port
   let req =
     request.new()
@@ -106,6 +152,7 @@ fn send_message(
     |> request.set_port(port)
     |> request.set_path("/api/v1/send")
     |> request.set_header("content-type", "application/json")
+    |> request.set_header("Authorization", "Bearer " <> api_key)
     |> request.set_header("x-session-id", session_id)
     |> request.set_body(body_json)
   

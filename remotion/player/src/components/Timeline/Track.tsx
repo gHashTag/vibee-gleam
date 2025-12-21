@@ -11,6 +11,7 @@ interface TrackProps {
 export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
   const selectedItemIds = useEditorStore((s) => s.selectedItemIds);
   const addItem = useEditorStore((s) => s.addItem);
+  const updateItem = useEditorStore((s) => s.updateItem);
   const syncBackgroundVideosFromTimeline = useEditorStore((s) => s.syncBackgroundVideosFromTimeline);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -54,7 +55,22 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
         return;
       }
 
-      // Create item based on asset type
+      // Check if dropping on an existing item - REPLACE instead of ADD
+      const existingItem = track.items.find(
+        (item) =>
+          dropFrame >= item.startFrame &&
+          dropFrame < item.startFrame + item.durationInFrames
+      );
+
+      if (existingItem) {
+        // REPLACE: Update existing item's asset
+        // updateItem() already auto-syncs backgroundVideos when assetId changes
+        console.log(`Replacing ${existingItem.id} with ${asset.name}`);
+        updateItem(existingItem.id, { assetId: asset.id });
+        return;
+      }
+
+      // ADD NEW: Create item based on asset type
       const itemType = asset.type === 'image' ? 'image' : track.type;
 
       addItem(track.id, {
@@ -87,7 +103,7 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
     } catch (error) {
       console.error('Drop error:', error);
     }
-  }, [track, pxPerFrame, addItem, syncBackgroundVideosFromTimeline]);
+  }, [track, pxPerFrame, addItem, updateItem, syncBackgroundVideosFromTimeline]);
 
   return (
     <div
@@ -115,14 +131,15 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
   if (prevProps.track.locked !== nextProps.track.locked) return false;
   if (prevProps.track.items.length !== nextProps.track.items.length) return false;
 
-  // Check if items changed (positions/durations)
+  // Check if items changed (positions/durations/assets)
   for (let i = 0; i < prevProps.track.items.length; i++) {
     const prev = prevProps.track.items[i];
     const next = nextProps.track.items[i];
     if (
       prev.id !== next.id ||
       prev.startFrame !== next.startFrame ||
-      prev.durationInFrames !== next.durationInFrames
+      prev.durationInFrames !== next.durationInFrames ||
+      prev.assetId !== next.assetId
     ) {
       return false;
     }

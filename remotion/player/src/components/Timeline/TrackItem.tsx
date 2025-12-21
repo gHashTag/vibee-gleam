@@ -20,6 +20,7 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
 
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState<'left' | 'right' | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [dragStartX, setDragStartX] = useState(0);
   const [initialFrame, setInitialFrame] = useState(0);
   const [initialDuration, setInitialDuration] = useState(0);
@@ -127,9 +128,26 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
 
   const colorTag = item.colorTag || 'none';
 
+  // Drag over handlers for visual feedback when dropping to replace
+  // DO NOT use stopPropagation - let parent Track receive all drag events
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    // DO NOT call stopPropagation - let parent Track handle the drop
+    // Parent Track.handleDrop detects if drop is on existing item and replaces
+    setIsDragOver(false);
+  }, []);
+
   return (
     <div
-      className={`track-item ${isSelected ? 'selected' : ''} ${isLocked ? 'locked' : ''}`}
+      className={`track-item ${isSelected ? 'selected' : ''} ${isLocked ? 'locked' : ''} ${isDragOver ? 'drag-replace' : ''}`}
       data-type={item.type}
       data-color={colorTag}
       style={{
@@ -139,6 +157,9 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
       onClick={handleClick}
       onMouseDown={(e) => handleMouseDown(e, 'drag')}
       onContextMenu={handleContextMenu}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       {/* Color tag stripe */}
       {colorTag !== 'none' && <div className="track-item-color-tag" />}

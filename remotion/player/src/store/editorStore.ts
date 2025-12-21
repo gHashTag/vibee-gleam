@@ -12,8 +12,36 @@ import type {
   LipSyncMainProps,
   Marker,
   MarkerColor,
+  Segment,
 } from './types';
 import { useHistoryStore, extractHistorySnapshot } from './history';
+
+// Helper to get video duration from URL
+async function getVideoDuration(videoUrl: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+
+    video.onloadedmetadata = () => {
+      resolve(video.duration);
+      video.remove();
+    };
+
+    video.onerror = () => {
+      reject(new Error(`Failed to load video: ${videoUrl}`));
+      video.remove();
+    };
+
+    // Handle relative URLs
+    if (videoUrl.startsWith('/')) {
+      // Use render server URL for local files
+      const RENDER_SERVER_URL = import.meta.env.VITE_RENDER_SERVER_URL || 'https://vibee-remotion.fly.dev';
+      video.src = `${RENDER_SERVER_URL}${videoUrl}`;
+    } else {
+      video.src = videoUrl;
+    }
+  });
+}
 
 // ===============================
 // Default Values
@@ -25,7 +53,7 @@ const DEFAULT_PROJECT: Project = {
   fps: 30,
   width: 1080,
   height: 1920,
-  durationInFrames: 900, // 30 seconds at 30fps
+  durationInFrames: 825, // ~27.5 seconds at 30fps (matches lipsync.mp4)
 };
 
 // Helper to create initial tracks from template props
@@ -92,6 +120,7 @@ function createTracksFromTemplate(
         {
           id: 'item-music',
           trackId: 'track-audio',
+          assetId: 'asset-music-phonk',
           type: 'audio',
           startFrame: 0,
           durationInFrames: durationInFrames,
@@ -146,7 +175,7 @@ const DEFAULT_TRACKS: Track[] = createTracksFromTemplate(
   {
     lipSyncVideo: '/lipsync/lipsync.mp4',
     coverImage: '/covers/cover.jpeg',
-    backgroundMusic: '',
+    backgroundMusic: '/audio/music/phonk_01.mp3',
     backgroundVideos: [
       '/backgrounds/business/00.mp4',
       '/backgrounds/business/01.mp4',
@@ -154,7 +183,7 @@ const DEFAULT_TRACKS: Track[] = createTracksFromTemplate(
       '/backgrounds/business/03.mp4',
       '/backgrounds/business/04.mp4',
     ],
-    musicVolume: 0,
+    musicVolume: 0.8, // Background music - loud
     coverDuration: 0.5,
     vignetteStrength: 0.7,
     colorCorrection: 1.2,
@@ -163,14 +192,14 @@ const DEFAULT_TRACKS: Track[] = createTracksFromTemplate(
     circleLeftPx: 40,
   },
   30, // fps
-  900 // durationInFrames (30 sec)
+  825 // durationInFrames (~27.5 sec, matches lipsync.mp4)
 );
 
 // Default template props for LipSyncMain
 const DEFAULT_TEMPLATE_PROPS: LipSyncMainProps = {
   lipSyncVideo: '/lipsync/lipsync.mp4',
   coverImage: '/covers/cover.jpeg',
-  backgroundMusic: '',
+  backgroundMusic: '/audio/music/phonk_01.mp3',
   backgroundVideos: [
     '/backgrounds/business/00.mp4',
     '/backgrounds/business/01.mp4',
@@ -178,7 +207,7 @@ const DEFAULT_TEMPLATE_PROPS: LipSyncMainProps = {
     '/backgrounds/business/03.mp4',
     '/backgrounds/business/04.mp4',
   ],
-  musicVolume: 0,
+  musicVolume: 0.15, // Background music - subtle
   coverDuration: 0.5,
   vignetteStrength: 0.7,
   colorCorrection: 1.2,
@@ -252,6 +281,34 @@ const DEFAULT_ASSETS: Asset[] = [
     url: '/backgrounds/business/04.mp4',
     duration: 300,
   },
+  {
+    id: 'asset-music-phonk',
+    type: 'audio',
+    name: 'Phonk Music',
+    url: '/audio/music/phonk_01.mp3',
+    duration: 1800, // ~60 seconds at 30fps
+  },
+  {
+    id: 'asset-music-business',
+    type: 'audio',
+    name: 'Business Music',
+    url: '/music/business.mp3',
+    duration: 1800,
+  },
+  {
+    id: 'asset-music-corporate',
+    type: 'audio',
+    name: 'Corporate Music',
+    url: '/music/corporate.mp3',
+    duration: 1800,
+  },
+  {
+    id: 'asset-music-upbeat',
+    type: 'audio',
+    name: 'Upbeat Music',
+    url: '/music/upbeat.mp3',
+    duration: 1800,
+  },
 ];
 
 // ===============================
@@ -267,6 +324,7 @@ export const useEditorStore = create<EditorStore>()(
       tracks: DEFAULT_TRACKS,
       currentFrame: 0,
       isPlaying: false,
+      isMuted: false,
       playbackRate: 1,
       timelineZoom: 1,
       selectedItemIds: [],
@@ -334,6 +392,11 @@ export const useEditorStore = create<EditorStore>()(
           state.isPlaying = playing;
         }),
 
+      setIsMuted: (muted) =>
+        set((state) => {
+          state.isMuted = muted;
+        }),
+
       setPlaybackRate: (rate) =>
         set((state) => {
           state.playbackRate = Math.max(0.25, Math.min(rate, 2));
@@ -348,6 +411,48 @@ export const useEditorStore = create<EditorStore>()(
         set((state) => {
           state.isPlaying = false;
         }),
+
+      // Player ref for direct control (needed for autoplay policy)
+      playerRef: null as any,
+      setPlayerRef: (ref: any) => {
+        console.log('[setPlayerRef] Setting playerRef:', ref);
+        set((state) => {
+          state.playerRef = ref;
+        });
+      },
+
+      // Direct play/pause that calls playerRef (for user gesture context)
+      // CRITICAL: event parameter is required for browser autoplay policy!
+      // See: https://www.remotion.dev/docs/player/autoplay
+      playDirect: (event?: React.MouseEvent) => {
+        const state = get();
+        console.log('[playDirect] event:', event?.type);
+        if (state.playerRef?.current) {
+          const player = state.playerRef.current;
+          // Unmute before playing
+          if (player.unmute) {
+            player.unmute();
+          }
+          if (player.setVolume) {
+            player.setVolume(1);
+          }
+          // Pass event to player.play() - this is REQUIRED for audio to work!
+          console.log('[playDirect] Calling player.play(event)');
+          player.play(event);
+        } else {
+          console.warn('[playDirect] playerRef not available');
+        }
+        set((s) => { s.isPlaying = true; });
+      },
+
+      pauseDirect: () => {
+        const state = get();
+        if (state.playerRef?.current) {
+          console.log('[pauseDirect] Calling player.pause()');
+          state.playerRef.current.pause();
+        }
+        set((s) => { s.isPlaying = false; });
+      },
 
       seekTo: (frame) =>
         set((state) => {
@@ -433,12 +538,31 @@ export const useEditorStore = create<EditorStore>()(
             const item = track.items.find((i) => i.id === itemId);
             if (item) {
               Object.assign(item, updates);
+
+              // Auto-sync backgroundVideos if video track item was updated (e.g., assetId changed)
+              if (track.type === 'video' && updates.assetId) {
+                const videoTrack = state.tracks.find((t) => t.type === 'video');
+                if (videoTrack) {
+                  const sortedItems = [...videoTrack.items].sort(
+                    (a, b) => a.startFrame - b.startFrame
+                  );
+                  state.templateProps.backgroundVideos = sortedItems
+                    .map((i) => {
+                      if (i.assetId) {
+                        const asset = state.assets.find((a) => a.id === i.assetId);
+                        return asset?.url;
+                      }
+                      return undefined;
+                    })
+                    .filter((url): url is string => !!url);
+                }
+              }
               break;
             }
           }
         }),
 
-      deleteItems: (itemIds) =>
+      deleteItems: (itemIds) => {
         set((state) => {
           for (const track of state.tracks) {
             track.items = track.items.filter((i) => !itemIds.includes(i.id));
@@ -463,7 +587,10 @@ export const useEditorStore = create<EditorStore>()(
               })
               .filter((url): url is string => !!url);
           }
-        }),
+        });
+        // Clean up any orphaned assets after deletion
+        get().cleanupOrphanedAssets();
+      },
 
       rippleDelete: (itemIds) =>
         set((state) => {
@@ -844,6 +971,38 @@ export const useEditorStore = create<EditorStore>()(
           state.assets = state.assets.filter((a) => a.id !== assetId);
         }),
 
+      // Clean up orphaned assets (assets not referenced by any track item)
+      cleanupOrphanedAssets: () =>
+        set((state) => {
+          // Collect all used assetIds from track items
+          const usedAssetIds = new Set<string>();
+          for (const track of state.tracks) {
+            for (const item of track.items) {
+              if (item.assetId) usedAssetIds.add(item.assetId);
+            }
+          }
+
+          // Default assets that should never be removed
+          const defaultAssetIds = [
+            'asset-lipsync',
+            'asset-cover',
+            'asset-music-phonk',
+            'asset-music-business',
+            'asset-music-corporate',
+            'asset-music-upbeat',
+          ];
+
+          // Filter: keep used + defaults
+          const before = state.assets.length;
+          state.assets = state.assets.filter(
+            (a) => usedAssetIds.has(a.id) || defaultAssetIds.includes(a.id)
+          );
+          const after = state.assets.length;
+          if (before !== after) {
+            console.log(`[cleanupOrphanedAssets] Removed ${before - after} orphaned assets`);
+          }
+        }),
+
       // ========== Timeline ==========
       setTimelineZoom: (zoom) =>
         set((state) => {
@@ -983,11 +1142,61 @@ export const useEditorStore = create<EditorStore>()(
         return items;
       },
 
+      getSegmentsFromTimeline: (): Segment[] => {
+        const state = get();
+        const videoTrack = state.tracks.find((t) => t.type === 'video');
+        if (!videoTrack) return [];
+
+        const sortedItems = [...videoTrack.items].sort(
+          (a, b) => a.startFrame - b.startFrame
+        );
+        const segments: Segment[] = [];
+        let lastEndFrame = 0;
+
+        sortedItems.forEach((item) => {
+          // Add fullscreen gap if there's a gap before this item
+          if (item.startFrame > lastEndFrame) {
+            segments.push({
+              type: 'fullscreen',
+              startFrame: lastEndFrame,
+              durationFrames: item.startFrame - lastEndFrame,
+            });
+          }
+
+          // Add split segment for B-roll
+          const asset = state.assets.find((a) => a.id === item.assetId);
+          segments.push({
+            type: 'split',
+            startFrame: item.startFrame,
+            durationFrames: item.durationInFrames,
+            bRollUrl: asset?.url,
+            bRollType: asset?.type === 'image' ? 'image' : 'video',
+          });
+
+          lastEndFrame = item.startFrame + item.durationInFrames;
+        });
+
+        // Add final fullscreen segment if needed
+        if (lastEndFrame < state.project.durationInFrames) {
+          segments.push({
+            type: 'fullscreen',
+            startFrame: lastEndFrame,
+            durationFrames: state.project.durationInFrames - lastEndFrame,
+          });
+        }
+
+        return segments;
+      },
+
       // ========== Template Props ==========
-      updateTemplateProp: (key, value) =>
+      updateTemplateProp: (key, value) => {
+        console.log(`[Store] updateTemplateProp called: ${String(key)} =`, value);
         set((state) => {
+          console.log(`[Store] Setting templateProps.${String(key)}`);
           (state.templateProps as any)[key] = value;
-        }),
+        });
+        console.log(`[Store] updateTemplateProp done: ${String(key)}`);
+      },
 
       syncBackgroundVideosFromTimeline: () =>
         set((state) => {
@@ -1012,18 +1221,196 @@ export const useEditorStore = create<EditorStore>()(
 
           state.templateProps.backgroundVideos = backgroundVideos;
         }),
+
+      // Reset to default template state
+      resetToDefaults: () => {
+        set((state) => {
+          state.tracks = createTracksFromTemplate(
+            DEFAULT_TEMPLATE_PROPS,
+            DEFAULT_PROJECT.fps,
+            DEFAULT_PROJECT.durationInFrames
+          );
+          state.assets = [...DEFAULT_ASSETS];
+          state.templateProps = { ...DEFAULT_TEMPLATE_PROPS };
+          state.project = { ...DEFAULT_PROJECT, id: state.project.id, name: state.project.name };
+          state.selectedItemIds = [];
+          state.clipboard = [];
+          state.currentFrame = 0;
+          state.isPlaying = false;
+          state.markers = [];
+          state.inPoint = null;
+          state.outPoint = null;
+        });
+        // Reload captions and duration from server after reset
+        get().loadCaptions();
+        get().updateDurationFromLipSync();
+      },
+
+      // Auto-detect duration from lipSync video
+      updateDurationFromLipSync: async () => {
+        const state = get();
+        const videoUrl = state.templateProps.lipSyncVideo;
+
+        if (!videoUrl) return;
+
+        try {
+          console.log('[Duration] Getting duration for:', videoUrl);
+          const duration = await getVideoDuration(videoUrl);
+          const fps = state.project.fps;
+          const durationInFrames = Math.ceil(duration * fps);
+
+          console.log(`[Duration] Video: ${duration.toFixed(2)}s = ${durationInFrames} frames`);
+
+          set((state) => {
+            state.project.durationInFrames = durationInFrames;
+
+            // Also update Avatar track duration
+            const avatarTrack = state.tracks.find((t) => t.type === 'avatar');
+            if (avatarTrack && avatarTrack.items.length > 0) {
+              avatarTrack.items[0].durationInFrames = durationInFrames;
+            }
+          });
+        } catch (error) {
+          console.error('[Duration] Failed to get video duration:', error);
+        }
+      },
+
+      // Load captions from captions.json next to lipsync video
+      loadCaptions: async () => {
+        console.log('[loadCaptions] ========== START ==========');
+        const state = get();
+        const videoUrl = state.templateProps.lipSyncVideo;
+        console.log('[loadCaptions] Current lipSyncVideo:', videoUrl);
+        console.log('[loadCaptions] Current captions count:', state.templateProps.captions?.length || 0);
+
+        if (!videoUrl) {
+          console.log('[loadCaptions] No videoUrl, returning early');
+          return;
+        }
+
+        // Build captions URL (same directory as lipsync video)
+        const videoDir = videoUrl.substring(0, videoUrl.lastIndexOf('/'));
+        const captionsUrl = `${videoDir}/captions.json`;
+        console.log('[loadCaptions] videoDir:', videoDir);
+        console.log('[loadCaptions] captionsUrl:', captionsUrl);
+
+        const RENDER_SERVER_URL = import.meta.env.VITE_RENDER_SERVER_URL || 'https://vibee-remotion.fly.dev';
+        const fullUrl = captionsUrl.startsWith('/')
+          ? `${RENDER_SERVER_URL}${captionsUrl}`
+          : captionsUrl;
+        console.log('[loadCaptions] RENDER_SERVER_URL:', RENDER_SERVER_URL);
+        console.log('[loadCaptions] fullUrl:', fullUrl);
+
+        try {
+          // Cache-busting: add timestamp to force fresh fetch
+          const urlWithCacheBust = `${fullUrl}?_=${Date.now()}`;
+          console.log('[loadCaptions] Fetching with cache-bust:', urlWithCacheBust);
+          const response = await fetch(urlWithCacheBust);
+
+          if (!response.ok) {
+            console.warn('[Captions] No captions.json found at:', fullUrl);
+            console.warn('[Captions] Clearing old captions - user needs to transcribe');
+            // Clear old captions when new video doesn't have captions.json
+            set((state) => {
+              state.templateProps.captions = [];
+            });
+            return;
+          }
+
+          const captions = await response.json();
+
+          if (Array.isArray(captions) && captions.length > 0) {
+            console.log(`[loadCaptions] Loaded ${captions.length} captions, first:`, captions[0]);
+            set((state) => {
+              state.templateProps.captions = captions;
+            });
+            console.log('[loadCaptions] ========== SUCCESS ==========');
+          } else {
+            console.warn('[loadCaptions] Empty or invalid captions, clearing');
+            set((state) => {
+              state.templateProps.captions = [];
+            });
+            console.log('[loadCaptions] ========== CLEARED (empty) ==========');
+          }
+        } catch (error) {
+          console.error('[loadCaptions] Failed to load captions:', error);
+          // Clear old captions on error
+          set((state) => {
+            state.templateProps.captions = [];
+          });
+          console.log('[loadCaptions] ========== ERROR ==========');
+        }
+      },
     })),
     {
-      name: 'vibee-editor-storage-v4', // Bump version for auto-populated tracks
+      name: 'vibee-editor-storage-v12', // v12: louder audio (0.8 instead of 0.15)
       partialize: (state) => ({
         project: state.project,
         tracks: state.tracks,
         assets: state.assets,
-        templateProps: state.templateProps,
+        templateProps: {
+          ...state.templateProps,
+          captions: [], // Don't persist captions - always load fresh from server
+        },
         timelineZoom: state.timelineZoom,
         canvasZoom: state.canvasZoom,
         playbackRate: state.playbackRate,
       }),
+      // Migration: ensure Audio track exists
+      merge: (persistedState: any, currentState) => {
+        console.log('[MERGE] persistedState tracks:', persistedState?.tracks?.length, persistedState?.tracks?.map((t: any) => t.type));
+        console.log('[MERGE] currentState tracks:', currentState?.tracks?.length, currentState?.tracks?.map((t: any) => t.type));
+        const state = { ...currentState, ...persistedState };
+        console.log('[MERGE] merged tracks:', state.tracks?.length, state.tracks?.map((t: any) => t.type));
+        // Add Audio track if missing
+        if (state.tracks && !state.tracks.find((t: Track) => t.type === 'audio')) {
+          console.log('[MERGE] Adding missing Audio track!');
+          state.tracks = [
+            ...state.tracks,
+            {
+              id: 'track-audio',
+              type: 'audio',
+              name: 'Audio',
+              items: [{
+                id: 'item-music',
+                trackId: 'track-audio',
+                assetId: 'asset-music-phonk',
+                type: 'audio',
+                startFrame: 0,
+                durationInFrames: state.project?.durationInFrames || 825,
+                x: 0, y: 0, width: 0, height: 0,
+                rotation: 0, opacity: 1,
+                volume: 0.8,
+              }],
+              locked: false,
+              visible: true,
+            },
+          ];
+        }
+
+        // Validate assetId references - remove items with non-existent asset
+        if (state.tracks && state.assets) {
+          const assetIds = new Set(state.assets.map((a: Asset) => a.id));
+          let removedCount = 0;
+          state.tracks = state.tracks.map((track: Track) => ({
+            ...track,
+            items: track.items.filter((item: TrackItem) => {
+              // Keep items without assetId (text items, etc.)
+              if (!item.assetId) return true;
+              // Keep items with valid assetId
+              if (assetIds.has(item.assetId)) return true;
+              // Remove items with invalid assetId
+              removedCount++;
+              return false;
+            }),
+          }));
+          if (removedCount > 0) {
+            console.log(`[MERGE] Removed ${removedCount} items with invalid assetId`);
+          }
+        }
+
+        return state;
+      },
     }
   ))
 );
@@ -1062,6 +1449,33 @@ useEditorStore.subscribe(
 setTimeout(() => {
   useHistoryStore.getState().record(extractHistorySnapshot(useEditorStore.getState()));
 }, 100);
+
+// ===============================
+// LipSyncVideo Change Subscription
+// ===============================
+
+// Auto-reload captions when lipSyncVideo changes
+console.log('[Subscription] Setting up lipSyncVideo subscription...');
+useEditorStore.subscribe(
+  (state) => state.templateProps.lipSyncVideo,
+  (lipSyncVideo, prevLipSyncVideo) => {
+    console.log('[Subscription] lipSyncVideo callback triggered!');
+    console.log('[Subscription] Current:', lipSyncVideo);
+    console.log('[Subscription] Previous:', prevLipSyncVideo);
+    console.log('[Subscription] Are different?', lipSyncVideo !== prevLipSyncVideo);
+
+    if (lipSyncVideo !== prevLipSyncVideo && lipSyncVideo) {
+      console.log('[Subscription] CHANGE DETECTED! Calling loadCaptions...');
+      // Also update duration from the new video
+      useEditorStore.getState().updateDurationFromLipSync();
+      useEditorStore.getState().loadCaptions();
+    } else {
+      console.log('[Subscription] No change detected or empty video');
+    }
+  },
+  { equalityFn: (a, b) => a === b }
+);
+console.log('[Subscription] lipSyncVideo subscription set up!');
 
 // ===============================
 // Legacy exports for compatibility

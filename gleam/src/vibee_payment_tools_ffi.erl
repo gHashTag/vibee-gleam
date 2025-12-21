@@ -9,7 +9,9 @@
     get_float_value/1,
     get_string_value/1,
     get_int_value/1,
-    get_bool_value/1
+    get_bool_value/1,
+    get_payment_field_string/2,
+    get_payment_field_int/2
 ]).
 
 %% Create payment map for storage
@@ -72,4 +74,26 @@ get_float_value(_) ->
 get_bool_value(Value) when is_boolean(Value) ->
     {ok, Value};
 get_bool_value(_) ->
+    {error, nil}.
+
+%% Get string field from payment map (Erlang map)
+%% Payment maps use atom keys, not binary keys
+get_payment_field_string(Payment, Field) when is_map(Payment) ->
+    AtomKey = binary_to_atom(Field, utf8),
+    case maps:find(AtomKey, Payment) of
+        {ok, Value} when is_binary(Value) -> {ok, Value};
+        {ok, Value} when is_list(Value) -> {ok, list_to_binary(Value)};
+        _ -> {error, nil}
+    end;
+get_payment_field_string(_, _) ->
+    {error, nil}.
+
+%% Get int field from payment map (Erlang map)
+get_payment_field_int(Payment, Field) when is_map(Payment) ->
+    AtomKey = binary_to_atom(Field, utf8),
+    case maps:find(AtomKey, Payment) of
+        {ok, Value} when is_integer(Value) -> {ok, Value};
+        _ -> {error, nil}
+    end;
+get_payment_field_int(_, _) ->
     {error, nil}.

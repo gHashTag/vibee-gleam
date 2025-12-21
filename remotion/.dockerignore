@@ -1,0 +1,22 @@
+# Node
+node_modules
+npm-debug.log
+
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+
+# Media files (loaded via SFTP to volume)
+public/
+
+# Output
+out/
+
+# Temp
+*.tmp
+*.log

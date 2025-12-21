@@ -7,7 +7,11 @@
     "start": "remotion studio",
     "build": "remotion bundle",
     "render": "remotion render",
-    "upgrade": "remotion upgrade"
+    "upgrade": "remotion upgrade",
+    "captions": "tsx scripts/auto-captions.ts",
+    "captions:force": "tsx scripts/auto-captions.ts --force",
+    "predeploy": "npm run captions",
+    "deploy": "npm run predeploy && fly deploy -a vibee-remotion"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.948.0",
@@ -19,7 +23,10 @@
     "@remotion/install-whisper-cpp": "^4.0.391",
     "@remotion/lambda": "4.0.388",
     "@remotion/renderer": "4.0.388",
+    "@tensorflow/tfjs-node": "^4.22.0",
     "@types/ws": "^8.18.1",
+    "@vladmandic/face-api": "^1.7.15",
+    "canvas": "^3.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "remotion": "4.0.388",

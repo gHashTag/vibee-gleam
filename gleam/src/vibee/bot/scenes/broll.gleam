@@ -14,6 +14,7 @@ import vibee/bot/scene_handler.{
   type NextAction, type SceneError, type SceneResult, InvalidInput, InvalidState,
   JobBRoll, NoAction, SceneResult, StartJob,
 }
+import vibee/sales/paywall
 
 // ============================================================
 // Scene Entry Point
@@ -161,26 +162,43 @@ fn start_generation(
   script: String,
   style: String,
 ) -> Result(SceneResult, SceneError) {
-  let job_id = "pending"
-  let new_session = set_scene(
-    session,
-    BRoll(BRollGenerating(script, style, job_id)),
-  )
+  // Проверка paywall перед генерацией
+  case paywall.check_access(session.user_id, paywall.Generation) {
+    paywall.AccessGranted(_) -> {
+      let job_id = "pending"
+      let new_session = set_scene(
+        session,
+        BRoll(BRollGenerating(script, style, job_id)),
+      )
 
-  let params = dict.new()
-    |> dict.insert("script", script)
-    |> dict.insert("style", style)
-    |> dict.insert("chat_id", session.chat_id)
+      let params = dict.new()
+        |> dict.insert("script", script)
+        |> dict.insert("style", style)
+        |> dict.insert("chat_id", session.chat_id)
 
-  Ok(SceneResult(
-    session: new_session,
-    response: Some(TextReply(
-      "Generating B-Roll clips...\n\n" <>
-      "Style: " <> style <> "\n\n" <>
-      "This may take 5-10 minutes. I'll notify you when all clips are ready."
-    )),
-    next_action: StartJob(JobBRoll, params),
-  ))
+      // Записать использование
+      let _ = paywall.record_usage(session.user_id, paywall.Generation)
+
+      Ok(SceneResult(
+        session: new_session,
+        response: Some(TextReply(
+          "Generating B-Roll clips...\n\n" <>
+          "Style: " <> style <> "\n\n" <>
+          "This may take 5-10 minutes. I'll notify you when all clips are ready."
+        )),
+        next_action: StartJob(JobBRoll, params),
+      ))
+    }
+    access_result -> {
+      let message = paywall.get_access_message(access_result, "ru")
+        <> "\n\n💎 /pricing - тарифы\n🎯 /quiz - подобрать тариф"
+      Ok(SceneResult(
+        session: session,
+        response: Some(TextReply(message)),
+        next_action: NoAction,
+      ))
+    }
+  }
 }
 
 /// Handle generation result

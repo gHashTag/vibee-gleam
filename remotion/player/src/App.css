@@ -131,10 +131,13 @@
    =============================== */
 
 .timeline-area {
-  height: 200px;
+  min-height: 220px;
+  height: auto;
+  max-height: 300px;
   flex-shrink: 0;
   border-top: 1px solid #1a1a1a;
   background: #0f0f0f;
+  overflow-y: auto;
 }
 
 /* ===============================

@@ -18,9 +18,20 @@ type LeftPanelTab = 'assets' | 'layers' | 'props' | 'captions';
 export function EditorPage() {
   const [leftTab, setLeftTab] = useState<LeftPanelTab>('assets');
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const updateDurationFromLipSync = useEditorStore((s) => s.updateDurationFromLipSync);
+  const loadCaptions = useEditorStore((s) => s.loadCaptions);
+  const updateTemplateProp = useEditorStore((s) => s.updateTemplateProp);
 
   // Enable keyboard shortcuts
   useKeyboardShortcuts();
+
+  // Auto-detect duration from lipsync video and force reload captions on mount
+  useEffect(() => {
+    updateDurationFromLipSync();
+    // Force reload captions by clearing first
+    updateTemplateProp('captions', []);
+    loadCaptions();
+  }, [updateDurationFromLipSync, loadCaptions, updateTemplateProp]);
 
   // Initialize WebSocket for real-time sync
   const { send, isConnected, clientId } = useWebSocket({

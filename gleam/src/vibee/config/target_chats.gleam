@@ -4,17 +4,39 @@
 import gleam/int
 import gleam/io
 import gleam/list
+import gleam/option.{None, Some}
 import gleam/string
+import vibee/config/dynamic_config
+import vibee/db/postgres
 
-/// Целевые чаты для мониторинга и автоответов
-/// ID без префикса -100 (нормализованные)
-pub const target_chats = [
-  "693774948",    // Личный чат для тестов
-  "2737186844",   // VIBEE AGENT (supergroup, -1002737186844) - Lead group
-  "2298297094",   // Тестовый канал (supergroup, -1002298297094)
-  "6579515876",   // vibee_agent bot для тестов
-  "-5082217642",  // Aimly.io dev (group) - SNIPER MODE trigger chat
+/// Дефолтные целевые чаты (fallback если БД недоступна)
+/// Форматы ID согласно Telegram API: https://core.telegram.org/api/bots/ids
+/// - Users: положительный ID
+/// - Basic Groups: отрицательный без -100 (напр. -5082217642)
+/// - Supergroups/Channels: отрицательный с -100 (напр. -1002737186844)
+const default_target_chats = [
+  "693774948",       // User - личный чат для тестов
+  "6579515876",      // User - vibee_agent bot
+  "144022504",       // User - @neuro_sage E2E Rainbow Bridge
+  "-1002737186844",  // Supergroup - VIBEE AGENT Lead group
+  "-1002298297094",  // Supergroup - тестовый канал
+  "-5082217642",     // Basic Group - Aimly.io dev (SNIPER MODE)
 ]
+
+/// Целевые чаты для мониторинга и автоответов (из БД)
+/// ID без префикса -100 (нормализованные)
+pub fn target_chats() -> List(String) {
+  case postgres.get_global_pool() {
+    Some(pool) -> {
+      let db_chats = dynamic_config.get_target_chats(pool)
+      case db_chats {
+        [] -> default_target_chats  // Если в БД пусто - используем дефолт
+        chats -> chats
+      }
+    }
+    None -> default_target_chats
+  }
+}
 
 /// Информация о целевом чате
 pub type TargetChat {
@@ -34,12 +56,14 @@ pub type ChatType {
 }
 
 /// Получить все целевые чаты с информацией
+/// Форматы ID согласно Telegram API: https://core.telegram.org/api/bots/ids
 pub fn get_target_chats() -> List(TargetChat) {
   [
     TargetChat(id: "693774948", name: "Личный чат для тестов", chat_type: Private),
-    TargetChat(id: "2737186844", name: "VIBEE AGENT", chat_type: Supergroup),
-    TargetChat(id: "2298297094", name: "Тестовый канал", chat_type: Supergroup),
     TargetChat(id: "6579515876", name: "vibee_agent bot", chat_type: Private),
+    TargetChat(id: "144022504", name: "neuro_sage E2E tester", chat_type: Private),
+    TargetChat(id: "-1002737186844", name: "VIBEE AGENT Lead", chat_type: Supergroup),
+    TargetChat(id: "-1002298297094", name: "Тестовый канал", chat_type: Supergroup),
     TargetChat(id: "-5082217642", name: "Aimly.io dev", chat_type: Group),
   ]
 }
@@ -48,9 +72,10 @@ pub fn get_target_chats() -> List(TargetChat) {
 /// Учитывает разные форматы ID (с и без префикса -100)
 pub fn is_target_chat(chat_id: String) -> Bool {
   io.println("[TARGET_CHECK] Checking chat_id: " <> chat_id)
-  
+  let chats = target_chats()
+
   // Прямое совпадение
-  case list.contains(target_chats, chat_id) {
+  case list.contains(chats, chat_id) {
     True -> {
       io.println("[TARGET_CHECK] ✅ Direct match!")
       True
@@ -59,7 +84,7 @@ pub fn is_target_chat(chat_id: String) -> Bool {
       // Нормализация: убираем -100 префикс
       let normalized = normalize_chat_id(chat_id)
       io.println("[TARGET_CHECK] Normalized: " <> normalized)
-      let result = list.contains(target_chats, normalized)
+      let result = list.contains(chats, normalized)
       case result {
         True -> io.println("[TARGET_CHECK] ✅ Normalized match!")
         False -> io.println("[TARGET_CHECK] ❌ Not in target_chats list")
@@ -69,12 +94,13 @@ pub fn is_target_chat(chat_id: String) -> Bool {
   }
 }
 
-/// Нормализует chat ID - убирает -100 префикс если есть
-/// НЕ убирает обычный минус (для групп типа -5082217642)
+/// Нормализует chat ID - убирает -100 префикс но СОХРАНЯЕТ минус
+/// "-1005082217642" → "-5082217642" (для групп)
+/// "-5082217642" → "-5082217642" (уже нормализовано)
 pub fn normalize_chat_id(chat_id: String) -> String {
   case string.starts_with(chat_id, "-100") {
-    True -> string.drop_start(chat_id, 4)
-    False -> chat_id  // Оставляем как есть, включая обычный минус
+    True -> "-" <> string.drop_start(chat_id, 4)  // Сохраняем минус!
+    False -> chat_id  // Оставляем как есть
   }
 }
 
@@ -89,55 +115,52 @@ pub fn is_private_chat(chat_id: String) -> Bool {
 }
 
 /// Owner ID (Digital Twin owner) - исключаем self-chat
-const owner_id = "144022504"
+/// Берем из dynamic_config с fallback
+fn get_owner_id() -> String {
+  case postgres.get_global_pool() {
+    Some(pool) -> int.to_string(dynamic_config.get_owner_id(pool))
+    None -> "144022504"  // fallback
+  }
+}
 
 /// Проверяет, нужно ли обрабатывать сообщение из этого чата
-/// В Digital Twin режиме: целевые чаты + ВСЕ личные чаты (кроме self-chat)
+/// В Digital Twin режиме: целевые чаты + ВСЕ личные чаты
 /// В обычном режиме: ТОЛЬКО целевые чаты
+///
+/// NOTE: Удалена проверка на owner_id == chat_id, т.к. она блокировала
+/// сообщения от владельца когда он пишет боту напрямую.
+/// Self-chat (Saved Messages) имеет chat_id = bot_user_id, а не owner_id.
 pub fn should_process_chat(chat_id: String) -> Bool {
-  // Исключаем self-chat (Saved Messages) - когда chat_id == owner_id
-  case chat_id == owner_id {
-    True -> False  // Self-chat - не обрабатываем
+  // Проверяем целевые чаты
+  case is_target_chat(chat_id) {
+    True -> True  // Целевой чат - всегда обрабатываем
     False -> {
-      // Проверяем целевые чаты
-      case is_target_chat(chat_id) {
-        True -> True  // Целевой чат - всегда обрабатываем
-        False -> {
-          // Не целевой чат - проверяем, личный ли он
-          // В Digital Twin режиме обрабатываем ВСЕ личные чаты
-          is_private_chat(chat_id)
-        }
-      }
+      // Не целевой чат - проверяем, личный ли он
+      // В Digital Twin режиме обрабатываем ВСЕ личные чаты
+      is_private_chat(chat_id)
     }
   }
 }
 
 /// Проверяет, нужно ли обрабатывать чат (с явным флагом Digital Twin)
+/// NOTE: Удалена проверка owner_id - она блокировала сообщения от владельца
 pub fn should_process_chat_with_mode(chat_id: String, digital_twin_enabled: Bool) -> Bool {
-  case chat_id == owner_id {
+  case is_target_chat(chat_id) {
     True -> {
-      io.println("[FILTER] Skipping self-chat: " <> chat_id)
-      False
+      io.println("[FILTER] ✅ Target chat: " <> chat_id)
+      True
     }
     False -> {
-      case is_target_chat(chat_id) {
+      // Личные чаты обрабатываем только в Digital Twin режиме
+      let is_private = is_private_chat(chat_id)
+      case digital_twin_enabled && is_private {
         True -> {
-          io.println("[FILTER] ✅ Target chat: " <> chat_id)
+          io.println("[FILTER] ✅ Private chat (Digital Twin ON): " <> chat_id)
           True
         }
         False -> {
-          // Личные чаты обрабатываем только в Digital Twin режиме
-          let is_private = is_private_chat(chat_id)
-          case digital_twin_enabled && is_private {
-            True -> {
-              io.println("[FILTER] ✅ Private chat (Digital Twin ON): " <> chat_id)
-              True
-            }
-            False -> {
-              io.println("[FILTER] ⏭️  Skipping chat: " <> chat_id <> " (private=" <> case is_private { True -> "YES" False -> "NO" } <> ", twin=" <> case digital_twin_enabled { True -> "ON" False -> "OFF" } <> ")")
-              False
-            }
-          }
+          io.println("[FILTER] ⏭️  Skipping chat: " <> chat_id <> " (private=" <> case is_private { True -> "YES" False -> "NO" } <> ", twin=" <> case digital_twin_enabled { True -> "ON" False -> "OFF" } <> ")")
+          False
         }
       }
     }

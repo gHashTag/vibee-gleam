@@ -20,6 +20,8 @@ import vibee/mcp/types.{type Tool, type ToolResult, TextContent, Tool}
 import vibee/mcp/validation
 import vibee/search/hybrid
 import vibee/telegram/parser
+import vibee/github/db as github_db
+import vibee/github/loader as github_loader
 
 // =============================================================================
 // Tool Definitions
@@ -423,6 +425,32 @@ pub fn conversation_get_context_tool() -> Tool {
                   "ID владельца аккаунта (для определения исходящих сообщений)",
                 ),
               ),
+            ]),
+          ),
+          #(
+            "include_github",
+            json.object([
+              #("type", json.string("boolean")),
+              #(
+                "description",
+                json.string(
+                  "Включить контекст из GitHub профиля (default: true)",
+                ),
+              ),
+              #("default", json.bool(True)),
+            ]),
+          ),
+          #(
+            "github_username",
+            json.object([
+              #("type", json.string("string")),
+              #(
+                "description",
+                json.string(
+                  "GitHub username для поиска контекста (default: gHashTag)",
+                ),
+              ),
+              #("default", json.string("gHashTag")),
             ]),
           ),
         ]),
@@ -850,6 +878,7 @@ pub fn get_rag_handlers() -> List(#(String, fn(json.Json) -> ToolResult)) {
 
 /// Handle conversation_get_context - Main API for AI Digital Clone
 /// Uses shellout/psql for reliable SSL connection to Neon PostgreSQL
+/// Now includes GitHub profile context for digital clone knowledge
 pub fn handle_conversation_get_context(args: json.Json) -> ToolResult {
   let chat_id_str =
     json_get_string(args, "chat_id")
@@ -860,6 +889,15 @@ pub fn handle_conversation_get_context(args: json.Json) -> ToolResult {
   let owner_id =
     json_get_int(args, "owner_id")
     |> result.unwrap(144_022_504)
+  let query_opt =
+    json_get_string(args, "query")
+    |> option.from_result()
+  let include_github =
+    json_get_bool(args, "include_github")
+    |> result.unwrap(True)
+  let github_username =
+    json_get_string(args, "github_username")
+    |> result.unwrap("gHashTag")
 
   case chat_id_str {
     "" -> protocol.error_result("chat_id is required")
@@ -900,6 +938,13 @@ pub fn handle_conversation_get_context(args: json.Json) -> ToolResult {
               opt: [],
             )
 
+          // Get GitHub context if enabled and there's a query
+          let github_context = case include_github, query_opt {
+            True, Some(query) -> get_github_context(url, github_username, query)
+            True, None -> get_github_profile_summary(url, github_username)
+            False, _ -> json.null()
+          }
+
           case recent_result, metadata_result {
             Ok(recent_json), Ok(metadata_json) -> {
               // Parse and combine results
@@ -911,7 +956,7 @@ pub fn handle_conversation_get_context(args: json.Json) -> ToolResult {
                   #(
                     "recent",
                     case json.parse(recent_trimmed, decode.dynamic) {
-                      Ok(d) -> json.string(recent_trimmed)
+                      Ok(_) -> json.string(recent_trimmed)
                       Error(_) -> json.array([], fn(x) { x })
                     },
                   ),
@@ -923,6 +968,7 @@ pub fn handle_conversation_get_context(args: json.Json) -> ToolResult {
                       Error(_) -> json.null()
                     },
                   ),
+                  #("github_context", github_context),
                 ])
                 |> json.to_string
 
@@ -933,6 +979,55 @@ pub fn handle_conversation_get_context(args: json.Json) -> ToolResult {
             _, Error(#(_, err)) ->
               protocol.error_result("Failed to get metadata: " <> err)
           }
+        }
+      }
+    }
+  }
+}
+
+/// Get GitHub context by searching documents
+fn get_github_context(db_url: String, username: String, query: String) -> json.Json {
+  case postgres.connect(db_url) {
+    Error(_) -> json.null()
+    Ok(pool) -> {
+      case github_db.keyword_search(pool, query, Some(username), 5) {
+        Error(_) -> {
+          postgres.disconnect(pool)
+          json.null()
+        }
+        Ok(results) -> {
+          postgres.disconnect(pool)
+          case results {
+            [] -> json.null()
+            _ -> {
+              let formatted = github_loader.format_search_results_for_context(results)
+              json.string(formatted)
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/// Get GitHub profile summary (when no query)
+fn get_github_profile_summary(db_url: String, username: String) -> json.Json {
+  case postgres.connect(db_url) {
+    Error(_) -> json.null()
+    Ok(pool) -> {
+      case github_db.get_stats(pool, username) {
+        Error(_) -> {
+          postgres.disconnect(pool)
+          json.null()
+        }
+        Ok(#(total, with_embeddings, total_stars)) -> {
+          postgres.disconnect(pool)
+          json.object([
+            #("username", json.string(username)),
+            #("total_documents", json.int(total)),
+            #("documents_with_embeddings", json.int(with_embeddings)),
+            #("total_stars", json.int(total_stars)),
+          ])
         }
       }
     }
@@ -958,6 +1053,18 @@ fn json_get_string(j: json.Json, key: String) -> Result(String, Nil) {
 fn json_get_int(j: json.Json, key: String) -> Result(Int, Nil) {
   let decoder = {
     use v <- decode.field(key, decode.int)
+    decode.success(v)
+  }
+  let json_str = json.to_string(j)
+  case json.parse(json_str, decoder) {
+    Ok(v) -> Ok(v)
+    Error(_) -> Error(Nil)
+  }
+}
+
+fn json_get_bool(j: json.Json, key: String) -> Result(Bool, Nil) {
+  let decoder = {
+    use v <- decode.field(key, decode.bool)
     decode.success(v)
   }
   let json_str = json.to_string(j)

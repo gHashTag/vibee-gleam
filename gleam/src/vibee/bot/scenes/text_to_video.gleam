@@ -14,6 +14,7 @@ import vibee/bot/scene_handler.{
   type NextAction, type SceneError, type SceneResult, InvalidInput, InvalidState,
   JobTextToVideo, NoAction, SceneResult, StartJob,
 }
+import vibee/sales/paywall
 
 // ============================================================
 // Scene Entry Point
@@ -141,26 +142,43 @@ fn start_generation(
   provider: String,
   prompt: String,
 ) -> Result(SceneResult, SceneError) {
-  // Job ID will be set by the job system
-  let job_id = "pending"
-  let new_session = set_scene(
-    session,
-    TextToVideo(TextToVideoGenerating(provider, prompt, job_id)),
-  )
+  // Проверка paywall перед генерацией
+  case paywall.check_access(session.user_id, paywall.Generation) {
+    paywall.AccessGranted(_) -> {
+      // Job ID will be set by the job system
+      let job_id = "pending"
+      let new_session = set_scene(
+        session,
+        TextToVideo(TextToVideoGenerating(provider, prompt, job_id)),
+      )
 
-  let params = dict.new()
-    |> dict.insert("provider", provider)
-    |> dict.insert("prompt", prompt)
-    |> dict.insert("chat_id", session.chat_id)
+      let params = dict.new()
+        |> dict.insert("provider", provider)
+        |> dict.insert("prompt", prompt)
+        |> dict.insert("chat_id", session.chat_id)
 
-  Ok(SceneResult(
-    session: new_session,
-    response: Some(TextReply(
-      "Starting video generation...\n\n" <>
-      "This may take 2-5 minutes. I'll notify you when it's ready."
-    )),
-    next_action: StartJob(JobTextToVideo, params),
-  ))
+      // Записать использование
+      let _ = paywall.record_usage(session.user_id, paywall.Generation)
+
+      Ok(SceneResult(
+        session: new_session,
+        response: Some(TextReply(
+          "Starting video generation...\n\n" <>
+          "This may take 2-5 minutes. I'll notify you when it's ready."
+        )),
+        next_action: StartJob(JobTextToVideo, params),
+      ))
+    }
+    access_result -> {
+      let message = paywall.get_access_message(access_result, "ru")
+        <> "\n\n💎 /pricing - тарифы\n🎯 /quiz - подобрать тариф"
+      Ok(SceneResult(
+        session: session,
+        response: Some(TextReply(message)),
+        next_action: NoAction,
+      ))
+    }
+  }
 }
 
 /// Handle generation result

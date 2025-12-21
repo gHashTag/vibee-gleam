@@ -1,5 +1,5 @@
 -module(vibee_vibe_logger_ffi).
--export([print_stderr/1, get_iso_timestamp/0, generate_trace_id/0, generate_span_id/0]).
+-export([print_stderr/1, get_iso_timestamp/0, generate_trace_id/0, generate_span_id/0, get_env/1]).
 
 %% Print message to stderr (MCP-safe!)
 print_stderr(Message) when is_binary(Message) ->
@@ -27,3 +27,10 @@ generate_span_id() ->
 %% Helper: Convert binary to hex string
 binary_to_hex(Bin) ->
     lists:flatten([io_lib:format("~2.16.0b", [B]) || <<B>> <= Bin]).
+
+%% Get environment variable, return empty string if not set
+get_env(Name) when is_binary(Name) ->
+    case os:getenv(binary_to_list(Name)) of
+        false -> <<>>;
+        Value -> list_to_binary(Value)
+    end.

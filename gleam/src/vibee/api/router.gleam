@@ -43,6 +43,11 @@ import vibee/telegram/parser
 import vibee/telegram/telegram_agent as vibee_telegram_agent
 import vibee/db/postgres
 import vibee/config/twin_config
+import vibee/vibe_logger
+import vibee/api/agent_websocket
+import vibee/api/agent_metrics
+import vibee/api/agent_handlers
+import vibee/api/e2e_handlers
 
 /// WebSocket message types
 pub type WsMessage {
@@ -141,14 +146,67 @@ pub fn start_with_mcp(
   }
 }
 
-/// Main request handler
+/// Main request handler with tracing
 fn handle_request(
   req: Request(Connection),
   bus: option.Option(process.Subject(event_bus.PubSubMessage)),
   mcp_registry: option.Option(ToolRegistry),
 ) -> Response(ResponseData) {
   let path = request.path_segments(req)
+  let path_str = "/" <> string.join(path, "/")
+  let method_str = http_method_to_string(req.method)
 
+  // Generate trace_id for request tracing
+  let trace_id = vibe_logger.generate_trace_id()
+  let http_log = vibe_logger.new("http")
+    |> vibe_logger.with_trace_id(trace_id)
+    |> vibe_logger.with_data("method", json.string(method_str))
+    |> vibe_logger.with_data("path", json.string(path_str))
+
+  // Skip logging for health checks and static assets
+  let should_log = case path {
+    ["health"] | ["ready"] -> False
+    _ -> True
+  }
+
+  case should_log {
+    True -> vibe_logger.debug(http_log, "Request started")
+    False -> Nil
+  }
+
+  let response = route_request(req, path, bus, mcp_registry)
+
+  case should_log {
+    True -> vibe_logger.debug(http_log |> vibe_logger.with_data("status", json.int(response.status)), "Request completed")
+    False -> Nil
+  }
+
+  response
+}
+
+/// HTTP method to string helper
+fn http_method_to_string(method: http.Method) -> String {
+  case method {
+    http.Get -> "GET"
+    http.Post -> "POST"
+    http.Put -> "PUT"
+    http.Patch -> "PATCH"
+    http.Delete -> "DELETE"
+    http.Head -> "HEAD"
+    http.Options -> "OPTIONS"
+    http.Trace -> "TRACE"
+    http.Connect -> "CONNECT"
+    _ -> "OTHER"
+  }
+}
+
+/// Route request to appropriate handler
+fn route_request(
+  req: Request(Connection),
+  path: List(String),
+  bus: option.Option(process.Subject(event_bus.PubSubMessage)),
+  mcp_registry: option.Option(ToolRegistry),
+) -> Response(ResponseData) {
   case req.method, path {
     // MCP WebSocket endpoint
     http.Get, ["ws", "mcp"] -> {
@@ -188,6 +246,9 @@ fn handle_request(
     // Ready check
     http.Get, ["ready"] -> ready_handler()
 
+    // Prometheus metrics for agents
+    http.Get, ["metrics", "agents"] -> metrics_agents_handler()
+
     // Agent endpoints
     http.Get, ["api", "v1", "agents"] -> list_agents_handler()
     http.Post, ["api", "v1", "agents"] -> create_agent_handler(req)
@@ -205,12 +266,21 @@ fn handle_request(
     http.Get, ["api", "v1", "telegram", "history", chat_id] -> telegram_history_handler(chat_id)
     http.Get, ["api", "v1", "telegram", "all-messages"] -> telegram_all_messages_handler()
 
-    // Agent API
-    http.Get, ["api", "agent", "status"] -> agent_status_handler()
+    // Agent Control API - full CRUD for agent configuration
+    http.Get, ["api", "agent", "status"] -> agent_handlers.status_handler()
+    http.Get, ["api", "agent", "config"] -> agent_handlers.config_get_handler()
+    http.Post, ["api", "agent", "config"] -> agent_handlers.config_update_handler(req)
+    http.Post, ["api", "agent", "start"] -> agent_handlers.start_handler(req)
+    http.Post, ["api", "agent", "stop"] -> agent_handlers.stop_handler(req)
+    http.Post, ["api", "agent", "pause"] -> agent_handlers.pause_handler(req)
+    http.Post, ["api", "agent", "reset"] -> agent_handlers.reset_handler(req)
 
     // Test endpoint for simulating messages (for development)
     http.Post, ["api", "test", "message"] -> test_message_handler(req)
-    
+
+    // E2E Rainbow Bridge testing endpoint
+    http.Get, ["api", "e2e", "run"] -> e2e_handlers.run_handler()
+
     // Logs page - real-time log viewer
     http.Get, ["logs"] -> logs_page_handler()
     http.Get, ["api", "v1", "logs", "tail"] -> logs_tail_handler()
@@ -222,6 +292,7 @@ fn handle_request(
     http.Get, ["ws"] -> websocket_handler(req)
     http.Get, ["ws", "logs"] -> logs_websocket_handler(req)
     http.Get, ["ws", "events"] -> events_websocket_handler_with_bus(req, bus)
+    http.Get, ["ws", "agents"] -> agent_websocket.handler(req)
 
     // Payment webhooks
     http.Post, ["api", "robokassa-result"] -> payment_webhooks.handle_robokassa(req)
@@ -1146,8 +1217,8 @@ fn test_message_handler(req: Request(Connection)) -> Response(ResponseData) {
             monitored_chats: [],
           )
 
-          // Process the message
-          let _ = vibee_telegram_agent.handle_incoming_message(state, chat_id, from_id, from_name, text, 0)
+          // Process the message (reply_to_id = 0 for test endpoint)
+          let _ = vibee_telegram_agent.handle_incoming_message(state, chat_id, from_id, from_name, text, 0, 0)
 
           json_response(200, json.object([
             #("status", json.string("ok")),
@@ -1191,6 +1262,16 @@ fn ready_handler() -> Response(ResponseData) {
   ])
 
   json_response(200, body)
+}
+
+/// Prometheus metrics handler for agents
+fn metrics_agents_handler() -> Response(ResponseData) {
+  let metrics = agent_metrics.generate_metrics()
+  let body_bytes = bytes_tree.from_string(metrics)
+
+  response.new(200)
+  |> response.set_header("content-type", "text/plain; version=0.0.4; charset=utf-8")
+  |> response.set_body(mist.Bytes(body_bytes))
 }
 
 fn list_agents_handler() -> Response(ResponseData) {

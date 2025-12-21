@@ -1,11 +1,17 @@
 FROM node:22-bookworm-slim
 
+# Disable dbus and accessibility features for headless Chrome
+ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
+ENV NO_AT_BRIDGE=1
+ENV DISPLAY=:99
+
 WORKDIR /app
 
-# Install Chrome dependencies for headless rendering + fonts for Cyrillic/Russian
+# Install Chrome dependencies for headless rendering + fonts for Cyrillic/Russian + Xvfb
 RUN apt-get update && apt-get install -y \
     libnss3 \
     libdbus-1-3 \
+    dbus \
     libatk1.0-0 \
     libgbm-dev \
     libasound2 \
@@ -25,8 +31,10 @@ RUN apt-get update && apt-get install -y \
     fontconfig \
     ffmpeg \
     curl \
+    xvfb \
     && fc-cache -f -v \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /run/dbus
 
 # Copy package files
 COPY package.json package-lock.json* ./
@@ -40,17 +48,18 @@ RUN npx remotion browser ensure
 # Copy source code
 COPY tsconfig.json remotion.config.ts ./
 COPY src ./src
-COPY public ./public
 
-# Copy render server
-COPY render-server.ts ./
+# Copy render server and entrypoint
+COPY render-server.ts entrypoint.sh ./
+RUN chmod +x entrypoint.sh
 
-# Create output directory
-RUN mkdir -p /app/out && chown -R node:node /app
+# Create placeholder directories (will be replaced by symlinks at runtime)
+RUN mkdir -p /app/out /app/public /app/storage && chown -R node:node /app
 
 # Use existing node user (UID 1000)
 USER node
 
 EXPOSE 3333
 
-CMD ["npx", "tsx", "render-server.ts"]
+# Use entrypoint script to setup symlinks and run server
+CMD ["./entrypoint.sh"]

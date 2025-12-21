@@ -833,10 +833,13 @@
     </div>
 
     <script>
-        // WebSocket connection
-        const WS_URL = 'wss://vibee-mcp.fly.dev/ws/logs';
-        let ws = null;
+        // WebSocket connections
+        const WS_LOGS_URL = 'wss://vibee-mcp.fly.dev/ws/logs';
+        const WS_AGENTS_URL = 'wss://vibee-mcp.fly.dev/ws/agents';
+        let wsLogs = null;
+        let wsAgents = null;
         let logs = [];
+        let agentsData = { agents: [], summary: { total: 0, running: 0, stopped: 0 } };
         let activityData = {
             incoming: Array(24).fill(0),
             outgoing: Array(24).fill(0)
@@ -935,31 +938,117 @@
             confidenceValue.textContent = confidenceSlider.value + '%';
         }
 
-        // WebSocket connection
-        function connectWebSocket() {
-            ws = new WebSocket(WS_URL);
+        // WebSocket connection for logs
+        function connectLogsWebSocket() {
+            wsLogs = new WebSocket(WS_LOGS_URL);
 
-            ws.onopen = () => {
-                console.log('WebSocket connected');
+            wsLogs.onopen = () => {
+                console.log('Logs WebSocket connected');
             };
 
-            ws.onmessage = (event) => {
+            wsLogs.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
                     addLog(data);
                 } catch (e) {
-                    console.error('Failed to parse message:', e);
+                    console.error('Failed to parse log message:', e);
                 }
             };
 
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
+            wsLogs.onerror = (error) => {
+                console.error('Logs WebSocket error:', error);
             };
 
-            ws.onclose = () => {
-                console.log('WebSocket disconnected');
-                setTimeout(connectWebSocket, 3000);
+            wsLogs.onclose = () => {
+                console.log('Logs WebSocket disconnected');
+                setTimeout(connectLogsWebSocket, 3000);
             };
+        }
+
+        // WebSocket connection for agents (real-time agent registry)
+        function connectAgentsWebSocket() {
+            wsAgents = new WebSocket(WS_AGENTS_URL);
+
+            wsAgents.onopen = () => {
+                console.log('Agents WebSocket connected');
+            };
+
+            wsAgents.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'agents_update') {
+                        agentsData = data;
+                        updateAgentsUI(data.agents, data.summary);
+                    } else if (data.type === 'agent_detail') {
+                        console.log('Agent detail:', data.agent);
+                    }
+                } catch (e) {
+                    console.error('Failed to parse agents message:', e);
+                }
+            };
+
+            wsAgents.onerror = (error) => {
+                console.error('Agents WebSocket error:', error);
+            };
+
+            wsAgents.onclose = () => {
+                console.log('Agents WebSocket disconnected');
+                setTimeout(connectAgentsWebSocket, 3000);
+            };
+        }
+
+        // Update UI with real agent data from registry
+        function updateAgentsUI(agents, summary) {
+            // Update header status badge
+            const agentStatus = document.getElementById('agentStatus');
+            const statusText = document.getElementById('statusText');
+
+            if (summary.running > 0) {
+                agentStatus.classList.remove('offline');
+                agentStatus.classList.add('online');
+                agentStatus.querySelector('span:last-child').textContent = `${summary.running} ONLINE`;
+                statusText.textContent = 'Running';
+            } else {
+                agentStatus.classList.remove('online');
+                agentStatus.classList.add('offline');
+                agentStatus.querySelector('span:last-child').textContent = 'OFFLINE';
+                statusText.textContent = 'Stopped';
+            }
+
+            // Update metrics from agents data
+            let totalMessages = 0;
+            let totalErrors = 0;
+            agents.forEach(agent => {
+                totalMessages += agent.message_count || 0;
+                totalErrors += agent.error_count || 0;
+            });
+
+            document.getElementById('messagesProcessed').textContent = totalMessages.toLocaleString();
+
+            // Update last activity from most recent agent
+            if (agents.length > 0) {
+                const lastAgent = agents.reduce((latest, agent) => {
+                    return new Date(agent.last_activity) > new Date(latest.last_activity) ? agent : latest;
+                });
+                const lastActivity = new Date(lastAgent.last_activity);
+                const now = new Date();
+                const diffSec = Math.floor((now - lastActivity) / 1000);
+
+                let activityText = 'Just now';
+                if (diffSec > 60) {
+                    activityText = `${Math.floor(diffSec / 60)}m ago`;
+                } else if (diffSec > 5) {
+                    activityText = `${diffSec}s ago`;
+                }
+                document.getElementById('lastActivity').textContent = activityText;
+            }
+
+            // Update metric change labels
+            document.querySelectorAll('.metric-change').forEach(el => {
+                el.textContent = `${summary.running}/${summary.total} agents active`;
+            });
+
+            console.log(`Agents updated: ${summary.running} running, ${summary.stopped} stopped`);
         }
 
         // Add log entry
@@ -1315,10 +1404,12 @@
         // API functions
         async function updateAgentConfig() {
             const config = {
-                digital_twin_enabled: digitalTwinToggle.checked,
-                auto_reply_enabled: autoReplyToggle.checked,
+                digital_twin: digitalTwinToggle.checked,
+                auto_reply: autoReplyToggle.checked,
                 cooldown_ms: parseInt(cooldownSlider.value) * 1000,
-                confidence_threshold: parseInt(confidenceSlider.value) / 100
+                confidence: parseInt(confidenceSlider.value) / 100,
+                sniper_mode: document.getElementById('sniperModeToggle')?.checked || false,
+                forward_leads: document.getElementById('forwardLeadsToggle')?.checked || false
             };
 
             try {
@@ -1331,9 +1422,10 @@
                 });
 
                 if (response.ok) {
-                    console.log('Config updated successfully');
+                    const result = await response.json();
+                    console.log('Config updated:', result);
                 } else {
-                    console.error('Failed to update config');
+                    console.error('Failed to update config:', response.status);
                 }
             } catch (error) {
                 console.error('Error updating config:', error);
@@ -1403,47 +1495,67 @@
         }
 
         function updateDashboard(data) {
-            // Update metrics
-            if (data.stats) {
-                document.getElementById('messagesProcessed').textContent = 
-                    data.stats.events_processed?.toLocaleString() || '0';
-                document.getElementById('messagesSent').textContent = 
-                    data.stats.messages_sent?.toLocaleString() || '0';
-                
-                const responseRate = data.stats.events_processed > 0 
-                    ? Math.round((data.stats.messages_sent / data.stats.events_processed) * 100)
-                    : 0;
-                document.getElementById('responseRate').textContent = responseRate + '%';
-                
-                // Update metric changes
-                document.querySelectorAll('.metric-change').forEach(el => {
-                    el.textContent = 'Real-time data';
-                });
+            // Update status
+            const statusBadge = document.getElementById('agentStatus');
+            const statusText = document.getElementById('statusText');
+            if (data.status === 'running') {
+                statusBadge?.classList.remove('offline');
+                statusBadge?.classList.add('online');
+                if (statusText) statusText.textContent = 'Running';
+            } else {
+                statusBadge?.classList.remove('online');
+                statusBadge?.classList.add('offline');
+                if (statusText) statusText.textContent = data.status || 'Stopped';
             }
 
-            // Update confidence scores
-            if (data.confidence_scores) {
-                const avgConfidence = Object.values(data.confidence_scores)
-                    .reduce((a, b) => a + b, 0) / Object.values(data.confidence_scores).length;
-                document.getElementById('avgConfidence').textContent = 
-                    Math.round(avgConfidence * 100) + '%';
-                
-                // Update confidence chart
-                if (charts.confidence) {
-                    const scores = [
-                        data.confidence_scores.code_generate || 0,
-                        data.confidence_scores.code_refactor || 0,
-                        data.confidence_scores.test_run || 0,
-                        data.confidence_scores.test_create || 0,
-                        data.confidence_scores.debug_build || 0,
-                        data.confidence_scores.debug_analyze || 0,
-                        data.confidence_scores.debug_fix || 0
-                    ].map(v => Math.round(v * 100));
-                    
-                    charts.confidence.data.datasets[0].data = scores;
-                    charts.confidence.update('none');
-                }
+            // Update metrics from new API format
+            document.getElementById('messagesProcessed').textContent =
+                (data.total_messages || 0).toLocaleString();
+
+            // Calculate messages sent (from agents count)
+            const messagesSentEl = document.getElementById('messagesSent');
+            if (messagesSentEl) {
+                messagesSentEl.textContent = (data.running_count || 0).toLocaleString();
             }
+
+            // Calculate response rate
+            const totalMsgs = data.total_messages || 0;
+            const errors = data.total_errors || 0;
+            const responseRate = totalMsgs > 0
+                ? Math.round(((totalMsgs - errors) / totalMsgs) * 100)
+                : 100;
+            document.getElementById('responseRate').textContent = responseRate + '%';
+
+            // Update config toggles if config is returned
+            if (data.config) {
+                if (digitalTwinToggle) digitalTwinToggle.checked = data.config.digital_twin;
+                if (autoReplyToggle) autoReplyToggle.checked = data.config.auto_reply;
+                if (cooldownSlider) {
+                    cooldownSlider.value = Math.round(data.config.cooldown_ms / 1000);
+                    const cooldownLabel = document.getElementById('cooldownValue');
+                    if (cooldownLabel) cooldownLabel.textContent = cooldownSlider.value + 's';
+                }
+                if (confidenceSlider) {
+                    confidenceSlider.value = Math.round(data.config.confidence * 100);
+                    const confLabel = document.getElementById('confidenceValue');
+                    if (confLabel) confLabel.textContent = confidenceSlider.value + '%';
+                }
+
+                // Update average confidence display
+                document.getElementById('avgConfidence').textContent =
+                    Math.round(data.config.confidence * 100) + '%';
+            }
+
+            // Update agents count
+            const agentsCountEl = document.getElementById('agentsCount');
+            if (agentsCountEl) {
+                agentsCountEl.textContent = data.agents_count || 0;
+            }
+
+            // Update metric changes with real-time indicator
+            document.querySelectorAll('.metric-change').forEach(el => {
+                el.textContent = 'Live data';
+            });
         }
 
         // Event listeners
@@ -1497,7 +1609,8 @@
         });
 
         // Initialize
-        connectWebSocket();
+        connectLogsWebSocket();
+        connectAgentsWebSocket();
         initCharts();
         getAgentStatus();
     </script>

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useEditorStore } from '@/store/editorStore';
 import type { CaptionItem, CaptionStyle } from '@/store/types';
 import {
@@ -12,8 +12,17 @@ import {
   FileText,
   Mic,
   Loader2,
+  Search,
+  ChevronDown,
 } from 'lucide-react';
 import './CaptionsPanel.css';
+
+// Import centralized font definitions
+import {
+  POPULAR_FONTS,
+  UNIQUE_FONTS,
+  type CyrillicFont,
+} from '@/shared/fonts';
 
 const RENDER_SERVER_URL = import.meta.env.VITE_RENDER_SERVER_URL || 'https://vibee-remotion.fly.dev';
 
@@ -132,7 +141,11 @@ export function CaptionsPanel() {
 
   const [activeTab, setActiveTab] = useState<'captions' | 'style'>('captions');
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [fontSearch, setFontSearch] = useState('');
+  const [showFontDropdown, setShowFontDropdown] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fontDropdownRef = useRef<HTMLDivElement>(null);
+
 
   // Handle Whisper transcription
   const handleTranscribe = async () => {
@@ -205,6 +218,26 @@ export function CaptionsPanel() {
   const captions = templateProps.captions || [];
   const captionStyle = templateProps.captionStyle || {};
   const showCaptions = templateProps.showCaptions ?? true;
+
+  // Filter fonts based on search
+  const filteredFonts = useMemo(() => {
+    if (!fontSearch) return UNIQUE_FONTS;
+    const query = fontSearch.toLowerCase();
+    return UNIQUE_FONTS.filter(
+      (f: CyrillicFont) => f.name.toLowerCase().includes(query) || f.id.toLowerCase().includes(query)
+    );
+  }, [fontSearch]);
+
+  // Get current font name
+  const currentFontId = captionStyle.fontId || 'Montserrat';
+  const currentFont = UNIQUE_FONTS.find((f: CyrillicFont) => f.id === currentFontId) || POPULAR_FONTS[0];
+
+  // Handle font selection
+  const handleFontSelect = (fontId: string) => {
+    handleStyleChange('fontId', fontId);
+    setShowFontDropdown(false);
+    setFontSearch('');
+  };
 
   const currentTimeMs = (currentFrame / project.fps) * 1000;
 
@@ -419,16 +452,64 @@ export function CaptionsPanel() {
                 <option value={800}>ExtraBold</option>
               </select>
             </div>
-            <div className="style-row">
-              <label>Font Family</label>
-              <select
-                value={captionStyle.fontFamily || 'Montserrat, sans-serif'}
-                onChange={(e) => handleStyleChange('fontFamily', e.target.value)}
-              >
-                <option value="Montserrat, sans-serif">Montserrat Bold</option>
-                <option value="Inter, system-ui, sans-serif">Inter</option>
-                <option value="-apple-system, BlinkMacSystemFont, sans-serif">System</option>
-              </select>
+            <div className="style-row font-selector-row">
+              <label>Font ({UNIQUE_FONTS.length} Cyrillic)</label>
+              <div className="font-selector" ref={fontDropdownRef}>
+                <button
+                  className="font-selector-button"
+                  onClick={() => setShowFontDropdown(!showFontDropdown)}
+                >
+                  <span className="font-name">{currentFont.name}</span>
+                  <ChevronDown size={14} />
+                </button>
+                {showFontDropdown && (
+                  <div className="font-dropdown">
+                    <div className="font-search-wrapper">
+                      <Search size={14} />
+                      <input
+                        type="text"
+                        placeholder="Search fonts..."
+                        value={fontSearch}
+                        onChange={(e) => setFontSearch(e.target.value)}
+                        autoFocus
+                      />
+                    </div>
+                    <div className="font-dropdown-list">
+                      {!fontSearch && (
+                        <>
+                          <div className="font-category">Popular</div>
+                          {POPULAR_FONTS.map((font: CyrillicFont) => (
+                            <button
+                              key={font.id}
+                              className={`font-option ${currentFontId === font.id ? 'selected' : ''}`}
+                              onClick={() => handleFontSelect(font.id)}
+                            >
+                              <span className="font-option-name">{font.name}</span>
+                              <span className="font-option-preview">Привет</span>
+                            </button>
+                          ))}
+                          <div className="font-category">All Fonts</div>
+                        </>
+                      )}
+                      {filteredFonts
+                        .filter((f: CyrillicFont) => fontSearch || !POPULAR_FONTS.find((p: CyrillicFont) => p.id === f.id))
+                        .map((font: CyrillicFont) => (
+                          <button
+                            key={font.id}
+                            className={`font-option ${currentFontId === font.id ? 'selected' : ''}`}
+                            onClick={() => handleFontSelect(font.id)}
+                          >
+                            <span className="font-option-name">{font.name}</span>
+                            <span className="font-option-category">{font.category}</span>
+                          </button>
+                        ))}
+                      {filteredFonts.length === 0 && (
+                        <div className="font-no-results">No fonts found</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

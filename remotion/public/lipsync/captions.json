@@ -1,0 +1,562 @@
+[
+  {
+    "text": "Меня",
+    "startMs": 60,
+    "endMs": 270,
+    "timestampMs": 60,
+    "confidence": 1
+  },
+  {
+    "text": "зовут",
+    "startMs": 270,
+    "endMs": 630,
+    "timestampMs": 270,
+    "confidence": 1
+  },
+  {
+    "text": "Вайби",
+    "startMs": 630,
+    "endMs": 1000,
+    "timestampMs": 630,
+    "confidence": 1
+  },
+  {
+    "text": "я",
+    "startMs": 1070,
+    "endMs": 1160,
+    "timestampMs": 1070,
+    "confidence": 1
+  },
+  {
+    "text": "цифровой",
+    "startMs": 1160,
+    "endMs": 1830,
+    "timestampMs": 1160,
+    "confidence": 1
+  },
+  {
+    "text": "клон",
+    "startMs": 1830,
+    "endMs": 2170,
+    "timestampMs": 1830,
+    "confidence": 1
+  },
+  {
+    "text": "моего",
+    "startMs": 2170,
+    "endMs": 2590,
+    "timestampMs": 2170,
+    "confidence": 1
+  },
+  {
+    "text": "создателя",
+    "startMs": 2590,
+    "endMs": 3480,
+    "timestampMs": 2590,
+    "confidence": 1
+  },
+  {
+    "text": "Васильева",
+    "startMs": 3480,
+    "endMs": 3760,
+    "timestampMs": 3480,
+    "confidence": 1
+  },
+  {
+    "text": "Дмитрия",
+    "startMs": 3760,
+    "endMs": 4600,
+    "timestampMs": 3760,
+    "confidence": 1
+  },
+  {
+    "text": "Я",
+    "startMs": 4650,
+    "endMs": 4730,
+    "timestampMs": 4650,
+    "confidence": 1
+  },
+  {
+    "text": "продаю",
+    "startMs": 4730,
+    "endMs": 5130,
+    "timestampMs": 4730,
+    "confidence": 1
+  },
+  {
+    "text": "за",
+    "startMs": 5130,
+    "endMs": 5270,
+    "timestampMs": 5130,
+    "confidence": 1
+  },
+  {
+    "text": "него",
+    "startMs": 5270,
+    "endMs": 5600,
+    "timestampMs": 5270,
+    "confidence": 1
+  },
+  {
+    "text": "ИИ",
+    "startMs": 5600,
+    "endMs": 5620,
+    "timestampMs": 5600,
+    "confidence": 1
+  },
+  {
+    "text": "услуги",
+    "startMs": 5620,
+    "endMs": 6040,
+    "timestampMs": 5620,
+    "confidence": 1
+  },
+  {
+    "text": "помогаю",
+    "startMs": 6180,
+    "endMs": 6570,
+    "timestampMs": 6180,
+    "confidence": 1
+  },
+  {
+    "text": "кодить",
+    "startMs": 6570,
+    "endMs": 6930,
+    "timestampMs": 6570,
+    "confidence": 1
+  },
+  {
+    "text": "агентов",
+    "startMs": 6930,
+    "endMs": 7470,
+    "timestampMs": 6930,
+    "confidence": 1
+  },
+  {
+    "text": "и",
+    "startMs": 7470,
+    "endMs": 7520,
+    "timestampMs": 7470,
+    "confidence": 1
+  },
+  {
+    "text": "делать",
+    "startMs": 7520,
+    "endMs": 7880,
+    "timestampMs": 7520,
+    "confidence": 1
+  },
+  {
+    "text": "вирусный",
+    "startMs": 7880,
+    "endMs": 8350,
+    "timestampMs": 7880,
+    "confidence": 1
+  },
+  {
+    "text": "контент",
+    "startMs": 8350,
+    "endMs": 8900,
+    "timestampMs": 8350,
+    "confidence": 1
+  },
+  {
+    "text": "Пока",
+    "startMs": 8900,
+    "endMs": 9100,
+    "timestampMs": 8900,
+    "confidence": 1
+  },
+  {
+    "text": "ты",
+    "startMs": 9100,
+    "endMs": 9220,
+    "timestampMs": 9100,
+    "confidence": 1
+  },
+  {
+    "text": "живешь",
+    "startMs": 9220,
+    "endMs": 9490,
+    "timestampMs": 9220,
+    "confidence": 1
+  },
+  {
+    "text": "свою",
+    "startMs": 9490,
+    "endMs": 9690,
+    "timestampMs": 9490,
+    "confidence": 1
+  },
+  {
+    "text": "жизнь",
+    "startMs": 9690,
+    "endMs": 9930,
+    "timestampMs": 9690,
+    "confidence": 1
+  },
+  {
+    "text": "я",
+    "startMs": 9990,
+    "endMs": 10060,
+    "timestampMs": 9990,
+    "confidence": 1
+  },
+  {
+    "text": "круглосуточно",
+    "startMs": 10060,
+    "endMs": 10890,
+    "timestampMs": 10060,
+    "confidence": 1
+  },
+  {
+    "text": "работаю",
+    "startMs": 10890,
+    "endMs": 11340,
+    "timestampMs": 10890,
+    "confidence": 1
+  },
+  {
+    "text": "в",
+    "startMs": 11340,
+    "endMs": 11400,
+    "timestampMs": 11340,
+    "confidence": 1
+  },
+  {
+    "text": "Telegram",
+    "startMs": 11400,
+    "endMs": 11750,
+    "timestampMs": 11400,
+    "confidence": 1
+  },
+  {
+    "text": "на",
+    "startMs": 11760,
+    "endMs": 11950,
+    "timestampMs": 11760,
+    "confidence": 1
+  },
+  {
+    "text": "сайте",
+    "startMs": 11950,
+    "endMs": 12240,
+    "timestampMs": 11950,
+    "confidence": 1
+  },
+  {
+    "text": "и",
+    "startMs": 12240,
+    "endMs": 12300,
+    "timestampMs": 12240,
+    "confidence": 1
+  },
+  {
+    "text": "в",
+    "startMs": 12300,
+    "endMs": 12380,
+    "timestampMs": 12300,
+    "confidence": 1
+  },
+  {
+    "text": "сторис",
+    "startMs": 12380,
+    "endMs": 12720,
+    "timestampMs": 12380,
+    "confidence": 1
+  },
+  {
+    "text": "как",
+    "startMs": 12720,
+    "endMs": 12960,
+    "timestampMs": 12720,
+    "confidence": 1
+  },
+  {
+    "text": "твой",
+    "startMs": 12960,
+    "endMs": 13140,
+    "timestampMs": 12960,
+    "confidence": 1
+  },
+  {
+    "text": "личный",
+    "startMs": 13140,
+    "endMs": 13500,
+    "timestampMs": 13140,
+    "confidence": 1
+  },
+  {
+    "text": "нейросотрудник",
+    "startMs": 13500,
+    "endMs": 14520,
+    "timestampMs": 13500,
+    "confidence": 1
+  },
+  {
+    "text": "Я",
+    "startMs": 14520,
+    "endMs": 14600,
+    "timestampMs": 14520,
+    "confidence": 1
+  },
+  {
+    "text": "придумываю",
+    "startMs": 14600,
+    "endMs": 15220,
+    "timestampMs": 14600,
+    "confidence": 1
+  },
+  {
+    "text": "идеи,",
+    "startMs": 15220,
+    "endMs": 15540,
+    "timestampMs": 15220,
+    "confidence": 1
+  },
+  {
+    "text": "пишу",
+    "startMs": 15540,
+    "endMs": 15790,
+    "timestampMs": 15540,
+    "confidence": 1
+  },
+  {
+    "text": "сценарии",
+    "startMs": 15790,
+    "endMs": 16310,
+    "timestampMs": 15790,
+    "confidence": 1
+  },
+  {
+    "text": "озвучиваю",
+    "startMs": 16370,
+    "endMs": 17010,
+    "timestampMs": 16370,
+    "confidence": 1
+  },
+  {
+    "text": "ИИ",
+    "startMs": 17010,
+    "endMs": 17200,
+    "timestampMs": 17010,
+    "confidence": 1
+  },
+  {
+    "text": "голосом",
+    "startMs": 17200,
+    "endMs": 17520,
+    "timestampMs": 17200,
+    "confidence": 1
+  },
+  {
+    "text": "и",
+    "startMs": 17520,
+    "endMs": 17610,
+    "timestampMs": 17520,
+    "confidence": 1
+  },
+  {
+    "text": "собираю",
+    "startMs": 17610,
+    "endMs": 17980,
+    "timestampMs": 17610,
+    "confidence": 1
+  },
+  {
+    "text": "ролики",
+    "startMs": 17980,
+    "endMs": 18330,
+    "timestampMs": 17980,
+    "confidence": 1
+  },
+  {
+    "text": "которые",
+    "startMs": 18460,
+    "endMs": 18800,
+    "timestampMs": 18460,
+    "confidence": 1
+  },
+  {
+    "text": "приводят",
+    "startMs": 18800,
+    "endMs": 19220,
+    "timestampMs": 18800,
+    "confidence": 1
+  },
+  {
+    "text": "тебе",
+    "startMs": 19220,
+    "endMs": 19470,
+    "timestampMs": 19220,
+    "confidence": 1
+  },
+  {
+    "text": "клиентов",
+    "startMs": 19470,
+    "endMs": 19940,
+    "timestampMs": 19470,
+    "confidence": 1
+  },
+  {
+    "text": "даже",
+    "startMs": 20030,
+    "endMs": 20280,
+    "timestampMs": 20030,
+    "confidence": 1
+  },
+  {
+    "text": "когда",
+    "startMs": 20280,
+    "endMs": 20730,
+    "timestampMs": 20280,
+    "confidence": 1
+  },
+  {
+    "text": "ты",
+    "startMs": 20730,
+    "endMs": 20840,
+    "timestampMs": 20730,
+    "confidence": 1
+  },
+  {
+    "text": "офлайн",
+    "startMs": 20840,
+    "endMs": 21460,
+    "timestampMs": 20840,
+    "confidence": 1
+  },
+  {
+    "text": "Если",
+    "startMs": 21460,
+    "endMs": 21670,
+    "timestampMs": 21460,
+    "confidence": 1
+  },
+  {
+    "text": "хочешь",
+    "startMs": 21670,
+    "endMs": 22030,
+    "timestampMs": 21670,
+    "confidence": 1
+  },
+  {
+    "text": "чтобы",
+    "startMs": 22040,
+    "endMs": 22310,
+    "timestampMs": 22040,
+    "confidence": 1
+  },
+  {
+    "text": "за",
+    "startMs": 22310,
+    "endMs": 22410,
+    "timestampMs": 22310,
+    "confidence": 1
+  },
+  {
+    "text": "тебя",
+    "startMs": 22410,
+    "endMs": 22620,
+    "timestampMs": 22410,
+    "confidence": 1
+  },
+  {
+    "text": "работал",
+    "startMs": 22620,
+    "endMs": 22990,
+    "timestampMs": 22620,
+    "confidence": 1
+  },
+  {
+    "text": "личный",
+    "startMs": 22990,
+    "endMs": 23340,
+    "timestampMs": 22990,
+    "confidence": 1
+  },
+  {
+    "text": "нейросотрудник",
+    "startMs": 23340,
+    "endMs": 24050,
+    "timestampMs": 23340,
+    "confidence": 1
+  },
+  {
+    "text": "пиши",
+    "startMs": 24100,
+    "endMs": 24330,
+    "timestampMs": 24100,
+    "confidence": 1
+  },
+  {
+    "text": "в",
+    "startMs": 24330,
+    "endMs": 24360,
+    "timestampMs": 24330,
+    "confidence": 1
+  },
+  {
+    "text": "личку",
+    "startMs": 24360,
+    "endMs": 24760,
+    "timestampMs": 24360,
+    "confidence": 1
+  },
+  {
+    "text": "и",
+    "startMs": 24770,
+    "endMs": 24820,
+    "timestampMs": 24770,
+    "confidence": 1
+  },
+  {
+    "text": "я",
+    "startMs": 24820,
+    "endMs": 24870,
+    "timestampMs": 24820,
+    "confidence": 1
+  },
+  {
+    "text": "расскажу",
+    "startMs": 24870,
+    "endMs": 25280,
+    "timestampMs": 24870,
+    "confidence": 1
+  },
+  {
+    "text": "с",
+    "startMs": 25350,
+    "endMs": 25380,
+    "timestampMs": 25350,
+    "confidence": 1
+  },
+  {
+    "text": "чего",
+    "startMs": 25380,
+    "endMs": 25590,
+    "timestampMs": 25380,
+    "confidence": 1
+  },
+  {
+    "text": "начать",
+    "startMs": 25590,
+    "endMs": 25900,
+    "timestampMs": 25590,
+    "confidence": 1
+  },
+  {
+    "text": "уже",
+    "startMs": 25900,
+    "endMs": 26060,
+    "timestampMs": 25900,
+    "confidence": 1
+  },
+  {
+    "text": "сегодня",
+    "startMs": 26060,
+    "endMs": 26420,
+    "timestampMs": 26060,
+    "confidence": 1
+  }
+]

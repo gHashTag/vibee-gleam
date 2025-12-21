@@ -2,6 +2,14 @@
 // Vibee Editor - Type Definitions
 // ===============================
 
+import type React from 'react';
+
+// Import shared types
+import type { CaptionStyle as SharedCaptionStyle } from '@/shared/types';
+
+// Re-export shared types
+export type { SharedCaptionStyle as CaptionStyleShared };
+
 export interface Project {
   id: string;
   name: string;
@@ -124,9 +132,10 @@ export interface Selection {
 }
 
 // ===============================
-// Caption Types (from @remotion/captions)
+// Caption Types
 // ===============================
 
+// Player-specific caption item format (from API)
 export interface CaptionItem {
   text: string;
   startMs: number;
@@ -135,16 +144,20 @@ export interface CaptionItem {
   confidence: number | null;
 }
 
-export interface CaptionStyle {
-  fontSize?: number;
-  textColor?: string;
-  highlightColor?: string;
-  backgroundColor?: string;
-  bottomPercent?: number;
-  maxWidthPercent?: number;
-  fontFamily?: string;
-  fontWeight?: number;
-  showShadow?: boolean;
+// CaptionStyle is shared with Remotion compositions
+// Extends SharedCaptionStyle for compatibility
+export type CaptionStyle = SharedCaptionStyle;
+
+// ===============================
+// Timeline Segments (for render sync)
+// ===============================
+
+export interface Segment {
+  type: 'split' | 'fullscreen';
+  startFrame: number;
+  durationFrames: number;
+  bRollUrl?: string;
+  bRollType?: 'video' | 'image';
 }
 
 // ===============================
@@ -173,6 +186,11 @@ export interface LipSyncMainProps {
   captions?: CaptionItem[];
   captionStyle?: CaptionStyle;
   showCaptions?: boolean;
+
+  // Face centering (from /analyze-face endpoint)
+  faceOffsetX?: number;  // -50 to 50 (%)
+  faceOffsetY?: number;  // -50 to 50 (%)
+  faceScale?: number;    // 1.0 = no zoom
 }
 
 // ===============================
@@ -209,6 +227,7 @@ export interface EditorState {
   tracks: Track[];
   currentFrame: number;
   isPlaying: boolean;
+  isMuted: boolean;
   playbackRate: number; // 0.5x to 2x
   timelineZoom: number; // 1 = 100%
 
@@ -261,10 +280,17 @@ export interface EditorActions {
   // Playback
   setCurrentFrame: (frame: number) => void;
   setIsPlaying: (playing: boolean) => void;
+  setIsMuted: (muted: boolean) => void;
   setPlaybackRate: (rate: number) => void;
   play: () => void;
   pause: () => void;
   seekTo: (frame: number) => void;
+
+  // Player ref for direct control (autoplay policy)
+  playerRef: any;
+  setPlayerRef: (ref: any) => void;
+  playDirect: (event?: React.MouseEvent) => void;
+  pauseDirect: () => void;
 
   // Tracks
   addTrack: (type: TrackType, name?: string) => string;
@@ -294,6 +320,7 @@ export interface EditorActions {
   // Assets
   addAsset: (asset: Omit<Asset, 'id'>) => string;
   removeAsset: (assetId: string) => void;
+  cleanupOrphanedAssets: () => void;
 
   // Timeline
   setTimelineZoom: (zoom: number) => void;
@@ -328,6 +355,7 @@ export interface EditorActions {
   getTrackById: (trackId: string) => Track | undefined;
   getAssetById: (assetId: string) => Asset | undefined;
   getSelectedItems: () => TrackItem[];
+  getSegmentsFromTimeline: () => Segment[];
 
   // Template props
   updateTemplateProp: <K extends keyof LipSyncMainProps>(
@@ -335,6 +363,9 @@ export interface EditorActions {
     value: LipSyncMainProps[K]
   ) => void;
   syncBackgroundVideosFromTimeline: () => void;
+  updateDurationFromLipSync: () => Promise<void>;
+  loadCaptions: () => Promise<void>;
+  resetToDefaults: () => void;
 }
 
 export type EditorStore = EditorState & EditorActions;

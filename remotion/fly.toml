@@ -42,5 +42,5 @@ primary_region = 'ams'
     type = 'http'
 
 [mounts]
-  source = 'remotion_renders'
-  destination = '/app/out'
+  source = 'vibee_storage'
+  destination = '/app/storage'

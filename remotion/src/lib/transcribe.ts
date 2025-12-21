@@ -1,7 +1,7 @@
 /**
- * Transcription Library
+ * Transcription Library using whisper.cpp CLI
  *
- * Provides audio transcription using Whisper.cpp
+ * Provides audio transcription using Whisper.cpp directly
  * Supports Russian and other languages
  */
 
@@ -16,8 +16,8 @@ export interface Caption {
   text: string;
   startMs: number;
   endMs: number;
-  timestampMs: number | null;
-  confidence: number | null;
+  timestampMs: number;
+  confidence: number;
 }
 
 export interface Segment {
@@ -34,6 +34,12 @@ export interface TranscriptionResult {
   segments: Segment[];
 }
 
+interface WhisperToken {
+  timestamps: { from: string; to: string };
+  offsets: { from: number; to: number };
+  text: string;
+}
+
 /**
  * Download file from URL to local path
  */
@@ -44,7 +50,6 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
 
     protocol
       .get(url, (response) => {
-        // Handle redirects
         if (response.statusCode === 301 || response.statusCode === 302) {
           const redirectUrl = response.headers.location;
           if (redirectUrl) {
@@ -68,10 +73,10 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
 }
 
 /**
- * Extract audio from video as 16KHz WAV (required by Whisper)
+ * Extract audio from video as 16KHz WAV
  */
-async function extractAudio(videoPath: string): Promise<string> {
-  const audioPath = videoPath.replace(/\.[^.]+$/, '_audio.wav');
+function extractAudio(videoPath: string): string {
+  const audioPath = `/tmp/whisper_audio_${Date.now()}.wav`;
 
   console.log('Extracting audio from video...');
   execSync(
@@ -80,6 +85,71 @@ async function extractAudio(videoPath: string): Promise<string> {
   );
 
   return audioPath;
+}
+
+/**
+ * Parse whisper JSON output and combine tokens into words
+ */
+function parseWhisperOutput(jsonPath: string): Caption[] {
+  const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+  const tokens: WhisperToken[] = data.transcription || [];
+
+  const captions: Caption[] = [];
+  let currentWord = '';
+  let wordStart = 0;
+  let wordEnd = 0;
+
+  for (const token of tokens) {
+    const text = token.text;
+
+    // Skip empty tokens and punctuation-only
+    if (!text || text.trim() === '' || /^[.,!?;:\-"'()]+$/.test(text.trim())) {
+      if (currentWord.trim()) {
+        captions.push({
+          text: currentWord.trim(),
+          startMs: wordStart,
+          endMs: wordEnd,
+          timestampMs: wordStart,
+          confidence: 1,
+        });
+        currentWord = '';
+      }
+      continue;
+    }
+
+    // Check if this token starts with space (new word)
+    if (text.startsWith(' ') && currentWord.trim()) {
+      captions.push({
+        text: currentWord.trim(),
+        startMs: wordStart,
+        endMs: wordEnd,
+        timestampMs: wordStart,
+        confidence: 1,
+      });
+      currentWord = text.trim();
+      wordStart = token.offsets.from;
+      wordEnd = token.offsets.to;
+    } else {
+      if (!currentWord) {
+        wordStart = token.offsets.from;
+      }
+      currentWord += text;
+      wordEnd = token.offsets.to;
+    }
+  }
+
+  // Don't forget the last word
+  if (currentWord.trim()) {
+    captions.push({
+      text: currentWord.trim(),
+      startMs: wordStart,
+      endMs: wordEnd,
+      timestampMs: wordStart,
+      confidence: 1,
+    });
+  }
+
+  return captions;
 }
 
 /**
@@ -95,12 +165,11 @@ function captionsToSegments(captions: Caption[], fps: number): Segment[] {
   ];
 
   return captions.map((caption, i) => {
-    // Alternate between split and fullscreen (every 3rd is fullscreen)
     const type: 'split' | 'fullscreen' = i % 3 === 0 ? 'fullscreen' : 'split';
 
     const startFrame = Math.floor((caption.startMs / 1000) * fps);
     const endFrame = Math.floor((caption.endMs / 1000) * fps);
-    const durationFrames = Math.max(endFrame - startFrame, fps); // minimum 1 second
+    const durationFrames = Math.max(endFrame - startFrame, fps);
 
     return {
       type,
@@ -114,24 +183,27 @@ function captionsToSegments(captions: Caption[], fps: number): Segment[] {
 }
 
 /**
- * Transcribe video to captions using Whisper.cpp
- *
- * @param videoPathOrUrl - Local path or URL to video file
- * @param language - Language code (ru, en, etc.)
- * @param fps - Frames per second for segment calculation
+ * Transcribe video to captions using Whisper.cpp CLI
  */
 export async function transcribeVideo(
   videoPathOrUrl: string,
   language: string = 'ru',
   fps: number = 30
 ): Promise<TranscriptionResult> {
-  const whisperPath = path.join(process.cwd(), 'whisper.cpp');
+  const whisperDir = path.join(process.cwd(), 'whisper.cpp');
 
-  // Check if Whisper is installed
-  if (!fs.existsSync(whisperPath)) {
-    throw new Error(
-      'Whisper.cpp not installed. Run: npx tsx scripts/setup-whisper.ts'
-    );
+  // Select model based on language
+  const modelPath = language === 'en'
+    ? path.join(whisperDir, 'models/ggml-small.en.bin')
+    : path.join(whisperDir, 'models/ggml-small.bin');
+
+  // Check if Whisper and model exist
+  if (!fs.existsSync(whisperDir)) {
+    throw new Error('Whisper.cpp not installed. Run: git clone https://github.com/ggerganov/whisper.cpp');
+  }
+
+  if (!fs.existsSync(modelPath)) {
+    throw new Error(`Model not found: ${modelPath}. Run: cd whisper.cpp && bash models/download-ggml-model.sh small`);
   }
 
   // Handle URLs - download to temp file
@@ -139,22 +211,16 @@ export async function transcribeVideo(
   let isTemp = false;
 
   if (videoPathOrUrl.startsWith('http://') || videoPathOrUrl.startsWith('https://')) {
-    const tempDir = path.join(process.cwd(), 'uploads');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-
     const ext = path.extname(new URL(videoPathOrUrl).pathname) || '.mp4';
-    videoPath = path.join(tempDir, `temp_${Date.now()}${ext}`);
+    videoPath = `/tmp/whisper_video_${Date.now()}${ext}`;
     isTemp = true;
 
     console.log(`Downloading video from ${videoPathOrUrl}...`);
     await downloadFile(videoPathOrUrl, videoPath);
-    console.log(`Downloaded to ${videoPath}`);
   }
 
   // Handle local paths in public directory
-  if (videoPath.startsWith('/') && !videoPath.startsWith('/Users') && !videoPath.startsWith('/app')) {
+  if (videoPath.startsWith('/') && !videoPath.startsWith('/Users') && !videoPath.startsWith('/app') && !videoPath.startsWith('/tmp')) {
     videoPath = path.join(process.cwd(), 'public', videoPath);
   }
 
@@ -162,66 +228,38 @@ export async function transcribeVideo(
     throw new Error(`Video file not found: ${videoPath}`);
   }
 
+  let audioPath: string | null = null;
+  const jsonOutput = `/tmp/whisper_output_${Date.now()}`;
+
   try {
     // Extract audio
-    const audioPath = await extractAudio(videoPath);
+    audioPath = extractAudio(videoPath);
 
     console.log(`Transcribing with language: ${language}...`);
 
-    // Dynamically import to avoid TypeScript issues
-    const whisperModule = await import('@remotion/install-whisper-cpp');
-    const { transcribe, convertToCaptions } = whisperModule;
+    // Run whisper.cpp CLI
+    execSync(
+      `cd "${whisperDir}" && ./main -m "${modelPath}" -f "${audioPath}" -l ${language} -ml 3 -oj --output-file "${jsonOutput}"`,
+      { stdio: 'pipe' }
+    );
 
-    // Transcribe with Whisper
-    const result = await (transcribe as Function)({
-      inputPath: audioPath,
-      whisperPath,
-      model: 'medium',
-      language: language === 'ru' ? 'ru' : language === 'en' ? 'en' : null,
-      tokenLevelTimestamps: true,
-    });
-
-    // Convert to Remotion Caption format
-    const rawCaptions = (convertToCaptions as Function)({
-      transcription: result.transcription,
-      combineTokensWithinMilliseconds: 1500,
-    });
-
-    // Map to our Caption interface (startInSeconds -> startMs)
-    const captions: Caption[] = rawCaptions.captions.map((c: any, i: number, arr: any[]) => {
-      const startMs = Math.round(c.startInSeconds * 1000);
-      // Calculate endMs from next caption's start or add 2 seconds
-      const nextCaption = arr[i + 1];
-      const endMs = nextCaption
-        ? Math.round(nextCaption.startInSeconds * 1000) - 100
-        : startMs + 2000;
-
-      return {
-        text: c.text.trim(),
-        startMs,
-        endMs,
-        timestampMs: startMs,
-        confidence: null,
-      };
-    });
+    // Parse output
+    const captions = parseWhisperOutput(`${jsonOutput}.json`);
+    const segments = captionsToSegments(captions, fps);
 
     console.log(`Found ${captions.length} captions`);
 
-    // Convert to segments
-    const segments = captionsToSegments(captions, fps);
-
-    // Cleanup temp files
-    fs.unlinkSync(audioPath);
-    if (isTemp) {
-      fs.unlinkSync(videoPath);
-    }
-
     return { captions, segments };
-  } catch (error) {
-    // Cleanup on error
+  } finally {
+    // Cleanup temp files
+    if (audioPath && fs.existsSync(audioPath)) {
+      fs.unlinkSync(audioPath);
+    }
+    if (fs.existsSync(`${jsonOutput}.json`)) {
+      fs.unlinkSync(`${jsonOutput}.json`);
+    }
     if (isTemp && fs.existsSync(videoPath)) {
       fs.unlinkSync(videoPath);
     }
-    throw error;
   }
 }

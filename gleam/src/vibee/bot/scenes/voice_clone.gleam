@@ -14,6 +14,7 @@ import vibee/bot/scene_handler.{
   type NextAction, type SceneError, type SceneResult, InvalidInput, InvalidState,
   JobVoiceClone, NoAction, SceneResult, StartJob,
 }
+import vibee/sales/paywall
 
 // ============================================================
 // Types for voice messages
@@ -178,25 +179,42 @@ fn start_generation(
   voice_id: String,
   text: String,
 ) -> Result(SceneResult, SceneError) {
-  let job_id = "pending"
-  let new_session = set_scene(
-    session,
-    VoiceClone(VoiceCloneGenerating(voice_id, text, job_id)),
-  )
+  // Проверка paywall - VoiceClone требует Middle тариф
+  case paywall.check_access(session.user_id, paywall.VoiceClone) {
+    paywall.AccessGranted(_) -> {
+      let job_id = "pending"
+      let new_session = set_scene(
+        session,
+        VoiceClone(VoiceCloneGenerating(voice_id, text, job_id)),
+      )
 
-  let params = dict.new()
-    |> dict.insert("voice_id", voice_id)
-    |> dict.insert("text", text)
-    |> dict.insert("chat_id", session.chat_id)
+      let params = dict.new()
+        |> dict.insert("voice_id", voice_id)
+        |> dict.insert("text", text)
+        |> dict.insert("chat_id", session.chat_id)
 
-  Ok(SceneResult(
-    session: new_session,
-    response: Some(TextReply(
-      "Generating speech with cloned voice...\n\n" <>
-      "This usually takes 10-30 seconds."
-    )),
-    next_action: StartJob(JobVoiceClone, params),
-  ))
+      // Записать использование как Generation
+      let _ = paywall.record_usage(session.user_id, paywall.Generation)
+
+      Ok(SceneResult(
+        session: new_session,
+        response: Some(TextReply(
+          "Generating speech with cloned voice...\n\n" <>
+          "This usually takes 10-30 seconds."
+        )),
+        next_action: StartJob(JobVoiceClone, params),
+      ))
+    }
+    access_result -> {
+      let message = paywall.get_access_message(access_result, "ru")
+        <> "\n\n💎 /pricing - тарифы\n🎯 /quiz - подобрать тариф"
+      Ok(SceneResult(
+        session: session,
+        response: Some(TextReply(message)),
+        next_action: NoAction,
+      ))
+    }
+  }
 }
 
 /// Handle generation result

@@ -34,7 +34,9 @@ export function PropertiesPanel() {
     key: K,
     value: LipSyncMainProps[K]
   ) => {
+    console.log(`[PropertiesPanel] handleChange called: ${String(key)} =`, value);
     updateTemplateProp(key, value);
+    console.log(`[PropertiesPanel] handleChange done: ${String(key)}`);
   };
 
   const handleTextChange = (key: string, value: any) => {

@@ -141,7 +141,7 @@ pub fn get_recent(aggregator: Subject(Message), count: Int) -> List(LogEntry) {
 // Serialization
 // =============================================================================
 
-fn log_entry_to_json(entry: LogEntry) -> String {
+pub fn log_entry_to_json(entry: LogEntry) -> String {
   let base = [
     #("timestamp", json.string(entry.timestamp)),
     #("level", json.string(entry.level)),

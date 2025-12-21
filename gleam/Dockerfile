@@ -17,6 +17,9 @@ RUN gleam deps download
 # Copy source code
 COPY src/ ./src/
 
+# Copy dashboard files
+COPY dashboard/ ./dashboard/
+
 # Build and export
 RUN set -ex && \
     rm -rf build && \
@@ -32,6 +35,9 @@ RUN apk add --no-cache curl bash postgresql-client
 
 # Move shipment to /app
 RUN mv build/erlang-shipment /app
+
+# Copy dashboard to /app
+RUN cp -r dashboard /app/dashboard
 
 # Verify after move
 RUN set -ex && \

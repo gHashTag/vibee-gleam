@@ -5,6 +5,7 @@ import gleam/http
 import gleam/http/request
 import gleam/http/response
 import gleam/httpc
+import gleam/io
 import gleam/json
 import gleam/dynamic/decode
 import gleam/result
@@ -26,17 +27,23 @@ pub type TelegramBridge {
   TelegramBridge(
     base_url: String,
     session_id: Option(String),
+    api_key: Option(String),
   )
 }
 
 /// Create a new bridge client
 pub fn new(base_url: String) -> TelegramBridge {
-  TelegramBridge(base_url: base_url, session_id: None)
+  TelegramBridge(base_url: base_url, session_id: None, api_key: None)
 }
 
 /// Create a bridge client with existing session
 pub fn with_session(base_url: String, session_id: String) -> TelegramBridge {
-  TelegramBridge(base_url: base_url, session_id: Some(session_id))
+  TelegramBridge(base_url: base_url, session_id: Some(session_id), api_key: None)
+}
+
+/// Create a bridge client with session and API key
+pub fn with_session_and_key(base_url: String, session_id: String, api_key: String) -> TelegramBridge {
+  TelegramBridge(base_url: base_url, session_id: Some(session_id), api_key: Some(api_key))
 }
 
 /// Connect to Telegram
@@ -60,6 +67,7 @@ pub fn connect(
           let new_bridge = TelegramBridge(
             base_url: bridge.base_url,
             session_id: Some(info.session_id),
+            api_key: bridge.api_key,
           )
           Ok(#(new_bridge, info))
         }
@@ -155,6 +163,12 @@ pub fn send_message(
   text: String,
   reply_to: Option(Int),
 ) -> Result(SendMessageResult, TelegramError) {
+  // Debug logging
+  io.println("[BRIDGE] send_message: chat_id=" <> int.to_string(chat_id))
+  io.println("[BRIDGE] session_id=" <> case bridge.session_id { Some(s) -> s None -> "NONE" })
+  io.println("[BRIDGE] url=" <> bridge.base_url <> "/api/v1/send")
+  io.println("[BRIDGE] text=" <> string.slice(text, 0, 50) <> "...")
+
   let body = json.object([
     #("chat_id", json.int(chat_id)),
     #("text", json.string(text)),
@@ -164,9 +178,29 @@ pub fn send_message(
     }),
   ])
 
+  io.println("[BRIDGE] request body: " <> json.to_string(body))
+
   case post_with_session(bridge, "/api/v1/send", json.to_string(body)) {
-    Ok(resp) -> parse_send_result(resp.body)
-    Error(e) -> Error(e)
+    Ok(resp) -> {
+      io.println("[BRIDGE] ✅ Response status: " <> int.to_string(resp.status))
+      io.println("[BRIDGE] Response body: " <> string.slice(resp.body, 0, 200))
+      parse_send_result(resp.body)
+    }
+    Error(e) -> {
+      io.println("[BRIDGE] ❌ Request failed: " <> telegram_error_to_string(e))
+      Error(e)
+    }
+  }
+}
+
+fn telegram_error_to_string(err: TelegramError) -> String {
+  case err {
+    types.ConnectionError(msg) -> "ConnectionError: " <> msg
+    types.AuthError(msg) -> "AuthError: " <> msg
+    types.ApiError(code, msg) -> "ApiError(" <> int.to_string(code) <> "): " <> msg
+    types.NetworkError(msg) -> "NetworkError: " <> msg
+    types.InvalidSession -> "InvalidSession"
+    types.NotAuthorized -> "NotAuthorized"
   }
 }
 
@@ -223,6 +257,7 @@ fn post_with_session(
             |> request.set_method(http.Post)
             |> request.set_header("content-type", "application/json")
             |> request.set_header("x-session-id", sid)
+            |> add_auth_header(bridge.api_key)
             |> request.set_body(body)
 
           case httpc.send(req) {
@@ -250,6 +285,7 @@ fn get_with_session(
           let req = req
             |> request.set_method(http.Get)
             |> request.set_header("x-session-id", sid)
+            |> add_auth_header(bridge.api_key)
 
           case httpc.send(req) {
             Ok(resp) -> check_response(resp)
@@ -259,6 +295,14 @@ fn get_with_session(
         Error(_) -> Error(ConnectionError("Invalid URL: " <> url))
       }
     }
+  }
+}
+
+/// Add Authorization header if api_key is set
+fn add_auth_header(req: request.Request(String), api_key: Option(String)) -> request.Request(String) {
+  case api_key {
+    Some(key) -> request.set_header(req, "authorization", "Bearer " <> key)
+    None -> req
   }
 }
 

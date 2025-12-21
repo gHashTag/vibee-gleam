@@ -1,4 +1,5 @@
 import type { LipSyncMainProps } from '@/store/editorStore';
+import { DEFAULT_COMPOSITION_ID } from '@/shared/compositions';
 
 const API_BASE = '/api';
 
@@ -31,7 +32,7 @@ export async function renderVideo(
   onProgress?: (progress: number) => void
 ): Promise<RenderResponse> {
   const request: RenderRequest = {
-    compositionId: 'LipSyncMain',
+    compositionId: DEFAULT_COMPOSITION_ID,
     inputProps: props,
   };
 

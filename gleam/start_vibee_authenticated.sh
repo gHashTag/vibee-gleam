@@ -5,26 +5,23 @@ echo "  Starting VIBEE with Authenticated Session"
 echo "========================================="
 echo ""
 
-export VIBEE_MODE=mcp
-export TELEGRAM_API_ID=94892
-export TELEGRAM_API_HASH=REDACTED_API_HASH
-export TELEGRAM_SESSION_ID=REDACTED_SESSION
-export TELEGRAM_SESSION_1_PHONE="+79933420465"
-export TELEGRAM_SESSION_1_USERNAME="neuro_sage"
-export MCP_PORT=3000
+# Load .env if exists
+if [ -f .env ]; then
+    set -a; source .env; set +a
+fi
+
+if [ -z "$TELEGRAM_SESSION_ID" ]; then
+    echo "ERROR: TELEGRAM_SESSION_ID not set. Copy .env.example to .env"
+    exit 1
+fi
+
+export VIBEE_MODE=${VIBEE_MODE:-mcp}
+export MCP_PORT=${MCP_PORT:-3000}
 
 echo "Configuration:"
-echo "  Mode: MCP Server"
-echo "  Session: REDACTED_SESSION"
-echo "  User: @neuro_sage"
-echo "  Phone: +7 (993) 342-04-65"
-echo "  Port: 3000"
-echo ""
-
-echo "✅ Telegram authenticated"
-echo "✅ RAG system ready (2000+ lines)"
-echo "✅ 8 RAG tools available"
-echo "✅ 11 MB embeddings loaded"
+echo "  Mode: $VIBEE_MODE"
+echo "  Session: $TELEGRAM_SESSION_ID"
+echo "  Port: $MCP_PORT"
 echo ""
 
 echo "Starting VIBEE..."

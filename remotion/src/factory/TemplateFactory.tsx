@@ -22,9 +22,9 @@ import {
   Img,
   interpolate,
   Easing,
-  staticFile,
 } from 'remotion';
 import { z } from 'zod';
+import { resolveMediaPath } from '../shared/mediaPath';
 
 import type {
   TalkingHeadProps,
@@ -209,7 +209,7 @@ export const FactoryTalkingHead: React.FC<FactoryTalkingHeadProps> = (props) => 
       {/* Background Music */}
       {props.backgroundMusic && (
         <Audio
-          src={resolveMediaPath(props.backgroundMusic)}
+          src={resolveMediaPath(props.backgroundMusic, { resolvePlaceholders: true })}
           volume={props.musicVolume}
         />
       )}
@@ -272,7 +272,7 @@ const AvatarLayer: React.FC<AvatarLayerProps> = ({
 
       {/* Avatar Video */}
       <Video
-        src={resolveMediaPath(lipSyncVideo)}
+        src={resolveMediaPath(lipSyncVideo, { resolvePlaceholders: true })}
         style={{
           width: '100%',
           height: '100%',
@@ -353,7 +353,7 @@ const BRollLayer: React.FC<BRollLayerProps> = ({
   return (
     <div style={style}>
       <Video
-        src={resolveMediaPath(activeSegment.videoUrl)}
+        src={resolveMediaPath(activeSegment.videoUrl, { resolvePlaceholders: true })}
         style={{
           width: '100%',
           height: '100%',
@@ -545,53 +545,6 @@ function renderHighlightedText(
       part
     )
   );
-}
-
-// ============================================================
-// Media Path Helper
-// ============================================================
-
-function resolveMediaPath(path: string): string {
-  // Handle placeholders - resolve to actual assets
-  if (path.startsWith('{{') && path.endsWith('}}')) {
-    const placeholder = path.slice(2, -2); // Remove {{ }}
-
-    // Map placeholders to real assets
-    if (placeholder.includes('lipsync')) {
-      return staticFile('/lipsync/lipsync.mp4');
-    }
-    if (placeholder.includes('broll') || placeholder.includes('background')) {
-      // Return a random b-roll video
-      const brollVideos = ['/backgrounds/business/00.mp4', '/backgrounds/business/01.mp4', '/backgrounds/business/02.mp4', '/backgrounds/business/03.mp4', '/backgrounds/business/04.mp4'];
-      return staticFile(brollVideos[Math.floor(Math.random() * brollVideos.length)]);
-    }
-    if (placeholder.includes('music')) {
-      return staticFile('/music/corporate.mp3');
-    }
-    if (placeholder.includes('cover')) {
-      return staticFile('/covers/cover.jpeg');
-    }
-
-    // Fallback - use lipsync as default
-    return staticFile('/lipsync/lipsync.mp4');
-  }
-
-  // Handle remote URLs
-  if (path.startsWith('http://') || path.startsWith('https://')) {
-    return path;
-  }
-
-  // Handle paths already prefixed with /public/ (from batch-render test mode)
-  if (path.startsWith('/public/')) {
-    return path;  // Return as-is, Remotion will resolve from bundle
-  }
-
-  // Handle local paths
-  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-    return path;
-  }
-
-  return staticFile(path.startsWith('/') ? path : `/${path}`);
 }
 
 // ============================================================

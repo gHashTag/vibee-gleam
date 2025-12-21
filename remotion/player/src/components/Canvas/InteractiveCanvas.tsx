@@ -2,10 +2,99 @@ import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { Player } from '@remotion/player';
 import type { PlayerRef } from '@remotion/player';
 import { useEditorStore, useLipSyncProps } from '@/store/editorStore';
-import { LipSyncMain } from '@compositions/LipSyncMain';
+import { SplitTalkingHead, type SplitTalkingHeadProps, type Segment } from '@compositions/SplitTalkingHead';
 import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
-import { convertPropsToAbsoluteUrls } from '@/lib/mediaUrl';
+import { convertPropsToAbsoluteUrls, toAbsoluteUrl } from '@/lib/mediaUrl';
+import type { LipSyncMainProps, TrackItem, Asset } from '@/store/types';
 import './InteractiveCanvas.css';
+
+/**
+ * Convert LipSyncMainProps to SplitTalkingHeadProps
+ * Uses actual timeline positions from video track items
+ */
+function convertToSplitTalkingHeadProps(
+  props: LipSyncMainProps,
+  durationInFrames: number,
+  fps: number,
+  videoTrackItems: TrackItem[],
+  assets: Asset[]
+): SplitTalkingHeadProps {
+  const segments: Segment[] = [];
+
+  // Sort items by startFrame to ensure correct order
+  const sortedItems = [...videoTrackItems].sort((a, b) => a.startFrame - b.startFrame);
+
+  if (sortedItems.length === 0) {
+    // No B-roll - just fullscreen lipsync
+    segments.push({
+      type: 'fullscreen',
+      startFrame: 0,
+      durationFrames: durationInFrames,
+      caption: '',
+    });
+  } else {
+    // Use actual timeline positions from video track items
+    let lastEndFrame = 0;
+
+    sortedItems.forEach((item) => {
+      // Add fullscreen segment for gap before this b-roll (if any)
+      if (item.startFrame > lastEndFrame) {
+        segments.push({
+          type: 'fullscreen',
+          startFrame: lastEndFrame,
+          durationFrames: item.startFrame - lastEndFrame,
+          caption: '',
+        });
+      }
+
+      // Get URL from assets using assetId
+      const asset = item.assetId ? assets.find((a) => a.id === item.assetId) : null;
+      const bRollUrl = asset?.url ? toAbsoluteUrl(asset.url) : undefined;
+
+      // Add split segment with B-roll at timeline position
+      segments.push({
+        type: 'split',
+        startFrame: item.startFrame,
+        durationFrames: item.durationInFrames,
+        bRollUrl: bRollUrl,
+        bRollType: 'video',
+        caption: '',
+      });
+
+      lastEndFrame = item.startFrame + item.durationInFrames;
+    });
+
+    // Add final fullscreen segment if there's remaining time
+    if (lastEndFrame < durationInFrames) {
+      segments.push({
+        type: 'fullscreen',
+        startFrame: lastEndFrame,
+        durationFrames: durationInFrames - lastEndFrame,
+        caption: '',
+      });
+    }
+  }
+
+  console.log('[convertToSplitTalkingHeadProps] backgroundMusic:', props.backgroundMusic);
+  console.log('[convertToSplitTalkingHeadProps] musicVolume:', props.musicVolume);
+  console.log('[convertToSplitTalkingHeadProps] lipSyncVideo:', props.lipSyncVideo);
+
+  return {
+    lipSyncVideo: props.lipSyncVideo,
+    segments,
+    captionColor: props.captionStyle?.highlightColor || '#FFFF00',
+    splitRatio: 0.5,
+    backgroundMusic: props.backgroundMusic,
+    musicVolume: props.musicVolume,
+    captions: props.captions || [],
+    showCaptions: props.showCaptions ?? true,
+    captionStyle: props.captionStyle || {},
+    // Face centering
+    faceOffsetX: props.faceOffsetX ?? 0,
+    faceOffsetY: props.faceOffsetY ?? 0,
+    faceScale: props.faceScale ?? 1,
+  };
+}
 
 export function InteractiveCanvas() {
   const playerRef = useRef<PlayerRef>(null);
@@ -15,20 +104,60 @@ export function InteractiveCanvas() {
   const project = useEditorStore((s) => s.project);
   const currentFrame = useEditorStore((s) => s.currentFrame);
   const isPlaying = useEditorStore((s) => s.isPlaying);
+  const isMuted = useEditorStore((s) => s.isMuted);
   const playbackRate = useEditorStore((s) => s.playbackRate);
   const canvasZoom = useEditorStore((s) => s.canvasZoom);
+  const tracks = useEditorStore((s) => s.tracks);
+  const assets = useEditorStore((s) => s.assets);
   const setCurrentFrame = useEditorStore((s) => s.setCurrentFrame);
   const setIsPlaying = useEditorStore((s) => s.setIsPlaying);
   const setCanvasZoom = useEditorStore((s) => s.setCanvasZoom);
   const clearSelection = useEditorStore((s) => s.clearSelection);
+  const setPlayerRef = useEditorStore((s) => s.setPlayerRef);
 
-  // Get computed props for LipSyncMain
+  // Store player ref for direct control (needed for autoplay policy)
+  useEffect(() => {
+    setPlayerRef(playerRef);
+  }, [setPlayerRef]);
+
+  // Get video track items for timeline position sync
+  const videoTrackItems = useMemo(() => {
+    const videoTrack = tracks.find((t) => t.type === 'video');
+    return videoTrack?.items || [];
+  }, [tracks]);
+
+  // Get computed props for LipSyncMain (base props from store)
   const lipSyncPropsRaw = useLipSyncProps();
 
-  // Convert relative paths to absolute URLs for render server
-  const lipSyncProps = useMemo(
+  // Convert relative paths to absolute URLs
+  const lipSyncPropsWithUrls = useMemo(
     () => convertPropsToAbsoluteUrls(lipSyncPropsRaw),
     [lipSyncPropsRaw]
+  );
+
+  // Convert to SplitTalkingHead props - using actual timeline positions
+  const splitTalkingHeadPropsBase = useMemo(
+    () => convertToSplitTalkingHeadProps(lipSyncPropsWithUrls, project.durationInFrames, project.fps, videoTrackItems, assets),
+    [lipSyncPropsWithUrls, project.durationInFrames, project.fps, videoTrackItems, assets]
+  );
+
+  // Apply mute state to music volume - FORCE 0.8 volume for now
+  const splitTalkingHeadProps = useMemo(
+    () => {
+      const props = {
+        ...splitTalkingHeadPropsBase,
+        // Background music volume (0.5 = 50%)
+        musicVolume: isMuted ? 0 : 0.5,
+      };
+      console.log('[splitTalkingHeadProps] FINAL PROPS:', {
+        backgroundMusic: props.backgroundMusic,
+        musicVolume: props.musicVolume,
+        lipSyncVideo: props.lipSyncVideo,
+        isMuted,
+      });
+      return props;
+    },
+    [splitTalkingHeadPropsBase, isMuted]
   );
 
   // Calculate zoom to fit height
@@ -149,8 +278,8 @@ export function InteractiveCanvas() {
       >
         <Player
           ref={playerRef}
-          component={LipSyncMain as unknown as React.ComponentType<Record<string, unknown>>}
-          inputProps={lipSyncProps as unknown as Record<string, unknown>}
+          component={SplitTalkingHead as unknown as React.ComponentType<Record<string, unknown>>}
+          inputProps={splitTalkingHeadProps as unknown as Record<string, unknown>}
           durationInFrames={project.durationInFrames}
           fps={project.fps}
           compositionWidth={project.width}
@@ -159,10 +288,14 @@ export function InteractiveCanvas() {
             width: project.width,
             height: project.height,
           }}
-          controls={false}
+          controls={true}
+          showVolumeControls={true}
           loop
-          clickToPlay={false}
+          clickToPlay={true}
           playbackRate={playbackRate}
+          numberOfSharedAudioTags={5}
+          // @ts-ignore - logLevel for audio debugging
+          logLevel="trace"
         />
       </div>
     </div>

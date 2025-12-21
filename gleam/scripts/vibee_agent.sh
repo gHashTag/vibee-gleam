@@ -14,12 +14,18 @@
 # │  (Grok/GPT)      │
 # └──────────────────┘
 
-# Конфигурация
-GO_BRIDGE_URL="http://localhost:8081"
-SESSION_ID="REDACTED_SESSION"
-LOG_FILE="/Users/playra/vibee-eliza-999/vibee/gleam/logs/vibee.log"
+# Load .env if exists
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    set -a; source "$SCRIPT_DIR/.env"; set +a
+fi
+
+# Конфигурация from .env or defaults
+GO_BRIDGE_URL="${VIBEE_BRIDGE_URL:-http://localhost:8081}"
+SESSION_ID="${TELEGRAM_SESSION_ID:?TELEGRAM_SESSION_ID must be set in .env}"
+LOG_FILE="${SCRIPT_DIR}/logs/vibee.log"
 SEEN_FILE="/tmp/vibee_agent_seen.txt"
-CHARACTER_FILE="/Users/playra/vibee-eliza-999/vibee/gleam/config/characters/vibee_agent.json"
+CHARACTER_FILE="${SCRIPT_DIR}/config/characters/vibee_agent.json"
 
 # Целевые чаты (аналог targetChats.ts)
 TARGET_CHATS=(

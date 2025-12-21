@@ -182,6 +182,14 @@ func respondError(w http.ResponseWriter, status int, message string) {
 	respondJSON(w, status, map[string]string{"error": message})
 }
 
+// truncate cuts a string to max length for logging
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max]
+}
+
 // getSessionID extracts session ID from X-Session-ID header (preferred) or query parameter (deprecated)
 // SECURITY: Using header is more secure as it's not logged in access logs or browser history
 func getSessionID(req *http.Request) string {
@@ -633,25 +641,38 @@ type SendMessageRequest struct {
 }
 
 func (r *Router) handleSendMessage(w http.ResponseWriter, req *http.Request) {
+	log.Printf("[handleSendMessage] ═══════════════════════════════════════")
+	log.Printf("[handleSendMessage] Method: %s", req.Method)
+
 	if req.Method != http.MethodPost {
 		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	sessionID := req.Header.Get("X-Session-ID")
+	log.Printf("[handleSendMessage] Session-ID: %s", sessionID)
+
 	client := r.getClient(sessionID)
 	if client == nil {
+		log.Printf("[handleSendMessage] ❌ Invalid session: %s", sessionID)
 		respondError(w, http.StatusUnauthorized, "Invalid or missing session")
 		return
 	}
+	log.Printf("[handleSendMessage] ✅ Client found for session")
 
 	var body SendMessageRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		log.Printf("[handleSendMessage] ❌ JSON decode error: %v", err)
 		respondError(w, http.StatusBadRequest, "Invalid JSON body")
 		return
 	}
 
+	log.Printf("[handleSendMessage] 📩 chat_id=%d", body.ChatID)
+	log.Printf("[handleSendMessage] 📝 text=%s...", truncate(body.Text, 50))
+	log.Printf("[handleSendMessage] 📌 reply_to=%d", body.ReplyTo)
+
 	if body.ChatID == 0 || body.Text == "" {
+		log.Printf("[handleSendMessage] ❌ Missing chat_id or text")
 		respondError(w, http.StatusBadRequest, "chat_id and text are required")
 		return
 	}
@@ -659,13 +680,15 @@ func (r *Router) handleSendMessage(w http.ResponseWriter, req *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	log.Printf("[handleSendMessage] 🚀 Calling client.SendMessage...")
 	messageID, err := client.SendMessage(ctx, body.ChatID, body.Text, body.ReplyTo)
 	if err != nil {
+		log.Printf("[handleSendMessage] ❌ SendMessage error: %v", err)
 		respondError(w, http.StatusInternalServerError, "Failed to send message: "+err.Error())
 		return
 	}
 
-	log.Printf("Send message: chat_id=%d, message_id=%d", body.ChatID, messageID)
+	log.Printf("[handleSendMessage] ✅ Message sent: chat_id=%d, message_id=%d", body.ChatID, messageID)
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"success":    true,

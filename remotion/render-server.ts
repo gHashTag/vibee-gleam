@@ -5,8 +5,24 @@ import { renderMedia, selectComposition, renderStill } from "@remotion/renderer"
 import path from "node:path";
 import fs from "node:fs";
 import { randomUUID } from "node:crypto";
+import { execSync } from "node:child_process";
 import { S3Client, PutObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { transcribeVideo } from "./src/lib/transcribe";
+import { detectFaceInVideo, detectFaceInImage, calculateCropSettings, loadModels } from "./src/lib/faceDetection";
+
+// Get video duration using ffprobe
+function getVideoDuration(videoPath: string): number {
+  try {
+    const result = execSync(
+      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${videoPath}"`,
+      { encoding: 'utf-8' }
+    ).trim();
+    return parseFloat(result);
+  } catch (error) {
+    console.warn(`⚠️ Could not get video duration for ${videoPath}:`, error);
+    return 0;
+  }
+}
 
 const PORT = process.env.PORT || 3333;
 const OUTPUT_DIR = process.env.OUTPUT_DIR || "./out";
@@ -48,6 +64,15 @@ async function initBundle() {
     webpackOverride: (config) => config,
   });
   console.log("✅ Bundle ready at:", bundleLocation);
+
+  // Preload face detection models
+  console.log("👤 Loading face detection models...");
+  try {
+    await loadModels();
+    console.log("✅ Face detection models ready");
+  } catch (error) {
+    console.warn("⚠️ Face detection models failed to load:", error);
+  }
 }
 
 // S3 Upload helper
@@ -164,6 +189,17 @@ setInterval(() => {
   }
 }, 60 * 1000);
 
+// Resolve media path to absolute file path
+function resolveMediaPath(mediaPath: string): string {
+  if (mediaPath.startsWith("http://") || mediaPath.startsWith("https://")) {
+    return mediaPath; // Remote URL, can't process locally
+  }
+  if (mediaPath.startsWith("/") && !mediaPath.startsWith("//")) {
+    return path.join(process.cwd(), "public", mediaPath);
+  }
+  return mediaPath;
+}
+
 // Start render asynchronously and return immediately
 function startRenderAsync(req: RenderRequest): string {
   const renderId = randomUUID();
@@ -186,11 +222,108 @@ function startRenderAsync(req: RenderRequest): string {
         throw new Error("Bundle not initialized");
       }
 
+      // Prepare inputProps with auto face detection and dynamic duration
+      const inputProps = { ...(req.inputProps || {}) } as Record<string, unknown>;
+      const fps = 30;
+      let durationInFrames: number | null = null;
+
+      // Log segments if provided (for debugging preview/render sync)
+      const segments = inputProps.segments as Array<{ type: string; startFrame: number; durationFrames: number; bRollUrl?: string }> | undefined;
+      if (segments && segments.length > 0) {
+        console.log(`📊 Received ${segments.length} segments from editor:`);
+        segments.forEach((seg, i) => {
+          console.log(`   [${i}] ${seg.type} @ frame ${seg.startFrame}, duration ${seg.durationFrames}${seg.bRollUrl ? `, bRoll: ${seg.bRollUrl.split('/').pop()}` : ''}`);
+        });
+      } else {
+        console.log(`⚠️ No segments provided, composition will use default layout`);
+      }
+
+      // Get lipSyncVideo path for analysis
+      const lipSyncVideo = inputProps.lipSyncVideo as string | undefined;
+      if (lipSyncVideo) {
+        const videoPath = resolveMediaPath(lipSyncVideo);
+
+        if (fs.existsSync(videoPath)) {
+          // 1. Get video duration dynamically
+          const duration = getVideoDuration(videoPath);
+          if (duration > 0) {
+            durationInFrames = Math.ceil(duration * fps);
+            console.log(`📏 Video duration: ${duration.toFixed(2)}s = ${durationInFrames} frames`);
+          }
+
+          // 2. Auto-load captions if not provided
+          const captions = inputProps.captions as unknown[] | undefined;
+          if (!captions || captions.length === 0) {
+            // Try to find captions.json in the same directory
+            const videoDir = path.dirname(videoPath);
+            const captionsPath = path.join(videoDir, 'captions.json');
+            if (fs.existsSync(captionsPath)) {
+              try {
+                const captionsData = JSON.parse(fs.readFileSync(captionsPath, 'utf-8'));
+                inputProps.captions = captionsData;
+                console.log(`📝 Auto-loaded ${captionsData.length} captions from: ${captionsPath}`);
+              } catch (captionsError) {
+                console.warn(`⚠️ Could not load captions from ${captionsPath}:`, captionsError);
+              }
+            }
+          }
+
+          // 3. Auto face detection (if not already provided)
+          if (inputProps.faceOffsetX === undefined || inputProps.faceOffsetY === undefined) {
+            console.log(`👤 Auto-detecting face in: ${videoPath}`);
+            try {
+              const faceBox = await detectFaceInVideo(videoPath);
+              if (faceBox) {
+                const crop = calculateCropSettings(faceBox, 'portrait');
+                inputProps.faceOffsetX = crop.offsetX;
+                inputProps.faceOffsetY = crop.offsetY;
+                inputProps.faceScale = crop.scale;
+                console.log(`✅ Face detected: offsetX=${crop.offsetX.toFixed(1)}, offsetY=${crop.offsetY.toFixed(1)}, scale=${crop.scale.toFixed(2)}`);
+              } else {
+                console.log(`⚠️ No face detected, using defaults`);
+                inputProps.faceOffsetX = 0;
+                inputProps.faceOffsetY = 0;
+                inputProps.faceScale = 1;
+              }
+            } catch (faceError) {
+              console.warn(`⚠️ Face detection failed:`, faceError);
+              inputProps.faceOffsetX = 0;
+              inputProps.faceOffsetY = 0;
+              inputProps.faceScale = 1;
+            }
+          }
+        } else {
+          console.warn(`⚠️ Video file not found for analysis: ${videoPath}`);
+        }
+      }
+
       const composition = await selectComposition({
         serveUrl: bundleLocation,
         id: req.compositionId,
-        inputProps: req.inputProps || {},
+        inputProps,
+        chromiumOptions: {
+          enableMultiProcessOnLinux: true,
+          disableWebSecurity: true,
+          gl: null,  // Disable WebGL - no X11/display needed
+          headless: true,
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-gpu',
+            '--disable-software-rasterizer',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+          ],
+        },
+        timeoutInMilliseconds: 120000,
       });
+
+      // Override duration if we detected it from video
+      if (durationInFrames && durationInFrames > 0) {
+        console.log(`📏 Overriding composition duration: ${composition.durationInFrames} → ${durationInFrames}`);
+        (composition as any).durationInFrames = durationInFrames;
+      }
 
       if (req.type === "still") {
         const outputPath = path.join(OUTPUT_DIR, `${renderId}.png`);
@@ -199,8 +332,26 @@ function startRenderAsync(req: RenderRequest): string {
           composition,
           serveUrl: bundleLocation,
           output: outputPath,
-          inputProps: req.inputProps || {},
+          inputProps,
           frame: req.frame || 0,
+          chromiumOptions: {
+            enableMultiProcessOnLinux: true,
+            disableWebSecurity: true,
+            gl: null,  // Disable WebGL - no X11/display needed
+            headless: true,
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-gpu',
+              '--disable-software-rasterizer',
+              '--disable-dev-shm-usage',
+              '--disable-accelerated-2d-canvas',
+              '--no-first-run',
+              '--no-zygote',
+              '--single-process',
+            ],
+          },
+          timeoutInMilliseconds: 120000,
         });
 
         job.status = 'completed';
@@ -219,11 +370,24 @@ function startRenderAsync(req: RenderRequest): string {
         serveUrl: bundleLocation,
         codec,
         outputLocation: outputPath,
-        inputProps: req.inputProps || {},
+        inputProps,
         concurrency: 4,
         chromiumOptions: {
           enableMultiProcessOnLinux: true,
+          disableWebSecurity: true,
+          gl: null,  // Disable WebGL - no X11/display needed
+          headless: true,
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-gpu',
+            '--disable-software-rasterizer',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+          ],
         },
+        timeoutInMilliseconds: 120000,
         onProgress: ({ progress }) => {
           const percent = Math.round(progress * 100);
           job.progress = percent;
@@ -283,6 +447,100 @@ const server = createServer(async (req, res) => {
         ],
       })
     );
+    return;
+  }
+
+  // Transcribe video to captions
+  if (req.url === "/transcribe" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", async () => {
+      try {
+        const { videoUrl, language = "ru", fps = 30 } = JSON.parse(body);
+
+        if (!videoUrl) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "videoUrl is required" }));
+          return;
+        }
+
+        console.log(`🎤 Transcribing: ${videoUrl} (${language})`);
+        const result = await transcribeVideo(videoUrl, language, fps);
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          success: true,
+          captions: result.captions,
+          segments: result.segments,
+        }));
+      } catch (error) {
+        console.error("Transcription error:", error);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          error: error instanceof Error ? error.message : "Transcription failed"
+        }));
+      }
+    });
+    return;
+  }
+
+  // Analyze face in video/image
+  if (req.url === "/analyze-face" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", async () => {
+      try {
+        const { videoUrl, imageUrl, shape = "portrait" } = JSON.parse(body);
+        const mediaUrl = videoUrl || imageUrl;
+
+        if (!mediaUrl) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "videoUrl or imageUrl is required" }));
+          return;
+        }
+
+        console.log(`👤 Analyzing face in: ${mediaUrl}`);
+
+        // Resolve path for local files
+        let filePath = mediaUrl;
+        if (mediaUrl.startsWith("/") && !mediaUrl.startsWith("//")) {
+          filePath = path.join(process.cwd(), "public", mediaUrl);
+        }
+
+        // Detect face
+        const isVideo = mediaUrl.endsWith(".mp4") || mediaUrl.endsWith(".webm") || mediaUrl.endsWith(".mov");
+        const faceBox = isVideo
+          ? await detectFaceInVideo(filePath)
+          : await detectFaceInImage(filePath);
+
+        if (!faceBox) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({
+            success: true,
+            faceDetected: false,
+            message: "No face detected in media"
+          }));
+          return;
+        }
+
+        // Calculate crop settings
+        const cropSettings = calculateCropSettings(faceBox, shape as "square" | "portrait" | "circle");
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          success: true,
+          faceDetected: true,
+          faceBox,
+          cropSettings,
+        }));
+      } catch (error) {
+        console.error("Face analysis error:", error);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          error: error instanceof Error ? error.message : "Face analysis failed"
+        }));
+      }
+    });
     return;
   }
 
@@ -387,7 +645,9 @@ const server = createServer(async (req, res) => {
 
   // Serve rendered files
   if (req.url?.startsWith("/renders/") && req.method === "GET") {
-    const filename = req.url.replace("/renders/", "");
+    // Strip query string from URL
+    const urlPath = req.url.split('?')[0];
+    const filename = urlPath.replace("/renders/", "");
     const filePath = path.join(OUTPUT_DIR, filename);
 
     serveStaticFile(res, filePath);
@@ -396,7 +656,9 @@ const server = createServer(async (req, res) => {
 
   // Serve public assets (with /public/ prefix)
   if (req.url?.startsWith("/public/") && req.method === "GET") {
-    const filename = req.url.replace("/public/", "");
+    // Strip query string from URL
+    const urlPath = req.url.split('?')[0];
+    const filename = urlPath.replace("/public/", "");
     const filePath = path.join(process.cwd(), "public", filename);
     console.log(`📂 Request for public file: ${req.url} -> ${filePath}`);
 
@@ -409,11 +671,31 @@ const server = createServer(async (req, res) => {
   const publicPaths = ["/covers/", "/backgrounds/", "/lipsync/", "/music/", "/audio/"];
   const matchedPath = publicPaths.find(p => req.url?.startsWith(p));
   if (matchedPath && req.method === "GET") {
-    const filePath = path.join(process.cwd(), "public", req.url!);
+    // Strip query string from URL before building file path
+    const urlPath = req.url!.split('?')[0];
+    const filePath = path.join(process.cwd(), "public", urlPath);
     console.log(`📂 Request for public file (no prefix): ${req.url} -> ${filePath}`);
 
     serveStaticFile(res, filePath);
     return;
+  }
+
+  // Cache control by file type - JSON needs frequent updates, video/images can be cached
+  function getCacheControl(filePath: string): string {
+    // JSON files - no cache (captions.json changes frequently)
+    if (filePath.endsWith('.json')) {
+      return "public, max-age=0, must-revalidate";
+    }
+    // Video - 1 hour (balance between performance and freshness)
+    if (/\.(mp4|webm|mov|avi)$/i.test(filePath)) {
+      return "public, max-age=3600";
+    }
+    // Images - 1 day
+    if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(filePath)) {
+      return "public, max-age=86400";
+    }
+    // Default - 1 hour
+    return "public, max-age=3600";
   }
 
   function serveStaticFile(res: any, filePath: string) {
@@ -427,12 +709,16 @@ const server = createServer(async (req, res) => {
           ? "video/mp4"
           : ext === ".mp3"
           ? "audio/mpeg"
+          : ext === ".wav"
+          ? "audio/wav"
           : ext === ".jpg" || ext === ".jpeg"
           ? "image/jpeg"
           : ext === ".png"
           ? "image/png"
           : ext === ".gif"
           ? "image/gif"
+          : ext === ".json"
+          ? "application/json"
           : "application/octet-stream";
 
       // Handle Range requests (essential for video seek)
@@ -457,6 +743,7 @@ const server = createServer(async (req, res) => {
           "Accept-Ranges": "bytes",
           "Content-Length": chunksize,
           "Content-Type": contentType,
+          "Cache-Control": getCacheControl(filePath),
         });
         file.pipe(res);
         return;
@@ -466,6 +753,7 @@ const server = createServer(async (req, res) => {
         "Content-Type": contentType,
         "Content-Length": stat.size,
         "Accept-Ranges": "bytes",
+        "Cache-Control": getCacheControl(filePath),
       });
       fs.createReadStream(filePath).pipe(res);
       return;

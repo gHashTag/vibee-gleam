@@ -57,12 +57,21 @@ const isImageUrl = (url: string): boolean => {
   return false;
 };
 
+// Segment from timeline (for preview/render sync)
+export interface TimelineSegment {
+  type: 'split' | 'fullscreen';
+  startFrame: number;
+  durationFrames: number;
+  bRollUrl?: string;
+  bRollType?: 'video' | 'image';
+}
+
 export interface LipSyncMainProps {
   lipSyncVideo: string;
   coverImage: string;
   backgroundMusic: string;
   musicVolume: number;
-  backgroundVideos: string[]; // 4 видео
+  backgroundVideos: string[]; // 4 видео (legacy, used if segments not provided)
   coverDuration: number;
   vignetteStrength: number;
   colorCorrection: number;
@@ -74,6 +83,8 @@ export interface LipSyncMainProps {
   captions?: CaptionItem[];
   captionStyle?: CaptionStyle;
   showCaptions?: boolean;
+  // 🎬 Timeline segments (new - takes priority over backgroundVideos)
+  segments?: TimelineSegment[];
 }
 
 export const LipSyncMain: React.FC<LipSyncMainProps> = ({
@@ -93,6 +104,8 @@ export const LipSyncMain: React.FC<LipSyncMainProps> = ({
   captions = [],
   captionStyle = {},
   showCaptions = true,
+  // 🎬 Timeline segments (takes priority over backgroundVideos)
+  segments,
 }) => {
   const { fps, durationInFrames, width, height } = useVideoConfig();
   const frame = useCurrentFrame();
@@ -101,78 +114,111 @@ export const LipSyncMain: React.FC<LipSyncMainProps> = ({
     durationInFrames,
     fps,
     backgroundVideos: backgroundVideos.length,
+    timelineSegments: segments?.length || 0,
   });
 
   const coverFrames = Math.floor(coverDuration * fps);
 
-  // 🎬 ДИНАМИЧЕСКАЯ СИСТЕМА СЕГМЕНТОВ
-  const transitionDuration = 4; // секунд на каждый BG segment
-  const transitionFrames = transitionDuration * fps;
-  const gapDuration = 1.5; // секунд аватара между сегментами
-  const gapFrames = gapDuration * fps;
+  // 🎨 BUILD SEGMENTS - use timeline segments if provided, otherwise calculate from backgroundVideos
+  let bgSegments: Array<{
+    name: string;
+    video: string;
+    startFrame: number;
+    durationFrames: number;
+    blendMode: string;
+    baseOpacity: number;
+    isImage?: boolean;
+  }> = [];
 
-  // 📊 Расчет количества сегментов
-  const maxSegments = Math.floor(
-    (durationInFrames - coverFrames - gapFrames) /
-      (transitionFrames + gapFrames)
-  );
-  const actualSegments = Math.min(
-    backgroundVideos.length,
-    Math.max(1, maxSegments)
-  );
+  if (segments && segments.length > 0) {
+    // 🎯 USE TIMELINE SEGMENTS (from editor) - ensures preview/render match!
+    console.log('🎯 [SEGMENTS] Using timeline segments:', segments.length);
 
-  console.log('🎨 [SEGMENTS]:', { maxSegments, actualSegments });
+    segments.forEach((seg, i) => {
+      if (seg.type === 'split' && seg.bRollUrl) {
+        // Mix styles for visual variety
+        const mixStyle = i % 4;
+        let blendMode: string = 'normal';
+        let baseOpacity = 1.0;
 
-  // 🎨 СОЗДАЕМ СЕГМЕНТЫ с разными стилями микширования
-  const bgSegments = [];
-  let currentFrame = coverFrames + gapFrames;
+        switch (mixStyle) {
+          case 0: blendMode = 'normal'; baseOpacity = 0.85; break;
+          case 1: blendMode = 'screen'; baseOpacity = 0.9; break;
+          case 2: blendMode = 'normal'; baseOpacity = 0.9; break;
+          case 3: blendMode = 'normal'; baseOpacity = 1.0; break;
+        }
 
-  for (let i = 0; i < actualSegments && i < backgroundVideos.length; i++) {
-    const remainingFrames = durationInFrames - currentFrame;
-    const segmentDuration = Math.max(
-      0,
-      Math.min(transitionFrames, remainingFrames)
+        bgSegments.push({
+          name: `BG_${String(i + 1).padStart(2, '0')}`,
+          video: seg.bRollUrl,
+          startFrame: seg.startFrame,
+          durationFrames: seg.durationFrames,
+          blendMode,
+          baseOpacity,
+          isImage: seg.bRollType === 'image',
+        });
+      }
+      // 'fullscreen' segments = avatar only, no b-roll
+    });
+  } else {
+    // 🎬 FALLBACK: Calculate segments from backgroundVideos (legacy behavior)
+    console.log('🎬 [SEGMENTS] Calculating from backgroundVideos (legacy)');
+
+    const transitionDuration = 4; // секунд на каждый BG segment
+    const transitionFrames = transitionDuration * fps;
+    const gapDuration = 1.5; // секунд аватара между сегментами
+    const gapFrames = gapDuration * fps;
+
+    // 📊 Расчет количества сегментов
+    const maxSegments = Math.floor(
+      (durationInFrames - coverFrames - gapFrames) /
+        (transitionFrames + gapFrames)
+    );
+    const actualSegments = Math.min(
+      backgroundVideos.length,
+      Math.max(1, maxSegments)
     );
 
-    if (segmentDuration > 0) {
-      // 🎨 СТИЛИ МИКШИРОВАНИЯ (циклически)
-      const mixStyle = i % 4;
-      let blendMode: string = 'normal';
-      let baseOpacity = 1.0;
+    let currentFrame = coverFrames + gapFrames;
 
-      switch (mixStyle) {
-        case 0: // Легкая прозрачность - аватар слегка просвечивает
-          blendMode = 'normal';
-          baseOpacity = 0.85;
-          break;
-        case 1: // Screen blend - светлые участки ярче
-          blendMode = 'screen';
-          baseOpacity = 0.9;
-          break;
-        case 2: // Normal с легкой прозрачностью
-          blendMode = 'normal';
-          baseOpacity = 0.9;
-          break;
-        case 3: // Полное перекрытие
-          blendMode = 'normal';
-          baseOpacity = 1.0;
-          break;
+    for (let i = 0; i < actualSegments && i < backgroundVideos.length; i++) {
+      const remainingFrames = durationInFrames - currentFrame;
+      const segmentDuration = Math.max(
+        0,
+        Math.min(transitionFrames, remainingFrames)
+      );
+
+      if (segmentDuration > 0) {
+        // 🎨 СТИЛИ МИКШИРОВАНИЯ (циклически)
+        const mixStyle = i % 4;
+        let blendMode: string = 'normal';
+        let baseOpacity = 1.0;
+
+        switch (mixStyle) {
+          case 0: blendMode = 'normal'; baseOpacity = 0.85; break;
+          case 1: blendMode = 'screen'; baseOpacity = 0.9; break;
+          case 2: blendMode = 'normal'; baseOpacity = 0.9; break;
+          case 3: blendMode = 'normal'; baseOpacity = 1.0; break;
+        }
+
+        bgSegments.push({
+          name: `BG_${String(i + 1).padStart(2, '0')}`,
+          video: backgroundVideos[i] || backgroundVideos[0],
+          startFrame: currentFrame,
+          durationFrames: segmentDuration,
+          blendMode,
+          baseOpacity,
+        });
+
+        currentFrame += segmentDuration + gapFrames;
       }
-
-      bgSegments.push({
-        name: `BG_${String(i + 1).padStart(2, '0')}`,
-        video: backgroundVideos[i] || backgroundVideos[0],
-        startFrame: currentFrame,
-        durationFrames: segmentDuration,
-        blendMode,
-        baseOpacity,
-      });
-
-      currentFrame += segmentDuration + gapFrames;
     }
   }
 
   console.log('🎨 [SEGMENTS] Сегментов создано:', bgSegments.length);
+  if (bgSegments.length > 0) {
+    console.log('🎨 [SEGMENTS] First segment:', bgSegments[0]);
+  }
 
   // 🎨 Цветокоррекция
   const cinematicFilter = `brightness(${
@@ -265,8 +311,10 @@ export const LipSyncMain: React.FC<LipSyncMainProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>
-      {/* 🎵 Аудио - ТОЛЬКО из lipSyncVideo, backgroundMusic убран для избежания конфликта */}
-      {/* <Audio src={backgroundMusic} volume={musicVolume} /> */}
+      {/* 🎵 Фоновая музыка (тихая, на заднем плане) */}
+      {backgroundMusic && (
+        <Audio src={resolveMediaPath(backgroundMusic)} volume={musicVolume} />
+      )}
 
       {/* 🎤 БАЗА: Аватар с ДИНАМИЧЕСКОЙ ТРАНСФОРМАЦИЕЙ - СКРЫВАЕТСЯ при b-roll */}
       <Sequence

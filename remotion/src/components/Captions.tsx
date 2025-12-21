@@ -1,11 +1,12 @@
 /**
  * TikTok-style Captions Component for Remotion
  *
- * Features:
- * - Word-by-word highlighting
- * - Montserrat Bold with Cyrillic support
- * - Scale animations
- * - Backdrop blur effect
+ * Style based on reel_01.mp4:
+ * - Bright yellow #FFFF00
+ * - UPPERCASE, bold (NOT italic)
+ * - NO background, thin black outline
+ * - 1-2 words at a time
+ * - Dynamic position based on layout mode
  */
 
 import React from 'react';
@@ -14,51 +15,50 @@ import {
   useCurrentFrame,
   useVideoConfig,
   interpolate,
+  spring,
 } from 'remotion';
-import type { Caption } from '@remotion/captions';
-import { createTikTokStyleCaptions } from '@remotion/captions';
-import { MONTSERRAT_BOLD } from '../fonts/montserrat';
+
+// Our own Caption interface (not from @remotion/captions)
+export interface Caption {
+  text: string;
+  startMs: number;
+  endMs: number;
+  timestampMs?: number;
+  confidence?: number;
+}
 
 export interface CaptionsProps {
   /** Array of caption objects with timing info */
   captions: Caption[];
-  /** Font size in pixels (default: 52) */
+  /** Font size in pixels (default: 56) */
   fontSize?: number;
-  /** Text color (default: white) */
+  /** Text color - main color for captions (default: bright yellow) */
   textColor?: string;
-  /** Highlight color for current word (default: VIBEE amber) */
+  /** Highlight color for current word - kept for compatibility */
   highlightColor?: string;
-  /** Background color (default: semi-transparent black) */
-  backgroundColor?: string;
-  /** Position from bottom in % (default: 25) */
-  bottomPercent?: number;
-  /** Max width in % (default: 85) */
-  maxWidthPercent?: number;
-  /** Combine words within this many ms (default: 1500) */
+  /** Position from top in % (default: 50 = center). Use ~50 for split border, ~50 for fullscreen center */
+  topPercent?: number;
+  /** Max words to show at once (default: 2) */
+  maxWords?: number;
+  /** Not used anymore but kept for compatibility */
   combineWithinMs?: number;
-  /** Show text shadow for better visibility (default: true) */
-  showShadow?: boolean;
-  /** Font family (default: Montserrat) */
-  fontFamily?: string;
-  /** Font weight (default: 700) */
-  fontWeight?: number;
+  /** Not used anymore but kept for compatibility */
+  backgroundColor?: string;
+  /** Not used anymore but kept for compatibility */
+  position?: 'bottom' | 'center';
+  /** Not used anymore but kept for compatibility */
+  bottomPercent?: number;
 }
 
 /**
- * TikTok-style animated captions with Russian support
+ * reel_01.mp4 style captions - 1-2 words, yellow, bold, dynamic position
  */
 export const Captions: React.FC<CaptionsProps> = ({
   captions,
-  fontSize = 52,
-  textColor = '#ffffff',
-  highlightColor = '#f59e0b', // VIBEE amber
-  backgroundColor = 'rgba(0, 0, 0, 0.6)',
-  bottomPercent = 25,
-  maxWidthPercent = 85,
-  combineWithinMs = 1500,
-  showShadow = true,
-  fontFamily = MONTSERRAT_BOLD,
-  fontWeight = 700,
+  fontSize = 56,
+  textColor = '#FFFF00', // Bright yellow like reel_01.mp4
+  topPercent = 50, // Center by default
+  maxWords = 2,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -69,113 +69,127 @@ export const Captions: React.FC<CaptionsProps> = ({
     return null;
   }
 
-  // Create TikTok-style paginated captions
-  const { pages } = createTikTokStyleCaptions({
-    captions,
-    combineTokensWithinMilliseconds: combineWithinMs,
-  });
-
-  // Find current page
-  const currentPage = pages.find(
-    (page) =>
-      currentTimeMs >= page.startMs &&
-      currentTimeMs < page.startMs + page.durationMs
-  );
-
-  if (!currentPage) {
-    return null;
+  // Find current word index
+  let currentWordIndex = -1;
+  for (let i = 0; i < captions.length; i++) {
+    const cap = captions[i];
+    if (currentTimeMs >= cap.startMs && currentTimeMs < cap.endMs) {
+      currentWordIndex = i;
+      break;
+    }
+    // If we're between words, show the previous word briefly
+    if (i < captions.length - 1) {
+      const nextCap = captions[i + 1];
+      if (currentTimeMs >= cap.endMs && currentTimeMs < nextCap.startMs) {
+        // Only show if gap is small (< 300ms)
+        if (nextCap.startMs - cap.endMs < 300) {
+          currentWordIndex = i;
+        }
+        break;
+      }
+    }
   }
 
-  // Animation: scale in/out
-  const pageProgress =
-    (currentTimeMs - currentPage.startMs) / currentPage.durationMs;
-  const scaleIn = interpolate(pageProgress, [0, 0.1], [0.9, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const scaleOut = interpolate(pageProgress, [0.9, 1], [1, 0.9], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const scale = Math.min(scaleIn, scaleOut);
+  // If no current word found
+  if (currentWordIndex === -1) {
+    // Check if we're before the first caption
+    if (captions.length > 0 && currentTimeMs < captions[0].startMs) {
+      return null;
+    }
+    // Check if we're after the last caption
+    const lastCaption = captions[captions.length - 1];
+    if (currentTimeMs > lastCaption.endMs + 200) {
+      return null;
+    }
+    // Show last word briefly after it ends
+    if (currentTimeMs >= lastCaption.startMs) {
+      currentWordIndex = captions.length - 1;
+    } else {
+      return null;
+    }
+  }
 
-  const opacityIn = interpolate(pageProgress, [0, 0.05], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const opacityOut = interpolate(pageProgress, [0.95, 1], [1, 0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const opacity = Math.min(opacityIn, opacityOut);
+  // Get current word
+  const currentCaption = captions[currentWordIndex];
 
-  const textShadow = showShadow
-    ? '0 2px 4px rgba(0, 0, 0, 0.5), 0 4px 8px rgba(0, 0, 0, 0.3)'
-    : 'none';
+  // Get words to display (1-2 words)
+  const visibleWords: Caption[] = [currentCaption];
+
+  // Add next word if it starts soon (within 150ms)
+  if (currentWordIndex < captions.length - 1 && maxWords > 1) {
+    const nextWord = captions[currentWordIndex + 1];
+    if (nextWord.startMs - currentCaption.endMs < 150) {
+      visibleWords.push(nextWord);
+    }
+  }
+
+  // Animation - pop in effect
+  const wordStartFrame = (currentCaption.startMs / 1000) * fps;
+  const framesSinceStart = frame - wordStartFrame;
+
+  const scale = spring({
+    frame: framesSinceStart,
+    fps,
+    config: {
+      damping: 12,
+      stiffness: 180,
+      mass: 0.4,
+    },
+  });
+
+  const opacity = interpolate(framesSinceStart, [0, 2], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+
+  // Build caption text
+  const captionText = visibleWords.map(w => w.text).join(' ').toUpperCase();
 
   return (
     <AbsoluteFill
       style={{
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-        paddingBottom: `${bottomPercent}%`,
-        zIndex: 20, // Above vignette and other layers
+        zIndex: 100,
         pointerEvents: 'none',
       }}
     >
       <div
         style={{
-          maxWidth: `${maxWidthPercent}%`,
-          padding: '16px 28px',
-          borderRadius: 16,
-          backgroundColor,
-          transform: `scale(${scale})`,
+          position: 'absolute',
+          top: `${topPercent}%`,
+          left: 0,
+          right: 0,
+          transform: `translateY(-50%) scale(${scale})`,
           opacity,
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          display: 'flex',
+          justifyContent: 'center',
+          padding: '0 20px',
         }}
       >
         <p
           style={{
             fontSize,
-            fontFamily,
-            fontWeight,
+            fontFamily: '"Montserrat", "Impact", "Arial Black", sans-serif',
+            fontWeight: 900,
+            fontStyle: 'normal', // NOT italic - straight like reel_01.mp4
             color: textColor,
             textAlign: 'center',
             margin: 0,
-            lineHeight: 1.4,
-            textShadow,
-            letterSpacing: '-0.02em',
+            lineHeight: 1.1,
+            // Thin black outline for contrast (like reel_01.mp4)
+            textShadow: `
+              -1px -1px 0 #000,
+              1px -1px 0 #000,
+              -1px 1px 0 #000,
+              1px 1px 0 #000,
+              -2px -2px 0 #000,
+              2px -2px 0 #000,
+              -2px 2px 0 #000,
+              2px 2px 0 #000
+            `,
+            letterSpacing: '0.02em',
           }}
         >
-          {currentPage.tokens.map((token, index) => {
-            // Check if this token is currently being spoken
-            const isActive =
-              currentTimeMs >= token.fromMs && currentTimeMs < token.toMs;
-
-            // Check if this token has already been spoken
-            const isPast = currentTimeMs >= token.toMs;
-
-            return (
-              <span
-                key={index}
-                style={{
-                  color: isActive
-                    ? highlightColor
-                    : isPast
-                      ? textColor
-                      : 'rgba(255, 255, 255, 0.7)',
-                  transition: 'color 0.1s ease-out',
-                  // Scale up the active word slightly
-                  transform: isActive ? 'scale(1.05)' : 'scale(1)',
-                  display: 'inline-block',
-                }}
-              >
-                {token.text}
-              </span>
-            );
-          })}
+          {captionText}
         </p>
       </div>
     </AbsoluteFill>

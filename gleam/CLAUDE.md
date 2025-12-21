@@ -2,6 +2,82 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+---
+
+## КРИТИЧЕСКОЕ ПРАВИЛО: Rainbow Bridge E2E Testing
+
+**ВСЕ АГЕНТЫ РАЗРАБОТКИ ОБЯЗАНЫ** проверять свою работу через Rainbow Bridge!
+
+### После ЛЮБЫХ изменений в Telegram боте:
+
+1. **Деплой**: `fly deploy -a vibee-mcp`
+2. **E2E тесты**: Автоматически запустятся через PostHook
+3. **Верификация**: Убедиться что ВСЕ тесты прошли
+
+### Способы запуска E2E тестов
+
+| Способ | Описание |
+|--------|----------|
+| **MCP Tool** | `e2e_run()` - прямой вызов через MCP (рекомендуется) |
+| **HTTP API** | `GET /api/e2e/run` |
+| **Bash** | `./.claude/hooks/e2e-rainbow-bridge.sh` |
+| **PostHook** | Автоматически после `fly deploy` |
+
+### Быстрая проверка E2E (для Claude Code)
+
+После деплоя:
+```
+WebFetch: https://vibee-mcp.fly.dev/api/e2e/run
+```
+Ожидаемый результат: **passed >= 2, failed == 0**
+
+### Тестовые аккаунты (ПРОВЕРЕНО 21.12.2025)
+
+| Роль | Username | User/Chat ID | Телефон | Env Variable |
+|------|----------|--------------|---------|--------------|
+| **ТЕСТЕР** | @neuro_sage | User: 144022504 | +7 (993) 342-04-65 | `TELEGRAM_SESSION_ID_TESTER` |
+| **ЮЗЕР-БОТ** | @vibee_agent | User: 6579515876 | +66 6-2401-4170 | `TELEGRAM_SESSION_ID` |
+
+**ВАЖНО**: @vibee_agent - это ЮЗЕР-БОТ (Digital Twin), НЕ обычный Telegram бот!
+Это пользовательский аккаунт который работает через MTProto с автоматизацией.
+
+**Bridge**: 16 сессий (13 авторизованных) на https://vibee-telegram-bridge.fly.dev
+
+### Session Configuration (Single Source of Truth)
+
+**`.env.example`** - шаблон конфигурации, скопировать в `.env` для локальной разработки.
+**Fly.io secrets** - production конфигурация.
+
+```bash
+# Скопировать шаблон
+cp .env.example .env
+# Отредактировать с реальными значениями
+```
+
+Все shell-скрипты загружают `.env` автоматически. НЕ хардкодить session ID в коде!
+
+### Что проверяется
+
+| Команда | Pattern Matching |
+|---------|------------------|
+| /help | `neurophoto\|video\|/menu\|Komandy` |
+| /pricing | `JUNIOR\|MIDDLE\|Тариф\|$99` |
+
+**Важно**: Тесты используют pattern matching (OR с `|`), ищут ЛЮБОЙ ответ бота в истории.
+Это обходит проблемы с задержкой ответов бота.
+
+### Ручной запуск E2E
+
+```bash
+VIBEE_API_KEY="vibee-secret-2024-prod" \
+VIBEE_BRIDGE_URL="https://vibee-telegram-bridge.fly.dev" \
+./.claude/hooks/e2e-rainbow-bridge.sh
+```
+
+**РАБОТА НЕ ЗАВЕРШЕНА пока E2E тесты не пройдут!**
+
+---
+
 ## Project Overview
 
 VIBEE is a fault-tolerant AI agent framework built with Gleam on BEAM (Erlang VM). It provides:
@@ -282,6 +358,19 @@ exec gleam run -m mcp_server 2>/tmp/vibee-mcp.log
 - `task_today` - Tasks due today
 - `task_overdue` - Overdue tasks
 
+**Agent Observability:**
+- `agent_list` - List all active VIBEE agents with status
+- `agent_status` - Get detailed agent metrics by ID
+
+### Agent Observability Endpoints
+
+| Endpoint | Type | Description |
+|----------|------|-------------|
+| `/ws/agents` | WebSocket | Real-time agent updates (5s interval) |
+| `/metrics/agents` | HTTP GET | Prometheus-compatible metrics |
+
+WebSocket commands: `ping`, `refresh`, `get:<agent_id>`
+
 ### Troubleshooting
 
 **"Not connected" error:**
@@ -375,29 +464,47 @@ protocol.error_result("Error message")
 | **Тестер** | @neuro_sage | Отправляет команды, проверяет ответы |
 | **Бот** | @vibee_agent | Обрабатывает команды, отвечает |
 
-### Преимущества
-- Тестирование реального flow без ручного участия
-- Проверка MTProto интеграции end-to-end
-- Автоматизация регрессионного тестирования
+### E2E API Endpoint
 
-### Запуск теста
+VIBEE MCP сервер предоставляет встроенный E2E endpoint:
+
+```
+GET https://vibee-mcp.fly.dev/api/e2e/run
+```
+
+Возвращает JSON:
+```json
+{
+  "status": "passed|failed",
+  "tester_session": "REDACTED_SESSION",
+  "tester_username": "neuro_sage",
+  "bot_username": "vibee_agent",
+  "bot_chat_id": 6579515876,
+  "total": 2,
+  "passed": 2,
+  "failed": 0,
+  "tests": [
+    {"command": "/help", "expected": "neurophoto|video|/menu|Komandy", "passed": true, "response": "..."},
+    {"command": "/pricing", "expected": "JUNIOR|MIDDLE|Тариф|$99", "passed": true, "response": "..."}
+  ]
+}
+```
+
+### Автоматический запуск (PostHook)
+
+E2E тесты запускаются автоматически после каждого `fly deploy` через Claude Code hooks.
+
+Конфигурация: `.claude/settings.json`
+Скрипт: `.claude/hooks/e2e-rainbow-bridge.sh`
+
+### Ручной запуск
 
 ```bash
-# 1. Проверить доступные сессии
-mcp__vibee__session_list
+# Через API
+curl https://vibee-mcp.fly.dev/api/e2e/run | jq
 
-# 2. Установить тестовый аккаунт активным
-mcp__vibee__session_set_active {"session_id": "REDACTED_SESSION"}
-
-# 3. Запустить тест (пример: neurophoto)
-mcp__vibee__bot_test_interaction {
-  "bot_username": "vibee_agent",
-  "session_id": "REDACTED_SESSION",
-  "interactions": [
-    {"type": "command", "value": "/neurophoto cyberpunk portrait", "timeout_ms": 60000}
-  ],
-  "wait_between_ms": 2000
-}
+# Через скрипт
+./.claude/hooks/e2e-rainbow-bridge.sh
 ```
 
 ### Доступные инструменты
@@ -415,11 +522,30 @@ mcp__vibee__bot_test_interaction {
 ```
 @neuro_sage                    @vibee_agent (VIBEE)
      │                              │
-     │  /neurophoto cyberpunk       │
+     │  /help                       │
      │─────────────────────────────►│
      │                         [Bot Router]
      │                         [Scene Handler]
-     │                         [AI API]
-     │   Response + Image           │
+     │                         [process.sleep(10s)]
+     │   Response (pattern match)   │
      │◄─────────────────────────────│
 ```
+
+### Архитектура Pattern Matching
+
+E2E тесты используют подход "find ANY matching response":
+
+1. Отправляем команду через Bridge API
+2. Ждём 10 секунд (`process.sleep(10000)`)
+3. Получаем историю сообщений (`get_history`, limit=10)
+4. Ищем ЛЮБОЙ ответ от VIBEE, содержащий паттерн
+5. Паттерн использует `|` как OR: `"JUNIOR|MIDDLE"` = содержит "junior" ИЛИ "middle"
+
+**Почему так?** Бот обрабатывает много чатов параллельно через polling.
+Ответы могут приходить с задержкой или в неожиданном порядке.
+Pattern matching в истории обходит эту проблему.
+
+### Исходный код E2E
+
+Endpoint: `src/vibee/api/e2e_handlers.gleam`
+Shell hook: `.claude/hooks/e2e-rainbow-bridge.sh`

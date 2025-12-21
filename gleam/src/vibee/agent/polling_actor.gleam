@@ -1,6 +1,6 @@
 // VIBEE Polling Actor
 // OTP Actor для polling сообщений из Telegram через Go Bridge
-// Аналог TelegramService.poll() из plugin-telegram-craft
+// With Agent Registry integration for observability
 
 import gleam/erlang/process.{type Subject}
 import gleam/http
@@ -8,17 +8,21 @@ import gleam/http/request
 import gleam/httpc
 import gleam/int
 import gleam/io
+import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/otp/actor
 import gleam/set.{type Set}
 import gleam/string
+import vibee/agent/agent_registry
 import vibee/config/target_chats
+import vibee/config/trigger_chats
 import vibee/db/postgres
 import vibee/events/event_bus
 import vibee/http_retry
 import vibee/logging
 import vibee/telegram/telegram_agent
+import vibee/vibe_logger
 
 /// Состояние Polling актора
 pub type PollingState {
@@ -27,7 +31,9 @@ pub type PollingState {
     agent_state: telegram_agent.AgentState,
     poll_count: Int,
     event_bus: Option(Subject(event_bus.PubSubMessage)),
-    seen_ids: Set(String),  // ID уже обработанных сообщений (chat_id:msg_id)
+    seen_ids: Set(String),
+    agent_id: String,
+    logger: vibe_logger.VibeLogger,
   )
 }
 
@@ -39,12 +45,36 @@ pub type PollingMessage {
 
 /// Создать начальное состояние
 fn init_state(config: telegram_agent.TelegramAgentConfig) -> PollingState {
+  let agent_id = "polling_" <> config.session_id
+  let logger = vibe_logger.new("polling")
+    |> vibe_logger.with_session_id(config.session_id)
+    |> vibe_logger.with_data("agent_id", json.string(agent_id))
+
+  // Initialize agent registry and register this agent
+  agent_registry.init()
+  let timestamp = get_iso_timestamp()
+  agent_registry.register(agent_registry.AgentInfo(
+    id: agent_id,
+    agent_type: agent_registry.PollingAgent,
+    status: agent_registry.Starting,
+    started_at: timestamp,
+    last_activity: timestamp,
+    message_count: 0,
+    error_count: 0,
+    session_id: Some(config.session_id),
+    extra: [],
+  ))
+
+  vibe_logger.info(logger, "Polling actor initializing")
+
   PollingState(
     config: config,
     agent_state: telegram_agent.init(config),
     poll_count: 0,
     event_bus: None,
     seen_ids: set.new(),
+    agent_id: agent_id,
+    logger: logger,
   )
 }
 
@@ -53,12 +83,36 @@ fn init_state_with_events(
   config: telegram_agent.TelegramAgentConfig,
   bus: Subject(event_bus.PubSubMessage),
 ) -> PollingState {
+  let agent_id = "polling_" <> config.session_id
+  let logger = vibe_logger.new("polling")
+    |> vibe_logger.with_session_id(config.session_id)
+    |> vibe_logger.with_data("agent_id", json.string(agent_id))
+
+  // Initialize agent registry and register this agent
+  agent_registry.init()
+  let timestamp = get_iso_timestamp()
+  agent_registry.register(agent_registry.AgentInfo(
+    id: agent_id,
+    agent_type: agent_registry.PollingAgent,
+    status: agent_registry.Starting,
+    started_at: timestamp,
+    last_activity: timestamp,
+    message_count: 0,
+    error_count: 0,
+    session_id: Some(config.session_id),
+    extra: [],
+  ))
+
+  vibe_logger.info(logger, "Polling actor initializing with event bus")
+
   PollingState(
     config: config,
     agent_state: telegram_agent.init(config),
     poll_count: 0,
     event_bus: Some(bus),
     seen_ids: set.new(),
+    agent_id: agent_id,
+    logger: logger,
   )
 }
 
@@ -66,13 +120,20 @@ fn init_state_with_events(
 pub fn start(config: telegram_agent.TelegramAgentConfig) -> Result(Subject(PollingMessage), actor.StartError) {
   let initial_state = init_state(config)
 
-  // Новый API: actor.new() |> actor.on_message() |> actor.start
   let spec = actor.new(initial_state)
     |> actor.on_message(handle_message)
 
   case actor.start(spec) {
-    Ok(started) -> Ok(started.data)
-    Error(err) -> Error(err)
+    Ok(started) -> {
+      // Update status to Running
+      agent_registry.update_status(initial_state.agent_id, agent_registry.Running)
+      vibe_logger.info(initial_state.logger, "Polling actor started")
+      Ok(started.data)
+    }
+    Error(err) -> {
+      agent_registry.update_status(initial_state.agent_id, agent_registry.Failed("Failed to start"))
+      Error(err)
+    }
   }
 }
 
@@ -87,8 +148,16 @@ pub fn start_with_events(
     |> actor.on_message(handle_message)
 
   case actor.start(spec) {
-    Ok(started) -> Ok(started.data)
-    Error(err) -> Error(err)
+    Ok(started) -> {
+      // Update status to Running
+      agent_registry.update_status(initial_state.agent_id, agent_registry.Running)
+      vibe_logger.info(initial_state.logger, "Polling actor started with event bus")
+      Ok(started.data)
+    }
+    Error(err) -> {
+      agent_registry.update_status(initial_state.agent_id, agent_registry.Failed("Failed to start"))
+      Error(err)
+    }
   }
 }
 
@@ -99,6 +168,9 @@ fn handle_message(
 ) -> actor.Next(PollingState, PollingMessage) {
   case msg {
     Poll -> {
+      // Update activity in registry
+      agent_registry.update_activity(state.agent_id)
+
       // Выполняем polling
       let new_state = do_poll(state)
 
@@ -109,7 +181,10 @@ fn handle_message(
     }
 
     Stop -> {
-      logging.quick_info("Polling Actor stopped")
+      // Update status to Stopped and unregister
+      agent_registry.update_status(state.agent_id, agent_registry.Stopped)
+      agent_registry.unregister(state.agent_id)
+      vibe_logger.info(state.logger, "Polling actor stopped")
       actor.stop()
     }
   }
@@ -123,40 +198,36 @@ fn schedule_next_poll() {
 
 /// Выполнить один цикл polling
 fn do_poll(state: PollingState) -> PollingState {
+  // Debug log at start of poll cycle
+  vibe_logger.info(state.logger, "===== do_poll STARTED =====")
+
   let poll_num = state.poll_count + 1
+  let log = state.logger
+    |> vibe_logger.with_data("poll_count", json.int(poll_num))
 
-  // UNCONDITIONAL debug log to verify deployment
-  io.println("[POLL#" <> int.to_string(poll_num) <> "] RAG_DEBUG_V3 twin=" <> case state.config.digital_twin_enabled { True -> "Y" False -> "N" })
-
-  // Логируем первый poll, каждый 10-й, и любой с ошибками
+  // Log on first poll and every 10th
   case poll_num {
     1 -> {
-      io.println("[POLL] === RAG DEBUG v2 === Starting polling from: " <> state.config.bridge_url)
-      io.println("[POLL] Digital Twin enabled: " <> case state.config.digital_twin_enabled { True -> "YES" False -> "NO" })
-      io.println("[POLL] Session ID: " <> state.config.session_id)
-      logging.quick_info("🔄 Telegram polling started (Digital Twin: " <> case state.config.digital_twin_enabled { True -> "ON" False -> "OFF" } <> ")")
+      vibe_logger.info(log, "Telegram polling started")
+      vibe_logger.debug(log
+        |> vibe_logger.with_data("bridge_url", json.string(state.config.bridge_url))
+        |> vibe_logger.with_data("digital_twin", json.bool(state.config.digital_twin_enabled)),
+        "Poll configuration")
     }
     _ -> case poll_num % 10 {
-      0 -> {
-        io.println("[POLL] Poll #" <> int.to_string(poll_num) <> " alive")
-        logging.quick_info("🔄 Polling #" <> int.to_string(poll_num) <> " - checking for new messages...")
-      }
+      0 -> vibe_logger.debug(log, "Polling heartbeat")
       _ -> Nil
     }
   }
-  
-  // Debug: log every 5th poll
-  case poll_num % 5 {
-    0 -> io.println("[POLL] Cycle #" <> int.to_string(poll_num) <> " - fetching dialogs...")
-    _ -> Nil
-  }
 
   // Получаем список диалогов
-  io.println("[POLL] 📡 Fetching dialogs from bridge: " <> state.config.bridge_url)
+  vibe_logger.trace(log, "Fetching dialogs from bridge")
   case get_dialogs(state.config) {
     Error(err) -> {
-      io.println("[POLL ERROR] ❌ Failed to get dialogs: " <> err)
-      logging.quick_error("❌ Polling error: " <> err)
+      vibe_logger.error(log
+        |> vibe_logger.with_data("error", json.string(err)),
+        "Failed to get dialogs")
+      agent_registry.increment_errors(state.agent_id)
       // Publish error event
       publish_event(state.event_bus, event_bus.error_event(
         "polling_error",
@@ -166,14 +237,13 @@ fn do_poll(state: PollingState) -> PollingState {
       PollingState(..state, poll_count: poll_num)
     }
     Ok(dialogs_json) -> {
-      io.println("[POLL] ✅ Got dialogs response, length: " <> int.to_string(string.length(dialogs_json)))
-      
-      // Логируем первый успешный poll
+      vibe_logger.trace(log
+        |> vibe_logger.with_data("response_length", json.int(string.length(dialogs_json))),
+        "Got dialogs response")
+
+      // Log first successful poll
       case poll_num {
-        1 -> {
-          io.println("[POLL] Response: " <> dialogs_json)
-          logging.quick_info("✅ Connected to Telegram bridge successfully")
-        }
+        1 -> vibe_logger.info(log, "Connected to Telegram bridge successfully")
         _ -> Nil
       }
       // Парсим и обрабатываем диалоги, передаём seen_ids для дедупликации
@@ -182,6 +252,8 @@ fn do_poll(state: PollingState) -> PollingState {
         dialogs_json,
         state.event_bus,
         state.seen_ids,
+        state.agent_id,
+        log,
       )
       PollingState(..state, agent_state: new_agent_state, poll_count: poll_num, seen_ids: new_seen_ids)
     }
@@ -202,6 +274,10 @@ fn publish_event(
 /// Get current Unix timestamp using Erlang's os:system_time/1
 @external(erlang, "vibee_ffi", "get_unix_timestamp")
 fn get_timestamp() -> Int
+
+/// Get ISO timestamp for agent registry
+@external(erlang, "vibee_vibe_logger_ffi", "get_iso_timestamp")
+fn get_iso_timestamp() -> String
 
 /// Get VIBEE_API_KEY from environment
 @external(erlang, "vibee_polling_ffi", "get_api_key")
@@ -301,31 +377,60 @@ fn process_dialogs_with_events(
   dialogs_json: String,
   bus: Option(Subject(event_bus.PubSubMessage)),
   seen_ids: Set(String),
+  agent_id: String,
+  logger: vibe_logger.VibeLogger,
 ) -> #(telegram_agent.AgentState, Set(String)) {
-  // Находим все ID групп из JSON
-  let group_ids = extract_group_ids(dialogs_json)
+  // Находим все ID групп из JSON (диалоги из MTProto)
+  let group_ids = extract_group_ids(dialogs_json, logger)
 
-  // ИЗМЕНЕНО: Обрабатываем ВСЕ чаты для логирования, но фильтруем для автоответов
-  let digital_twin_enabled = state.config.digital_twin_enabled
-  
-  // Логируем количество чатов
-  io.println("[POLL] 🔍 Total dialogs found: " <> int.to_string(list.length(group_ids)))
-  io.println("[POLL] 📋 Processing ALL chats for logging...")
-  
-  // Используем ВСЕ чаты вместо фильтрованных
-  let filtered_ids = group_ids
-  
+  // ВАЖНО: Добавляем target_chats для ПРИНУДИТЕЛЬНОГО polling
+  let target_ids = target_chats.target_chats()
+
+  // Получаем trigger chat IDs для ПРИОРИТИЗАЦИИ
+  let trigger_ids = trigger_chats.get_trigger_chat_ids()
+
+  // Объединяем и убираем дубликаты
+  let all_ids = list.unique(list.append(group_ids, target_ids))
+
+  // ПРИОРИТИЗАЦИЯ: trigger chats обрабатываются ПЕРВЫМИ!
+  // Сначала trigger chats, потом все остальные
+  let non_trigger_ids = list.filter(all_ids, fn(id) {
+    let normalized = target_chats.normalize_chat_id(id)
+    !list.any(trigger_ids, fn(t) {
+      target_chats.normalize_chat_id(t) == normalized
+    })
+  })
+  let prioritized_ids = list.append(trigger_ids, non_trigger_ids)
+
+  // Log trigger chats for debugging - ВАЖНО!
+  vibe_logger.info(logger
+    |> vibe_logger.with_data("trigger_chat_1", json.string(case list.first(trigger_ids) { Ok(id) -> id Error(_) -> "none" }))
+    |> vibe_logger.with_data("trigger_count", json.int(list.length(trigger_ids)))
+    |> vibe_logger.with_data("total_chats", json.int(list.length(prioritized_ids))),
+    "TRIGGER_PRIORITY: Processing trigger chats first")
+
+  vibe_logger.trace(logger
+    |> vibe_logger.with_data("dialogs_count", json.int(list.length(group_ids)))
+    |> vibe_logger.with_data("target_chats_count", json.int(list.length(target_ids)))
+    |> vibe_logger.with_data("trigger_chats_count", json.int(list.length(trigger_ids)))
+    |> vibe_logger.with_data("total_unique", json.int(list.length(prioritized_ids))),
+    "Processing dialogs (trigger chats first)")
+
+  // Используем ПРИОРИТИЗИРОВАННЫЕ чаты
+  let filtered_ids = prioritized_ids
+
   case list.length(filtered_ids) {
     0 -> {
-      io.println("[POLL] ⚠️  No chats to process (Digital Twin: " <> case digital_twin_enabled { True -> "ON" False -> "OFF" } <> ")")
-      logging.quick_warn("No chats matched filters - check target_chats configuration")
+      vibe_logger.warn(logger
+        |> vibe_logger.with_data("digital_twin", json.bool(state.config.digital_twin_enabled)),
+        "No chats to process")
     }
     n -> {
-      io.println("[POLL] ✅ Processing " <> int.to_string(n) <> " chats (Digital Twin: " <> case digital_twin_enabled { True -> "ON" False -> "OFF" } <> ")")
-      // Показываем первые 5 чатов для отладки
       let preview = list.take(filtered_ids, 5)
-      io.println("[POLL] 📋 Chats: " <> string.join(preview, ", "))
-      logging.quick_info("Processing " <> int.to_string(n) <> " chats: " <> string.join(preview, ", "))
+      vibe_logger.debug(logger
+        |> vibe_logger.with_data("chat_count", json.int(n))
+        |> vibe_logger.with_data("preview", json.string(string.join(preview, ", "))),
+        "Processing chats")
     }
   }
 
@@ -333,11 +438,8 @@ fn process_dialogs_with_events(
   list.fold(filtered_ids, #(state, seen_ids), fn(acc, group_id) {
     let #(acc_state, acc_seen) = acc
 
-    // Логируем какой чат обрабатываем
-    io.println("[POLL] Processing chat: " <> group_id)
-
     // Получаем историю для этого чата
-    process_chat_messages_with_events(acc_state, group_id, bus, acc_seen)
+    process_chat_messages_with_events(acc_state, group_id, bus, acc_seen, agent_id, logger)
   })
 }
 
@@ -352,7 +454,13 @@ fn log_chat_messages_with_events(
     Error(err) -> {
       // Логируем ошибку только для целевых чатов (чтобы не спамить)
       case target_chats.should_process_chat(chat_id) {
-        True -> io.println("[POLL] History error for " <> chat_id <> ": " <> err)
+        True -> {
+          let log = vibe_logger.new("polling")
+          vibe_logger.trace(log
+            |> vibe_logger.with_data("chat_id", json.string(chat_id))
+            |> vibe_logger.with_data("error", json.string(err)),
+            "History error")
+        }
         False -> Nil
       }
       seen_ids
@@ -363,7 +471,7 @@ fn log_chat_messages_with_events(
 
       // Фильтруем и логируем только новые ВХОДЯЩИЕ сообщения
       list.fold(messages, seen_ids, fn(acc_seen, msg) {
-        let #(msg_id, _from_id, from_name, text, is_outgoing) = msg
+        let #(msg_id, _from_id, from_name, text, is_outgoing, _reply_to_id) = msg
         let unique_id = chat_id <> ":" <> int.to_string(msg_id)
 
         // Пропускаем исходящие сообщения (от нас самих)
@@ -396,15 +504,16 @@ fn log_chat_messages_with_events(
   }
 }
 
-/// Извлечь ID групп из JSON ответа
-fn extract_group_ids(json: String) -> List(String) {
+/// Извлечь ID чатов из JSON ответа (группы И личные чаты)
+fn extract_group_ids(json_str: String, logger: vibe_logger.VibeLogger) -> List(String) {
   // Простой парсинг - ищем "id": числа
-  let parts = string.split(json, "\"id\":")
+  let parts = string.split(json_str, "\"id\":")
 
   let ids = list.filter_map(parts, fn(part) {
     case string.split(part, ",") {
       [first, ..] -> {
         let cleaned = string.trim(first)
+        // Включаем как отрицательные (группы) так и положительные (личные чаты) ID
         case string.starts_with(cleaned, "-") || is_digit_string(cleaned) {
           True -> Ok(cleaned)
           False -> Error(Nil)
@@ -413,9 +522,10 @@ fn extract_group_ids(json: String) -> List(String) {
       [] -> Error(Nil)
     }
   })
-  
-  // Логируем извлеченные ID
-  io.println("[EXTRACT] Found " <> int.to_string(list.length(ids)) <> " chat IDs: " <> string.join(ids, ", "))
+
+  vibe_logger.trace(logger
+    |> vibe_logger.with_data("total_ids", json.int(list.length(ids))),
+    "Extracted chat IDs")
   ids
 }
 
@@ -433,52 +543,76 @@ fn process_chat_messages_with_events(
   chat_id: String,
   bus: Option(Subject(event_bus.PubSubMessage)),
   seen_ids: Set(String),
+  agent_id: String,
+  logger: vibe_logger.VibeLogger,
 ) -> #(telegram_agent.AgentState, Set(String)) {
+  let chat_log = logger
+    |> vibe_logger.with_data("chat_id", json.string(chat_id))
+
+  // Log if this is a trigger chat for debugging
+  let is_trigger = case trigger_chats.find_chat_config(chat_id) {
+    Ok(_) -> {
+      vibe_logger.info(chat_log, "Processing TRIGGER chat")
+      True
+    }
+    Error(_) -> False
+  }
+
   case get_history(state.config, chat_id) {
     Error(err) -> {
-      io.println("[POLL] History error for " <> chat_id <> ": " <> err)
+      // Log at INFO level for trigger chats, TRACE for others
+      case is_trigger {
+        True -> vibe_logger.info(chat_log
+            |> vibe_logger.with_data("error", json.string(err)),
+            "History ERROR for TRIGGER chat")
+        False -> vibe_logger.trace(chat_log
+          |> vibe_logger.with_data("error", json.string(err)),
+          "History error")
+      }
       #(state, seen_ids)
     }
     Ok(history_json) -> {
       // Парсим сообщения
       let messages = extract_messages(history_json)
-      io.println("[POLL] Got " <> int.to_string(list.length(messages)) <> " messages from " <> chat_id)
+      vibe_logger.trace(chat_log
+        |> vibe_logger.with_data("message_count", json.int(list.length(messages))),
+        "Got messages")
 
       // Обрабатываем каждое ВХОДЯЩЕЕ сообщение с дедупликацией
       list.fold(messages, #(state, seen_ids), fn(acc, msg) {
         let #(acc_state, acc_seen) = acc
-        let #(msg_id, from_id, from_name, text, is_outgoing) = msg
+        let #(msg_id, from_id, from_name, text, is_outgoing, reply_to_id) = msg
         let unique_id = chat_id <> ":" <> int.to_string(msg_id)
 
-        // Логируем каждое сообщение для диагностики
-        let out_str = case is_outgoing { True -> "OUT" False -> "IN" }
-        io.println("[POLL] Msg " <> unique_id <> " " <> out_str <> " from:" <> int.to_string(from_id) <> " " <> string.slice(text, 0, 25))
-
-        // Пропускаем исходящие сообщения (от нас самих) - предотвращает самообщение!
+        // Пропускаем исходящие сообщения (от нас самих)
         case is_outgoing {
           True -> {
-            io.println("[TRACE] ❌ Skipping OUT message: " <> unique_id)
             // Исходящее сообщение - добавляем в seen но не обрабатываем
             #(acc_state, set.insert(acc_seen, unique_id))
           }
           False -> {
-            io.println("[TRACE] ✅ Processing IN message: " <> unique_id)
             // Проверяем, видели ли мы это сообщение
             case set.contains(acc_seen, unique_id) {
-              True -> {
-                io.println("[TRACE] ⏭️  Already seen: " <> unique_id)
-                io.println("[POLL] SKIP (seen): " <> unique_id)
-                acc  // Уже обработали - пропускаем
-              }
+              True -> acc  // Уже обработали - пропускаем
               False -> {
-                io.println("[TRACE] 🆕 First time seeing: " <> unique_id)
-                io.println("[POLL] 🆕 NEW INCOMING: " <> unique_id <> " from:" <> from_name)
-                io.println("[POLL] 📝 Message text: " <> string.slice(text, 0, 100))
-                
-                io.println("[TRACE] 📤 Calling logging.quick_info...")
-                // Логируем входящее сообщение
-                logging.quick_info("📨 TG: " <> chat_id <> " " <> from_name <> ": " <> text)
-                io.println("[TRACE] ✅ logging.quick_info completed")
+                // Новое входящее сообщение
+                let msg_log = chat_log
+                  |> vibe_logger.with_data("msg_id", json.int(msg_id))
+                  |> vibe_logger.with_data("from_id", json.int(from_id))
+                  |> vibe_logger.with_data("from_name", json.string(from_name))
+                  |> vibe_logger.with_data("reply_to_id", json.int(reply_to_id))
+
+                // Логируем как REPLY если это ответ на сообщение
+                case reply_to_id > 0 {
+                  True -> vibe_logger.info(msg_log, "New REPLY message")
+                  False -> vibe_logger.info(msg_log, "New incoming message")
+                }
+                vibe_logger.debug(msg_log
+                  |> vibe_logger.with_data("text_preview", json.string(string.slice(text, 0, 100))),
+                  "Message content")
+
+                // Increment message count in registry
+                agent_registry.increment_messages(agent_id)
 
                 // Publish telegram message event
                 publish_event(bus, event_bus.telegram_message(
@@ -489,7 +623,7 @@ fn process_chat_messages_with_events(
                   get_timestamp(),
                 ))
 
-                // Обрабатываем через telegram_agent и публикуем события
+                // Обрабатываем через telegram_agent
                 let new_state = telegram_agent.handle_incoming_message(
                   acc_state,
                   chat_id,
@@ -497,6 +631,7 @@ fn process_chat_messages_with_events(
                   from_name,
                   text,
                   msg_id,
+                  reply_to_id,
                 )
 
                 // Сохраняем входящее сообщение в БД для RAG памяти
@@ -504,16 +639,19 @@ fn process_chat_messages_with_events(
                   Ok(id) -> id
                   Error(_) -> 0
                 }
-                io.println("[DB] Saving incoming: dialog=" <> int.to_string(dialog_id) <> " msg=" <> int.to_string(msg_id) <> " from=" <> from_name)
                 case postgres.insert_message_simple(dialog_id, msg_id, from_id, from_name, text) {
-                  Ok(_) -> io.println("[DB] Incoming saved OK")
-                  Error(e) -> io.println("[DB] ERROR saving incoming: " <> e)
+                  Ok(_) -> vibe_logger.trace(msg_log, "Message saved to DB")
+                  Error(e) -> {
+                    vibe_logger.error(msg_log
+                      |> vibe_logger.with_data("error", json.string(e)),
+                      "Failed to save message to DB")
+                    agent_registry.increment_errors(agent_id)
+                  }
                 }
 
-                // Check if agent replied (state changed - reply was sent)
+                // Check if agent replied
                 case new_state.total_messages > acc_state.total_messages {
                   True -> {
-                    // Agent processed and possibly replied - publish trigger event
                     publish_event(bus, event_bus.trigger_detected(
                       chat_id,
                       "trigger_found",
@@ -535,9 +673,9 @@ fn process_chat_messages_with_events(
 }
 
 /// Извлечь сообщения из JSON ответа
-/// Формат: {"messages":[{"id":123,"text":"...","from_name":"...","from_id":123,"out":true},...]}
-/// Returns: List(#(msg_id, from_id, from_name, text, is_outgoing))
-fn extract_messages(json: String) -> List(#(Int, Int, String, String, Bool)) {
+/// Формат: {"messages":[{"id":123,"text":"...","from_name":"...","from_id":123,"out":true,"reply_to_id":456},...]}
+/// Returns: List(#(msg_id, from_id, from_name, text, is_outgoing, reply_to_id))
+fn extract_messages(json: String) -> List(#(Int, Int, String, String, Bool, Int)) {
   // Разбиваем по объектам сообщений
   let message_parts = string.split(json, "{\"id\":")
 
@@ -548,7 +686,7 @@ fn extract_messages(json: String) -> List(#(Int, Int, String, String, Bool)) {
 }
 
 /// Парсит один объект сообщения из строки
-fn parse_message_object(part: String) -> Result(#(Int, Int, String, String, Bool), Nil) {
+fn parse_message_object(part: String) -> Result(#(Int, Int, String, String, Bool, Int), Nil) {
   // Извлекаем id (первое число до запятой)
   let id = case string.split(part, ",") {
     [id_str, ..] -> {
@@ -575,10 +713,13 @@ fn parse_message_object(part: String) -> Result(#(Int, Int, String, String, Bool
   // Извлекаем out (исходящее сообщение)
   let is_outgoing = extract_json_bool_field(part, "out")
 
+  // Извлекаем reply_to_id (ID сообщения на которое отвечают)
+  let reply_to_id = extract_json_int_field(part, "reply_to_id")
+
   // Пропускаем только сообщения с пустым текстом (медиа-сообщения)
   case text {
     "" -> Error(Nil)
-    _ -> Ok(#(id, from_id, from_name, text, is_outgoing))
+    _ -> Ok(#(id, from_id, from_name, text, is_outgoing, reply_to_id))
   }
 }
 
@@ -637,7 +778,8 @@ fn extract_json_bool_field(json: String, field: String) -> Bool {
 
 /// Запустить polling loop (бесконечный цикл в отдельном процессе)
 pub fn start_polling(subject: Subject(PollingMessage)) {
-  logging.quick_info("Starting polling loop...")
+  let log = vibe_logger.new("polling")
+  vibe_logger.info(log, "Starting polling loop")
 
   // Запускаем polling loop в отдельном linked-процессе
   let _ = process.spawn(fn() {

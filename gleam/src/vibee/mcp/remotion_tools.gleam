@@ -6,7 +6,10 @@ import gleam/json
 import gleam/list
 import gleam/result
 import gleam/string
+import gleam/option.{None, Some}
 import vibee/ai/remotion
+import vibee/config/dynamic_config
+import vibee/db/postgres
 import vibee/mcp/types.{
   type Tool, type ToolResult, TextContent, Tool, ToolResult,
 }
@@ -1142,8 +1145,22 @@ fn wrap_template_modify(args: json.Json) -> ToolResult {
 /// Wrapper for template_preview
 fn wrap_template_preview(args: json.Json) -> ToolResult {
   let template_name = get_json_string_ffi(args, "template_name")
-  let player_url = get_env_or("REMOTION_PLAYER_URL", "http://localhost:3000")
+  let player_url = get_remotion_player_url()
   handle_template_preview(template_name, player_url)
+}
+
+/// Получить URL для Remotion Player
+fn get_remotion_player_url() -> String {
+  // Приоритет: ENV -> Database -> Production fallback
+  case get_env_or("REMOTION_PLAYER_URL", "") {
+    "" -> {
+      case postgres.get_global_pool() {
+        Some(pool) -> dynamic_config.get_remotion_player_url(pool)
+        None -> "https://vibee-remotion.fly.dev"  // Production fallback
+      }
+    }
+    url -> url
+  }
 }
 
 /// Wrapper for props_update

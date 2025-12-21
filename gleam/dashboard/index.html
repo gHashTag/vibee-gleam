@@ -387,12 +387,15 @@
         // Auto-detect if running locally or on Fly.io
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         const API_URL = isLocal ? 'http://localhost:8080' : 'https://vibee-mcp.fly.dev';
-        const WS_URL = isLocal ? 'ws://localhost:8080/ws/logs' : 'wss://vibee-mcp.fly.dev/ws/logs';
-        
-        let ws = null;
+        const WS_LOGS_URL = isLocal ? 'ws://localhost:8080/ws/logs' : 'wss://vibee-mcp.fly.dev/ws/logs';
+        const WS_AGENTS_URL = isLocal ? 'ws://localhost:8080/ws/agents' : 'wss://vibee-mcp.fly.dev/ws/agents';
+
+        let wsLogs = null;
+        let wsAgents = null;
         let logs = [];
         let currentAgent = 'all';
         let searchTerm = '';
+        let agentsData = { agents: [], summary: { total: 0, running: 0, stopped: 0 } };
 
         // DOM elements
         const logsContainer = document.getElementById('logsContainer');
@@ -407,18 +410,18 @@
         const connectionStatus = document.getElementById('connectionStatus');
         const agentList = document.getElementById('agentList');
 
-        // Initialize WebSocket connection
-        function connectWebSocket() {
-            ws = new WebSocket(WS_URL);
+        // Initialize WebSocket connection for logs
+        function connectLogsWebSocket() {
+            wsLogs = new WebSocket(WS_LOGS_URL);
 
-            ws.onopen = () => {
-                console.log('WebSocket connected');
+            wsLogs.onopen = () => {
+                console.log('Logs WebSocket connected');
                 connectionDot.classList.remove('disconnected');
                 connectionStatus.textContent = 'Connected';
                 addLog('info', 'WebSocket connected');
             };
 
-            ws.onmessage = (event) => {
+            wsLogs.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
                     handleWebSocketMessage(data);
@@ -427,18 +430,114 @@
                 }
             };
 
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
+            wsLogs.onerror = (error) => {
+                console.error('Logs WebSocket error:', error);
                 addLog('error', 'WebSocket error occurred');
             };
 
-            ws.onclose = () => {
-                console.log('WebSocket disconnected');
+            wsLogs.onclose = () => {
+                console.log('Logs WebSocket disconnected');
                 connectionDot.classList.add('disconnected');
                 connectionStatus.textContent = 'Disconnected';
                 addLog('warning', 'WebSocket disconnected. Reconnecting...');
-                setTimeout(connectWebSocket, 3000);
+                setTimeout(connectLogsWebSocket, 3000);
             };
+        }
+
+        // Initialize WebSocket connection for agents (real-time from registry)
+        function connectAgentsWebSocket() {
+            wsAgents = new WebSocket(WS_AGENTS_URL);
+
+            wsAgents.onopen = () => {
+                console.log('Agents WebSocket connected');
+            };
+
+            wsAgents.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'agents_update') {
+                        agentsData = data;
+                        updateAgentsList(data.agents, data.summary);
+                    }
+                } catch (e) {
+                    console.error('Failed to parse agents message:', e);
+                }
+            };
+
+            wsAgents.onerror = (error) => {
+                console.error('Agents WebSocket error:', error);
+            };
+
+            wsAgents.onclose = () => {
+                console.log('Agents WebSocket disconnected');
+                setTimeout(connectAgentsWebSocket, 3000);
+            };
+        }
+
+        // Update agents list from WebSocket data
+        function updateAgentsList(agents, summary) {
+            // Update active agents count
+            activeAgentsEl.textContent = summary.running;
+
+            // Keep "All Agents" card and add real agents
+            const allAgentsCard = agentList.querySelector('[data-agent="all"]');
+            agentList.innerHTML = '';
+            if (allAgentsCard) {
+                agentList.appendChild(allAgentsCard);
+            } else {
+                const card = document.createElement('div');
+                card.className = 'agent-card active';
+                card.dataset.agent = 'all';
+                card.innerHTML = `
+                    <div class="agent-name">All Agents</div>
+                    <div class="agent-status">${summary.running}/${summary.total} active</div>
+                `;
+                agentList.appendChild(card);
+            }
+
+            // Add agent cards from registry
+            agents.forEach(agent => {
+                const existingCard = agentList.querySelector(`[data-agent="${agent.id}"]`);
+                if (existingCard) {
+                    // Update existing card
+                    const statusEl = existingCard.querySelector('.agent-status');
+                    statusEl.textContent = getAgentStatusText(agent);
+                    existingCard.className = `agent-card ${agent.status === 'running' ? '' : 'inactive'}`;
+                } else {
+                    // Create new card
+                    const card = document.createElement('div');
+                    card.className = `agent-card ${agent.status === 'running' ? '' : 'inactive'}`;
+                    card.dataset.agent = agent.id;
+                    card.innerHTML = `
+                        <div class="agent-name">${getAgentDisplayName(agent)}</div>
+                        <div class="agent-status">${getAgentStatusText(agent)}</div>
+                    `;
+                    agentList.appendChild(card);
+                }
+            });
+
+            // Restore active state
+            const activeCard = agentList.querySelector(`[data-agent="${currentAgent}"]`);
+            if (activeCard) {
+                activeCard.classList.add('active');
+            }
+        }
+
+        // Get display name for agent
+        function getAgentDisplayName(agent) {
+            const typeEmoji = {
+                'polling': '🔄',
+                'generic': '⚙️',
+                'super': '🦸',
+                'event_bus': '📡'
+            };
+            return `${typeEmoji[agent.type] || '🤖'} ${agent.type || 'Agent'}`;
+        }
+
+        // Get status text for agent
+        function getAgentStatusText(agent) {
+            const statusIcon = agent.status === 'running' ? '🟢' : '🔴';
+            return `${statusIcon} ${agent.status} | ${agent.message_count || 0} msgs`;
         }
 
         // Handle WebSocket messages
@@ -566,32 +665,9 @@
             }
         });
 
-        // Fetch initial agents
-        async function fetchAgents() {
-            try {
-                const response = await fetch(`${API_URL}/api/agents`);
-                const agents = await response.json();
-                
-                agents.forEach(agent => {
-                    const card = document.createElement('div');
-                    card.className = 'agent-card';
-                    card.dataset.agent = agent.id;
-                    card.innerHTML = `
-                        <div class="agent-name">${agent.name}</div>
-                        <div class="agent-status">${agent.status}</div>
-                    `;
-                    agentList.appendChild(card);
-                });
-
-                activeAgentsEl.textContent = agents.filter(a => a.status === 'active').length;
-            } catch (e) {
-                console.error('Failed to fetch agents:', e);
-            }
-        }
-
         // Initialize
-        connectWebSocket();
-        fetchAgents();
+        connectLogsWebSocket();
+        connectAgentsWebSocket();
     </script>
 </body>
 </html>

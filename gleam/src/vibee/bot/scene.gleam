@@ -88,6 +88,28 @@ pub type VoiceCloneScene {
   VoiceCloneResult(audio_url: String)
 }
 
+/// Pricing display flow
+pub type PricingScene {
+  PricingList
+  PricingDetails(product_code: String)
+  PricingCompare
+}
+
+/// Quiz flow
+pub type QuizScene {
+  QuizStart
+  QuizQuestion(question_index: Int, answers: List(#(String, String)))
+  QuizResult(score: Int, recommended_product: String)
+}
+
+/// Subscription management flow
+pub type SubscriptionScene {
+  SubscriptionStatus
+  SubscriptionUpgrade
+  SubscriptionCancel
+  SubscriptionPayment(product_code: String, method: String)
+}
+
 /// Combined scene state
 pub type Scene {
   Main(MainScene)
@@ -99,6 +121,9 @@ pub type Scene {
   BRoll(BRollScene)
   AvatarVideo(AvatarVideoScene)
   VoiceClone(VoiceCloneScene)
+  Pricing(PricingScene)
+  Quiz(QuizScene)
+  Subscription(SubscriptionScene)
 }
 
 // ============================================================
@@ -563,6 +588,79 @@ pub fn scene_to_json(scene: Scene) -> String {
         #("type", json.string("voice_clone")),
         #("state", json.string("result")),
         #("audio_url", json.string(audio_url)),
+      ]))
+
+    // Pricing scenes
+    Pricing(PricingList) ->
+      json.to_string(json.object([
+        #("type", json.string("pricing")),
+        #("state", json.string("list")),
+      ]))
+
+    Pricing(PricingDetails(code)) ->
+      json.to_string(json.object([
+        #("type", json.string("pricing")),
+        #("state", json.string("details")),
+        #("code", json.string(code)),
+      ]))
+
+    Pricing(PricingCompare) ->
+      json.to_string(json.object([
+        #("type", json.string("pricing")),
+        #("state", json.string("compare")),
+      ]))
+
+    // Quiz scenes
+    Quiz(QuizStart) ->
+      json.to_string(json.object([
+        #("type", json.string("quiz")),
+        #("state", json.string("start")),
+      ]))
+
+    Quiz(QuizQuestion(index, answers)) ->
+      json.to_string(json.object([
+        #("type", json.string("quiz")),
+        #("state", json.string("question")),
+        #("index", json.int(index)),
+        #("answers", json.array(answers, fn(a) {
+          let #(q, v) = a
+          json.object([#("q", json.string(q)), #("v", json.string(v))])
+        })),
+      ]))
+
+    Quiz(QuizResult(score, product)) ->
+      json.to_string(json.object([
+        #("type", json.string("quiz")),
+        #("state", json.string("result")),
+        #("score", json.int(score)),
+        #("product", json.string(product)),
+      ]))
+
+    // Subscription scenes
+    Subscription(SubscriptionStatus) ->
+      json.to_string(json.object([
+        #("type", json.string("subscription")),
+        #("state", json.string("status")),
+      ]))
+
+    Subscription(SubscriptionUpgrade) ->
+      json.to_string(json.object([
+        #("type", json.string("subscription")),
+        #("state", json.string("upgrade")),
+      ]))
+
+    Subscription(SubscriptionCancel) ->
+      json.to_string(json.object([
+        #("type", json.string("subscription")),
+        #("state", json.string("cancel")),
+      ]))
+
+    Subscription(SubscriptionPayment(code, method)) ->
+      json.to_string(json.object([
+        #("type", json.string("subscription")),
+        #("state", json.string("payment")),
+        #("code", json.string(code)),
+        #("method", json.string(method)),
       ]))
   }
 }

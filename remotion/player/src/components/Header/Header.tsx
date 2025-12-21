@@ -1,7 +1,9 @@
 import { useState, useRef } from 'react';
 import { useEditorStore, useLipSyncProps } from '@/store/editorStore';
-import { Download, Play, Pause, Settings, Wifi, WifiOff, Loader2, AlertTriangle, Undo2, Redo2, X, Keyboard, Upload, Save } from 'lucide-react';
+import { Download, Play, Pause, Settings, Wifi, WifiOff, Loader2, AlertTriangle, Undo2, Redo2, X, Keyboard, Upload, Save, RotateCcw } from 'lucide-react';
 import { RENDER_SERVER_URL, toAbsoluteUrl } from '@/lib/mediaUrl';
+import { DEFAULT_COMPOSITION_ID } from '@/shared/compositions';
+import { logExport } from '@/lib/logger';
 import './styles.css';
 
 // Export settings stored in localStorage
@@ -81,8 +83,10 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
   const redo = useEditorStore((s) => s.redo);
   const canUndo = useEditorStore((s) => s.canUndo);
   const canRedo = useEditorStore((s) => s.canRedo);
+  const resetToDefaults = useEditorStore((s) => s.resetToDefaults);
 
   const [showBlobWarning, setShowBlobWarning] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [exportSettings, setExportSettings] = useState<ExportSettings>(getExportSettings);
   const projectImportRef = useRef<HTMLInputElement>(null);
@@ -218,8 +222,28 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
       const healthData = await healthRes.json();
       console.log('[Export] Health data:', healthData);
 
-      // Convert all media paths to absolute URLs for render server
-      // Filter out blob URLs - they can't be accessed by render server
+      // Get segments from timeline with exact positions
+      const segments = useEditorStore.getState().getSegmentsFromTimeline();
+      logExport('Segments from timeline', { count: segments.length, segments });
+
+      // Convert segments to absolute URLs
+      const segmentsWithAbsoluteUrls = segments.map((seg) => ({
+        ...seg,
+        bRollUrl: seg.bRollUrl && !seg.bRollUrl.startsWith('blob:')
+          ? toAbsoluteUrl(seg.bRollUrl)
+          : seg.bRollUrl,
+      }));
+
+      // Filter out segments with blob URLs (can't be accessed by render server)
+      const validSegments = segmentsWithAbsoluteUrls.filter((seg) => {
+        if (seg.type === 'split' && seg.bRollUrl?.startsWith('blob:')) {
+          console.warn('[Export] Skipping segment with blob URL - upload files to server first');
+          return false;
+        }
+        return true;
+      });
+
+      // Also keep backgroundVideos for backward compatibility
       const filteredBackgroundVideos = templateProps.backgroundVideos
         .filter(url => !url.startsWith('blob:'))
         .map(toAbsoluteUrl);
@@ -234,8 +258,15 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
         coverImage: toAbsoluteUrl(templateProps.coverImage),
         backgroundMusic: templateProps.backgroundMusic ? toAbsoluteUrl(templateProps.backgroundMusic) : '',
         backgroundVideos: filteredBackgroundVideos,
+        // Add segments with timeline positions for render
+        segments: validSegments,
       };
 
+      logExport('Render props prepared', {
+        segmentsCount: validSegments.length,
+        hasMusic: !!templateProps.backgroundMusic,
+        lipSyncVideo: renderProps.lipSyncVideo,
+      });
       console.log('[Export] Render props:', renderProps);
 
       // Start render with converted template props
@@ -245,7 +276,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'video',
-          compositionId: 'LipSyncMain',
+          compositionId: DEFAULT_COMPOSITION_ID,
           codec: 'h264',
           inputProps: renderProps,
         }),
@@ -419,6 +450,14 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
         </button>
 
         <button
+          className="header-button reset-btn"
+          onClick={() => setShowResetConfirm(true)}
+          title="Reset to Defaults"
+        >
+          <RotateCcw size={18} />
+        </button>
+
+        <button
           className="header-button"
           title="Settings"
           onClick={() => setShowSettings(true)}
@@ -473,6 +512,41 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
                 onClick={handleExport}
               >
                 Export Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Confirmation Dialog */}
+      {showResetConfirm && (
+        <div className="reset-overlay" onClick={() => setShowResetConfirm(false)}>
+          <div className="reset-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="reset-header">
+              <RotateCcw size={24} className="reset-icon" />
+              <h3>Reset to Defaults?</h3>
+            </div>
+            <p className="reset-text">
+              All changes will be lost. Timeline, assets, and settings will be restored to their original state.
+            </p>
+            <p className="reset-warning">
+              This action cannot be undone.
+            </p>
+            <div className="reset-actions">
+              <button
+                className="reset-btn-secondary"
+                onClick={() => setShowResetConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="reset-btn-danger"
+                onClick={() => {
+                  resetToDefaults();
+                  setShowResetConfirm(false);
+                }}
+              >
+                Reset
               </button>
             </div>
           </div>

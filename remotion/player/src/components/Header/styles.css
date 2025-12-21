@@ -452,3 +452,105 @@
   color: #ccc;
   font-family: monospace;
 }
+
+/* Reset Confirmation Dialog */
+.reset-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.reset-dialog {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 380px;
+  width: 90%;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.reset-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.reset-header .reset-icon {
+  color: #f59e0b;
+}
+
+.reset-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #fff;
+}
+
+.reset-text {
+  color: #aaa;
+  font-size: 14px;
+  margin: 0 0 8px 0;
+  line-height: 1.5;
+}
+
+.reset-warning {
+  color: #ef4444;
+  font-size: 13px;
+  margin: 0 0 20px 0;
+  padding: 10px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 6px;
+  border-left: 3px solid #ef4444;
+}
+
+.reset-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.reset-btn-secondary {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: #333;
+  color: #ccc;
+}
+
+.reset-btn-secondary:hover {
+  background: #444;
+  color: #fff;
+}
+
+.reset-btn-danger {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+}
+
+.reset-btn-danger:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Reset button in header */
+.header-button.reset-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}

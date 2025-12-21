@@ -15,6 +15,7 @@ import vibee/bot/scene_handler.{
   type NextAction, type SceneError, type SceneResult, InvalidInput, InvalidState,
   JobAvatarVideo, NoAction, SceneResult, StartJob,
 }
+import vibee/sales/paywall
 
 // ============================================================
 // Scene Entry Point
@@ -204,27 +205,45 @@ fn start_generation(
   script: String,
   voice_id: String,
 ) -> Result(SceneResult, SceneError) {
-  let job_id = "pending"
-  let new_session = set_scene(
-    session,
-    AvatarVideo(AvatarVideoGenerating(portrait_url, script, voice_id, job_id)),
-  )
+  // Проверка paywall перед генерацией
+  case paywall.check_access(session.user_id, paywall.Generation) {
+    paywall.AccessGranted(_) -> {
+      let job_id = "pending"
+      let new_session = set_scene(
+        session,
+        AvatarVideo(AvatarVideoGenerating(portrait_url, script, voice_id, job_id)),
+      )
 
-  let params = dict.new()
-    |> dict.insert("portrait_url", portrait_url)
-    |> dict.insert("script", script)
-    |> dict.insert("voice_id", voice_id)
-    |> dict.insert("chat_id", session.chat_id)
+      let params = dict.new()
+        |> dict.insert("portrait_url", portrait_url)
+        |> dict.insert("script", script)
+        |> dict.insert("voice_id", voice_id)
+        |> dict.insert("chat_id", session.chat_id)
 
-  Ok(SceneResult(
-    session: new_session,
-    response: Some(TextReply(
-      "Creating talking avatar video...\n\n" <>
-      "Voice: " <> voice_id <> "\n\n" <>
-      "This may take 2-5 minutes. I'll notify you when it's ready."
-    )),
-    next_action: StartJob(JobAvatarVideo, params),
-  ))
+      // Записать использование
+      let _ = paywall.record_usage(session.user_id, paywall.Generation)
+
+      Ok(SceneResult(
+        session: new_session,
+        response: Some(TextReply(
+          "Creating talking avatar video...\n\n" <>
+          "Voice: " <> voice_id <> "\n\n" <>
+          "This may take 2-5 minutes. I'll notify you when it's ready."
+        )),
+        next_action: StartJob(JobAvatarVideo, params),
+      ))
+    }
+    access_result -> {
+      // Доступ запрещён - показать paywall
+      let message = paywall.get_access_message(access_result, "ru")
+        <> "\n\n💎 /pricing - тарифы\n🎯 /quiz - подобрать тариф"
+      Ok(SceneResult(
+        session: session,
+        response: Some(TextReply(message)),
+        next_action: NoAction,
+      ))
+    }
+  }
 }
 
 /// Handle generation result

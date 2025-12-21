@@ -514,11 +514,11 @@ func (c *Client) GetHistoryWithOffset(ctx context.Context, chatID int64, limit i
 
 		switch v := result.(type) {
 		case *tg.MessagesMessages:
-			messages = c.parseMessages(v.Messages, v.Users)
+			messages = c.parseMessagesWithChatID(v.Messages, v.Users, chatID)
 		case *tg.MessagesMessagesSlice:
-			messages = c.parseMessages(v.Messages, v.Users)
+			messages = c.parseMessagesWithChatID(v.Messages, v.Users, chatID)
 		case *tg.MessagesChannelMessages:
-			messages = c.parseMessages(v.Messages, v.Users)
+			messages = c.parseMessagesWithChatID(v.Messages, v.Users, chatID)
 		}
 
 		return messages, nil
@@ -528,6 +528,10 @@ func (c *Client) GetHistoryWithOffset(ctx context.Context, chatID int64, limit i
 }
 
 func (c *Client) parseMessages(msgList []tg.MessageClass, users []tg.UserClass) []Message {
+	return c.parseMessagesWithChatID(msgList, users, 0)
+}
+
+func (c *Client) parseMessagesWithChatID(msgList []tg.MessageClass, users []tg.UserClass, chatID int64) []Message {
 	userMap := make(map[int64]*tg.User)
 	for _, u := range users {
 		if user, ok := u.(*tg.User); ok {
@@ -564,6 +568,16 @@ func (c *Client) parseMessages(msgList []tg.MessageClass, users []tg.UserClass) 
 					if user.LastName != "" {
 						item.FromName += " " + user.LastName
 					}
+				}
+			}
+		} else if chatID > 0 && !msg.Out {
+			// For private chats, if FromID is nil and message is incoming,
+			// the sender is the peer (chatID)
+			item.FromID = chatID
+			if user, ok := userMap[chatID]; ok {
+				item.FromName = user.FirstName
+				if user.LastName != "" {
+					item.FromName += " " + user.LastName
 				}
 			}
 		}
@@ -817,57 +831,80 @@ func (c *Client) ResolveUsername(ctx context.Context, username string) (map[stri
 }
 
 func (c *Client) resolvePeer(ctx context.Context, chatID int64) (tg.InputPeerClass, error) {
+	log.Printf("[resolvePeer] ═══════════════════════════════════════")
+	log.Printf("[resolvePeer] chatID=%d", chatID)
+
 	if chatID > 0 {
 		// User
+		log.Printf("[resolvePeer] Type=User, UserID=%d", chatID)
 		return &tg.InputPeerUser{UserID: chatID}, nil
 	}
 
 	if chatID > -1000000000000 {
 		// Group chat
-		return &tg.InputPeerChat{ChatID: -chatID}, nil
+		groupID := -chatID
+		log.Printf("[resolvePeer] Type=Group, GroupID=%d", groupID)
+		return &tg.InputPeerChat{ChatID: groupID}, nil
 	}
 
 	// Channel/Supergroup
 	channelID := -chatID - 1000000000000
+	log.Printf("[resolvePeer] Type=Channel/Supergroup, channelID=%d", channelID)
 
 	// First try to get from dialogs to get access hash
+	log.Printf("[resolvePeer] Searching in dialogs...")
 	dialogs, err := c.api.API().MessagesGetDialogs(ctx, &tg.MessagesGetDialogsRequest{
 		OffsetPeer: &tg.InputPeerEmpty{},
 		Limit:      100,
 	})
 	if err == nil {
 		if d, ok := dialogs.(*tg.MessagesDialogsSlice); ok {
+			log.Printf("[resolvePeer] Got DialogsSlice with %d chats", len(d.Chats))
 			for _, chat := range d.Chats {
-				if ch, ok := chat.(*tg.Channel); ok && ch.ID == channelID {
-					return &tg.InputPeerChannel{
-						ChannelID:  ch.ID,
-						AccessHash: ch.AccessHash,
-					}, nil
+				if ch, ok := chat.(*tg.Channel); ok {
+					log.Printf("[resolvePeer] Found channel: ID=%d, Title=%s", ch.ID, ch.Title)
+					if ch.ID == channelID {
+						log.Printf("[resolvePeer] ✅ Match found! AccessHash=%d", ch.AccessHash)
+						return &tg.InputPeerChannel{
+							ChannelID:  ch.ID,
+							AccessHash: ch.AccessHash,
+						}, nil
+					}
 				}
 			}
 		}
 		if d, ok := dialogs.(*tg.MessagesDialogs); ok {
+			log.Printf("[resolvePeer] Got Dialogs with %d chats", len(d.Chats))
 			for _, chat := range d.Chats {
-				if ch, ok := chat.(*tg.Channel); ok && ch.ID == channelID {
-					return &tg.InputPeerChannel{
-						ChannelID:  ch.ID,
-						AccessHash: ch.AccessHash,
-					}, nil
+				if ch, ok := chat.(*tg.Channel); ok {
+					log.Printf("[resolvePeer] Found channel: ID=%d, Title=%s", ch.ID, ch.Title)
+					if ch.ID == channelID {
+						log.Printf("[resolvePeer] ✅ Match found! AccessHash=%d", ch.AccessHash)
+						return &tg.InputPeerChannel{
+							ChannelID:  ch.ID,
+							AccessHash: ch.AccessHash,
+						}, nil
+					}
 				}
 			}
 		}
+	} else {
+		log.Printf("[resolvePeer] ⚠️ Error getting dialogs: %v", err)
 	}
 
 	// Fallback: try ChannelsGetChannels (works for public channels)
+	log.Printf("[resolvePeer] Channel not in dialogs, trying ChannelsGetChannels...")
 	channels, err := c.api.API().ChannelsGetChannels(ctx, []tg.InputChannelClass{
 		&tg.InputChannel{ChannelID: channelID},
 	})
 	if err != nil {
+		log.Printf("[resolvePeer] ❌ ChannelsGetChannels error: %v", err)
 		return nil, fmt.Errorf("resolve channel: %w", err)
 	}
 
 	if chats, ok := channels.(*tg.MessagesChats); ok && len(chats.Chats) > 0 {
 		if ch, ok := chats.Chats[0].(*tg.Channel); ok {
+			log.Printf("[resolvePeer] ✅ Found via ChannelsGetChannels: ID=%d, AccessHash=%d", ch.ID, ch.AccessHash)
 			return &tg.InputPeerChannel{
 				ChannelID:  ch.ID,
 				AccessHash: ch.AccessHash,
@@ -875,6 +912,7 @@ func (c *Client) resolvePeer(ctx context.Context, chatID int64) (tg.InputPeerCla
 		}
 	}
 
+	log.Printf("[resolvePeer] ❌ Channel not found: %d", channelID)
 	return nil, fmt.Errorf("channel not found: %d", channelID)
 }
 

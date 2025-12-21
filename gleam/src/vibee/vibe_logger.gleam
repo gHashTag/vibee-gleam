@@ -56,9 +56,9 @@ pub fn empty_context() -> LogContext {
   )
 }
 
-/// Create new logger
+/// Create new logger with level from VIBEE_LOG_LEVEL env var (defaults to Info)
 pub fn new(name: String) -> VibeLogger {
-  VibeLogger(name: name, level: Debug, context: empty_context())
+  VibeLogger(name: name, level: get_configured_level(), context: empty_context())
 }
 
 /// Create logger with minimum level
@@ -293,6 +293,32 @@ pub fn generate_trace_id() -> String
 
 @external(erlang, "vibee_vibe_logger_ffi", "generate_span_id")
 pub fn generate_span_id() -> String
+
+@external(erlang, "vibee_vibe_logger_ffi", "get_env")
+fn get_env(name: String) -> String
+
+// =============================================================================
+// Log Level Configuration
+// =============================================================================
+
+/// Get log level from VIBEE_LOG_LEVEL environment variable
+/// Returns Info as default if not set or invalid
+pub fn get_configured_level() -> LogLevel {
+  case get_env("VIBEE_LOG_LEVEL") {
+    "trace" -> Trace
+    "debug" -> Debug
+    "info" -> Info
+    "warn" -> Warn
+    "error" -> ErrorLevel
+    "fatal" -> Fatal
+    _ -> Info
+  }
+}
+
+/// Create new logger with configured level from VIBEE_LOG_LEVEL
+pub fn new_with_env_level(name: String) -> VibeLogger {
+  VibeLogger(name: name, level: get_configured_level(), context: empty_context())
+}
 
 // =============================================================================
 // Convenience Functions
