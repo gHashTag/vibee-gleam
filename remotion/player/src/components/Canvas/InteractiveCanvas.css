@@ -79,23 +79,6 @@
 /* Fullscreen mode */
 .canvas-container:fullscreen {
   background: #000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.canvas-container:fullscreen .canvas-player-wrapper {
-  position: relative;
-  top: auto;
-  left: auto;
-  transform: none !important;
-  height: 100vh;
-  width: auto;
-}
-
-.canvas-container:fullscreen .canvas-player-wrapper > div {
-  height: 100% !important;
-  width: auto !important;
 }
 
 .canvas-container:fullscreen .canvas-controls {
@@ -103,4 +86,5 @@
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
+  z-index: 1000;
 }

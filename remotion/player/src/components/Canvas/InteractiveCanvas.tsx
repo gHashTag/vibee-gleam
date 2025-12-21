@@ -97,6 +97,7 @@ export function InteractiveCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [autoZoom, setAutoZoom] = useState(0.3);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenZoom, setFullscreenZoom] = useState(1);
 
   const project = useEditorStore((s) => s.project);
   const currentFrame = useEditorStore((s) => s.currentFrame);
@@ -262,15 +263,24 @@ export function InteractiveCanvas() {
     }
   }, []);
 
-  // Listen for fullscreen changes
+  // Listen for fullscreen changes and calculate zoom
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const isFs = !!document.fullscreenElement;
+      setIsFullscreen(isFs);
+
+      if (isFs) {
+        // Calculate zoom to fit video height to screen height
+        const screenHeight = window.innerHeight;
+        const videoHeight = project.height;
+        const zoom = (screenHeight - 40) / videoHeight; // 40px padding
+        setFullscreenZoom(Math.min(zoom, 1)); // Don't zoom more than 100%
+      }
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
+  }, [project.height]);
 
   return (
     <div className="canvas-container" onClick={handleCanvasClick} ref={containerRef}>
@@ -292,7 +302,7 @@ export function InteractiveCanvas() {
       <div
         className="canvas-player-wrapper"
         style={{
-          transform: `translate(-50%, -50%) scale(${effectiveZoom})`,
+          transform: `translate(-50%, -50%) scale(${isFullscreen ? fullscreenZoom : effectiveZoom})`,
         }}
       >
         <Player
