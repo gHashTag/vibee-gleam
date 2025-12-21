@@ -28,6 +28,8 @@ export function Timeline() {
   const markers = useEditorStore((s) => s.markers);
   const isMuted = useEditorStore((s) => s.isMuted);
   const setIsMuted = useEditorStore((s) => s.setIsMuted);
+  const volume = useEditorStore((s) => s.volume);
+  const setVolume = useEditorStore((s) => s.setVolume);
   const playerRef = useEditorStore((s) => s.playerRef);
 
   // Handle mute toggle - uses both store state and player API
@@ -41,10 +43,28 @@ export function Timeline() {
         playerRef.current.mute?.();
       } else {
         playerRef.current.unmute?.();
-        playerRef.current.setVolume?.(1);
+        playerRef.current.setVolume?.(volume);
       }
     }
-  }, [isMuted, setIsMuted, playerRef]);
+  }, [isMuted, setIsMuted, playerRef, volume]);
+
+  // Handle volume change
+  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    setVolume(newVolume);
+
+    // Apply to Remotion Player
+    if (playerRef?.current) {
+      if (newVolume === 0) {
+        playerRef.current.mute?.();
+        setIsMuted(true);
+      } else {
+        playerRef.current.unmute?.();
+        playerRef.current.setVolume?.(newVolume);
+        if (isMuted) setIsMuted(false);
+      }
+    }
+  }, [setVolume, playerRef, isMuted, setIsMuted]);
 
   // Audio warmup - required for browser autoplay policy
   const warmupAudio = useCallback(() => {
@@ -66,12 +86,19 @@ export function Timeline() {
   // See: https://www.remotion.dev/docs/player/autoplay
   const handlePlay = useCallback((e: React.MouseEvent) => {
     warmupAudio();
+
+    // Ensure player is unmuted on first play with correct volume
+    if (playerRef?.current && !isMuted) {
+      playerRef.current.unmute?.();
+      playerRef.current.setVolume?.(volume);
+    }
+
     if (isPlaying) {
       pauseDirect();
     } else {
       playDirect(e); // Pass event for audio to work!
     }
-  }, [isPlaying, playDirect, pauseDirect, warmupAudio]);
+  }, [isPlaying, isMuted, volume, playDirect, pauseDirect, warmupAudio, playerRef]);
 
   const fps = project.fps;
   const duration = project.durationInFrames;
@@ -214,13 +241,25 @@ export function Timeline() {
           </button>
         </div>
 
-        <button
-          className={`transport-btn ${isMuted ? '' : 'active'}`}
-          onClick={handleMuteToggle}
-          title={isMuted ? 'Unmute audio' : 'Mute audio'}
-        >
-          {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-        </button>
+        <div className="volume-control">
+          <button
+            className={`transport-btn ${isMuted ? '' : 'active'}`}
+            onClick={handleMuteToggle}
+            title={isMuted ? 'Unmute audio' : 'Mute audio'}
+          >
+            {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+          </button>
+          <input
+            type="range"
+            className="volume-slider"
+            min="0"
+            max="1"
+            step="0.05"
+            value={isMuted ? 0 : volume}
+            onChange={handleVolumeChange}
+            title={`Volume: ${Math.round(volume * 100)}%`}
+          />
+        </div>
 
         <button
           className={`transport-btn snap-btn ${snapSettings.enabled ? 'active' : ''}`}

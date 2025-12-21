@@ -325,6 +325,7 @@ export const useEditorStore = create<EditorStore>()(
       currentFrame: 0,
       isPlaying: false,
       isMuted: false,
+      volume: 1,
       playbackRate: 1,
       timelineZoom: 1,
       selectedItemIds: [],
@@ -395,6 +396,11 @@ export const useEditorStore = create<EditorStore>()(
       setIsMuted: (muted) =>
         set((state) => {
           state.isMuted = muted;
+        }),
+
+      setVolume: (volume) =>
+        set((state) => {
+          state.volume = Math.max(0, Math.min(volume, 1));
         }),
 
       setPlaybackRate: (rate) =>

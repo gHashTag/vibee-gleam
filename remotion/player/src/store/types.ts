@@ -228,6 +228,7 @@ export interface EditorState {
   currentFrame: number;
   isPlaying: boolean;
   isMuted: boolean;
+  volume: number; // 0-1
   playbackRate: number; // 0.5x to 2x
   timelineZoom: number; // 1 = 100%
 
@@ -281,6 +282,7 @@ export interface EditorActions {
   setCurrentFrame: (frame: number) => void;
   setIsPlaying: (playing: boolean) => void;
   setIsMuted: (muted: boolean) => void;
+  setVolume: (volume: number) => void;
   setPlaybackRate: (rate: number) => void;
   play: () => void;
   pause: () => void;
