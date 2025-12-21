@@ -56,24 +56,24 @@
     "confidence": 1
   },
   {
-    "text": "Васильева",
+    "text": "Василий",
     "startMs": 3480,
     "endMs": 3760,
     "timestampMs": 3480,
     "confidence": 1
   },
   {
-    "text": "Дмитрия",
+    "text": "Вадмитрия.",
     "startMs": 3760,
-    "endMs": 4600,
+    "endMs": 4640,
     "timestampMs": 3760,
     "confidence": 1
   },
   {
     "text": "Я",
-    "startMs": 4650,
+    "startMs": 4640,
     "endMs": 4730,
-    "timestampMs": 4650,
+    "timestampMs": 4640,
     "confidence": 1
   },
   {
@@ -98,7 +98,7 @@
     "confidence": 1
   },
   {
-    "text": "ИИ",
+    "text": "и",
     "startMs": 5600,
     "endMs": 5620,
     "timestampMs": 5600,
@@ -119,7 +119,7 @@
     "confidence": 1
   },
   {
-    "text": "кодить",
+    "text": "катить",
     "startMs": 6570,
     "endMs": 6930,
     "timestampMs": 6570,
@@ -336,17 +336,17 @@
     "confidence": 1
   },
   {
-    "text": "ИИ",
+    "text": "и",
     "startMs": 17010,
-    "endMs": 17200,
+    "endMs": 17010,
     "timestampMs": 17010,
     "confidence": 1
   },
   {
     "text": "голосом",
-    "startMs": 17200,
+    "startMs": 17010,
     "endMs": 17520,
-    "timestampMs": 17200,
+    "timestampMs": 17010,
     "confidence": 1
   },
   {

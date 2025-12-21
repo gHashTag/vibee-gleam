@@ -88,3 +88,12 @@
   transform: translateX(-50%);
   z-index: 1000;
 }
+
+/* Hide zoom controls in fullscreen - only show exit button */
+.canvas-container:fullscreen .canvas-control-btn:not(:last-child) {
+  display: none;
+}
+
+.canvas-container:fullscreen .canvas-zoom-label {
+  display: none;
+}
