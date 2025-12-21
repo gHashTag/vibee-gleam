@@ -574,12 +574,21 @@ fn process_chat_messages_with_events(
     Ok(history_json) -> {
       // Парсим сообщения
       let messages = extract_messages(history_json)
+
+      // ВАЖНО: Сортируем по msg_id от меньшего к большему
+      // чтобы старые сообщения обрабатывались первыми
+      let sorted_messages = list.sort(messages, fn(a, b) {
+        let #(id_a, _, _, _, _, _) = a
+        let #(id_b, _, _, _, _, _) = b
+        int.compare(id_a, id_b)
+      })
+
       vibe_logger.trace(chat_log
-        |> vibe_logger.with_data("message_count", json.int(list.length(messages))),
-        "Got messages")
+        |> vibe_logger.with_data("message_count", json.int(list.length(sorted_messages))),
+        "Got messages (sorted by msg_id)")
 
       // Обрабатываем каждое ВХОДЯЩЕЕ сообщение с дедупликацией
-      list.fold(messages, #(state, seen_ids), fn(acc, msg) {
+      list.fold(sorted_messages, #(state, seen_ids), fn(acc, msg) {
         let #(acc_state, acc_seen) = acc
         let #(msg_id, from_id, from_name, text, is_outgoing, reply_to_id) = msg
         let unique_id = chat_id <> ":" <> int.to_string(msg_id)

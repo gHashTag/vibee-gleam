@@ -3,7 +3,7 @@ import { Player } from '@remotion/player';
 import type { PlayerRef } from '@remotion/player';
 import { useEditorStore, useLipSyncProps } from '@/store/editorStore';
 import { SplitTalkingHead, type SplitTalkingHeadProps, type Segment } from '@compositions/SplitTalkingHead';
-import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Minimize } from 'lucide-react';
 import { convertPropsToAbsoluteUrls, toAbsoluteUrl } from '@/lib/mediaUrl';
 import type { LipSyncMainProps, TrackItem, Asset } from '@/store/types';
 import './InteractiveCanvas.css';
@@ -96,6 +96,7 @@ export function InteractiveCanvas() {
   const playerRef = useRef<PlayerRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [autoZoom, setAutoZoom] = useState(0.3);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const project = useEditorStore((s) => s.project);
   const currentFrame = useEditorStore((s) => s.currentFrame);
@@ -243,6 +244,30 @@ export function InteractiveCanvas() {
     setCanvasZoom(autoZoom);
   }, [autoZoom, setCanvasZoom]);
 
+  // Fullscreen toggle
+  const handleFullscreen = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (!document.fullscreenElement) {
+      container.requestFullscreen().catch((err) => {
+        console.error('Fullscreen error:', err);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  }, []);
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   return (
     <div className="canvas-container" onClick={handleCanvasClick} ref={containerRef}>
       {/* Zoom Controls */}
@@ -254,8 +279,8 @@ export function InteractiveCanvas() {
         <button className="canvas-control-btn" onClick={handleZoomIn} title="Zoom in">
           <ZoomIn size={16} />
         </button>
-        <button className="canvas-control-btn" onClick={handleFitToHeight} title="Fit to height">
-          <Maximize size={16} />
+        <button className="canvas-control-btn" onClick={handleFullscreen} title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
+          {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
         </button>
       </div>
 
