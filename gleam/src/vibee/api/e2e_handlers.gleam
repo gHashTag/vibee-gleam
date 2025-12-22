@@ -1190,7 +1190,7 @@ pub fn reels_pipeline_handler() -> Response(ResponseData) {
   // Test parameters
   let idea = "5 способов повысить продуктивность"
   let niche = "business"
-  let product = ""
+  let _product = ""
 
   // Generate script (simple version)
   let script = "Привет! Сегодня поговорим о том, " <> idea <> " для предпринимателей.\n\n" <>
@@ -1201,6 +1201,9 @@ pub fn reels_pipeline_handler() -> Response(ResponseData) {
   // Get config from environment
   let remotion_url = config.get_env_or("REMOTION_URL", "https://vibee-remotion.fly.dev")
   let test_assets_url = config.get_env_or("TEST_ASSETS_URL", "https://fly.storage.tigris.dev/vibee-assets")
+
+  io.println("[E2E-REELS-PIPELINE] Remotion URL: " <> remotion_url)
+  io.println("[E2E-REELS-PIPELINE] Test Assets URL: " <> test_assets_url)
 
   // Create pipeline config
   let pipeline_config = vibee_pipeline.PipelineConfig(
