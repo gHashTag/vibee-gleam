@@ -19,6 +19,7 @@ import vibee/mcp/config
 import vibee/config/trigger_chats
 import vibee/db/postgres
 import vibee/http_retry
+import vibee/sales/lead_service
 import vibee/vibe_logger
 
 // Telegram API лимит на длину сообщения
@@ -133,7 +134,7 @@ pub fn forward_dialog_with_context(
         original_message.chat_id, target_chat_id,
         original_message.from_id, original_message.from_name, original_message.username,
         "deduplicated", quality_score, intent, urgency,
-        original_message.message_id, "Duplicate lead within 24h"
+        original_message.message_id, "Duplicate lead within 24h", None,
       )
       ForwardError("Duplicate lead")
     }
@@ -149,7 +150,7 @@ pub fn forward_dialog_with_context(
             original_message.chat_id, target_chat_id,
             original_message.from_id, original_message.from_name, original_message.username,
             "rate_limited", quality_score, intent, urgency,
-            original_message.message_id, "Rate limit exceeded"
+            original_message.message_id, "Rate limit exceeded", None,
           )
           ForwardError("Rate limit exceeded")
         }
@@ -163,7 +164,7 @@ pub fn forward_dialog_with_context(
                 original_message.chat_id, target_chat_id,
                 original_message.from_id, original_message.from_name, original_message.username,
                 "empty", quality_score, intent, urgency,
-                original_message.message_id, "Empty message text"
+                original_message.message_id, "Empty message text", None,
               )
               ForwardError("Empty message text")
             }
@@ -179,12 +180,29 @@ pub fn forward_dialog_with_context(
               case send_message(session_id, target_chat_id, dialog_text) {
                 Ok(msg_id) -> {
                   vibe_logger.info(log |> vibe_logger.with_data("msg_id", json.int(msg_id)), "Dialog forwarded successfully")
-                  // Логируем success
+
+                  // Создаём/находим lead в БД для связки с forward
+                  let username_opt = case string.is_empty(original_message.username) {
+                    True -> None
+                    False -> Some(original_message.username)
+                  }
+                  let lead_id = case lead_service.get_or_create_lead(
+                    original_message.from_id,
+                    username_opt,
+                    Some(original_message.from_name),
+                    Some(original_message.text),
+                    Some("crypto_trigger"),
+                  ) {
+                    Ok(lead) -> lead.id
+                    Error(_) -> None
+                  }
+
+                  // Логируем success с lead_id
                   log_forward_to_db(
                     original_message.chat_id, target_chat_id,
                     original_message.from_id, original_message.from_name, original_message.username,
                     "forwarded", quality_score, intent, urgency,
-                    msg_id, ""
+                    msg_id, "", lead_id,
                   )
                   ForwardSuccess(msg_id)
                 }
@@ -195,7 +213,7 @@ pub fn forward_dialog_with_context(
                     original_message.chat_id, target_chat_id,
                     original_message.from_id, original_message.from_name, original_message.username,
                     "failed", quality_score, intent, urgency,
-                    original_message.message_id, reason
+                    original_message.message_id, reason, None,
                   )
                   ForwardError(reason)
                 }
@@ -612,10 +630,15 @@ fn log_forward_to_db(
   urgency: String,
   message_id: Int,
   error_message: String,
+  lead_id: Option(Int),
 ) -> Nil {
   let metrics_log = vibe_logger.new("metrics")
     |> vibe_logger.with_data("status", json.string(status))
     |> vibe_logger.with_data("user_id", json.int(user_id))
+    |> vibe_logger.with_data("lead_id", case lead_id {
+      Some(id) -> json.int(id)
+      None -> json.null()
+    })
 
   case postgres.get_global_pool() {
     None -> {
@@ -626,8 +649,8 @@ fn log_forward_to_db(
       // Параметризованный SQL (безопасно от SQL injection)
       let sql = "INSERT INTO lead_forwards
         (source_chat_id, target_chat_id, user_id, user_name, username, status,
-         quality_score, intent, urgency, message_id, error_message, forwarded_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())"
+         quality_score, intent, urgency, message_id, error_message, lead_id, forwarded_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())"
 
       // Парсим chat_id как int
       let source_id = case int.parse(source_chat_id) {
@@ -651,6 +674,7 @@ fn log_forward_to_db(
         |> pog.parameter(pog.text(urgency))
         |> pog.parameter(pog.int(message_id))
         |> pog.parameter(pog.text(error_message))
+        |> pog.parameter(pog.nullable(pog.int, lead_id))
         |> pog.execute(pool)
       {
         Ok(_) -> vibe_logger.debug(metrics_log, "Forward logged to DB")

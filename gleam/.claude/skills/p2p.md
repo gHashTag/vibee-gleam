@@ -338,3 +338,57 @@ case postgres.get_global_pool() {
 ### Урок
 
 **Всегда деплоить изменения!** Git diff показал что код был исправлен локально, но не закоммичен и не задеплоен.
+
+## Fix: Link lead_forwards → leads (22.12.2025)
+
+**Проблема:** `lead_forwards.lead_id` не заполнялся - Lead Cards не были связаны с записями в таблице `leads`.
+
+**Решение:** При успешной отправке Lead Card создаём/находим lead через `get_or_create_lead`:
+
+```gleam
+// dialog_forwarder.gleam:184-198
+case send_message(session_id, target_chat_id, dialog_text) {
+  Ok(msg_id) -> {
+    // Создаём/находим lead в БД для связки с forward
+    let username_opt = case string.is_empty(original_message.username) {
+      True -> None
+      False -> Some(original_message.username)
+    }
+    let lead_id = case lead_service.get_or_create_lead(
+      original_message.from_id,
+      username_opt,
+      Some(original_message.from_name),
+      Some(original_message.text),
+      Some("crypto_trigger"),
+    ) {
+      Ok(lead) -> lead.id
+      Error(_) -> None
+    }
+
+    log_forward_to_db(..., lead_id)
+  }
+}
+```
+
+### Изменения
+
+| Файл | Что добавлено |
+|------|---------------|
+| `dialog_forwarder.gleam:22` | `import vibee/sales/lead_service` |
+| `dialog_forwarder.gleam:184-198` | Вызов `get_or_create_lead` при успешном forward |
+| `dialog_forwarder.gleam:616` | Параметр `lead_id: Option(Int)` в `log_forward_to_db` |
+| `dialog_forwarder.gleam:660` | `pog.nullable(pog.int, lead_id)` в SQL INSERT |
+
+### Результат
+
+- Lead Card теперь связана с записью в `leads` таблице
+- `lead_forwards.lead_id` заполняется при успешной пересылке
+- Для неуспешных пересылок (dedup, rate_limit, empty, failed) → `lead_id = None`
+- Идемпотентность сохранена через UPSERT в `get_or_create_lead`
+
+### E2E тест
+
+```
+✅ Passed: lead_forward (22.4 sec)
+Response: "Aimly: Привет, давай в личку напиши, помогу! | Leads: 🔔 НОВЫЙ ЛИД #144022504..."
+```
