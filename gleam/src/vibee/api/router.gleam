@@ -50,6 +50,7 @@ import vibee/api/agent_metrics
 import vibee/api/agent_handlers
 import vibee/api/e2e_handlers
 import vibee/api/editor_agent_ws
+import vibee/api/video_api
 
 /// WebSocket message types
 pub type WsMessage {
@@ -294,6 +295,24 @@ fn route_request(
     http.Get, ["api", "e2e", "test-ets"] -> e2e_handlers.test_ets_handler()
     // Video E2E multi-step test (5+ minute timeout)
     http.Get, ["api", "e2e", "video"] -> e2e_handlers.video_handler()
+    // Reels Full Flow E2E test (6 minute timeout) - complete /reels flow
+    http.Get, ["api", "e2e", "reels-flow"] -> e2e_handlers.reels_flow_handler()
+    // Reels Pipeline Direct Test (bypasses Telegram UI/buttons)
+    http.Get, ["api", "e2e", "reels-pipeline"] -> e2e_handlers.reels_pipeline_handler()
+    // P2P Lead Forward E2E test (async)
+    http.Get, ["api", "e2e", "p2p"] -> e2e_handlers.p2p_handler()
+
+    // Video Auto-Render Pipeline
+    // POST /api/video/auto-render - Start fully automated video pipeline
+    http.Post, ["api", "video", "auto-render"] -> video_api.auto_render_handler(req)
+    // POST /api/video/ai-render - Start AI-powered pipeline with dynamic B-roll
+    http.Post, ["api", "video", "ai-render"] -> video_api.ai_render_handler(req)
+    // GET /api/video/status/:pipeline_id - Check pipeline status
+    http.Get, ["api", "video", "status", pipeline_id] -> video_api.status_handler(pipeline_id)
+    // GET /api/video/prompts/preview - Preview B-roll prompts (no render)
+    http.Get, ["api", "video", "prompts", "preview"] -> video_api.prompts_preview_handler(req)
+    // POST /api/video/ai-reels/template1 - AI Reels Template 1 (full emulation in test mode)
+    http.Post, ["api", "video", "ai-reels", "template1"] -> video_api.template1_handler(req)
 
     // Logs page - real-time log viewer
     http.Get, ["logs"] -> logs_page_handler()
@@ -345,7 +364,8 @@ fn route_request(
     // Leads API
     http.Get, ["api", "v1", "leads"] -> leads_handlers.list_leads_json()
     http.Get, ["api", "v1", "leads", lead_id] -> leads_handlers.get_lead_json(lead_id)
-    http.Put, ["api", "v1", "leads", lead_id, "status"] -> leads_handlers.update_lead_status(lead_id, "")
+    http.Get, ["api", "v1", "leads", lead_id, "history"] -> leads_handlers.get_lead_history(lead_id)
+    http.Put, ["api", "v1", "leads", lead_id, "status"] -> leads_handlers.update_lead_status(req, lead_id)
     http.Post, ["api", "v1", "leads", lead_id, "notes"] -> leads_handlers.add_lead_note(lead_id, "")
     http.Post, ["api", "v1", "leads", lead_id, "message"] -> leads_handlers.send_message_to_lead(lead_id, "")
 
@@ -1246,7 +1266,8 @@ fn test_message_handler(req: Request(Connection)) -> Response(ResponseData) {
           )
 
           // Process the message (reply_to_id = 0 for test endpoint)
-          let _ = vibee_telegram_agent.handle_incoming_message(state, chat_id, from_id, from_name, text, 0, 0)
+          // Note: phone, lang_code, is_premium are empty/false for test endpoint
+          let _ = vibee_telegram_agent.handle_incoming_message(state, chat_id, from_id, from_name, "", "", "", False, text, 0, 0)
 
           json_response(200, json.object([
             #("status", json.string("ok")),

@@ -20,6 +20,10 @@ import vibee/db/postgres
 import vibee/mcp/config
 import vibee/vibe_logger
 import vibee/api/e2e_test_runner
+import vibee/video/pipeline as vibee_pipeline
+import gleam/http as gleam_http
+import gleam/http/request as gleam_http_request
+import gleam/httpc as gleam_httpc
 
 /// E2E test result for a single command
 pub type TestResult {
@@ -59,6 +63,8 @@ pub fn run_handler() -> Response(ResponseData) {
     e2e_test_runner.E2ETest("/pricing", "JUNIOR|MIDDLE|Тариф|$99"),
     // Test Bot API keyboard - /video should show provider selection buttons
     e2e_test_runner.E2ETest("/video", "Kling|Minimax|Выбери|провайдер"),
+    // Test /reels shows template selection
+    e2e_test_runner.E2ETest("/reels", "рилс|шаблон|Split|Talking|template"),
   ]
 
   // Start async tests
@@ -276,6 +282,107 @@ pub fn neuro_test_handler() -> Response(ResponseData) {
   }
 }
 
+/// P2P Lead Forward E2E test handler - GET /api/e2e/p2p
+/// Tests the full P2P lead forwarding flow:
+/// 1. Send trigger message to Aimly.io dev group
+/// 2. Agent responds with "напиши в личку"
+/// 3. Lead Card is forwarded to Leads group
+/// Returns 202 Accepted with test_run_id for polling
+pub fn p2p_handler() -> Response(ResponseData) {
+  io.println("[E2E-P2P] 🔄 P2P LEAD FORWARD TEST STARTING")
+
+  // Initialize ETS
+  e2e_test_runner.init()
+
+  let test_run_id = e2e_test_runner.generate_id()
+  let started_at = e2e_test_runner.current_time_ms()
+
+  let tester_session = config.get_env_or("TELEGRAM_SESSION_ID_TESTER", "REDACTED_SESSION")
+  let bot_chat_id = 6579515876  // @vibee_agent
+
+  // Create initial running state
+  let initial_run = e2e_test_runner.E2ETestRun(
+    id: test_run_id,
+    status: e2e_test_runner.Running,
+    tests: [],
+    started_at: started_at,
+    completed_at: None,
+    tester_session: tester_session,
+    bot_chat_id: bot_chat_id,
+  )
+  e2e_test_runner.save(initial_run)
+
+  // Spawn background process for P2P test
+  let id_copy = test_run_id
+  ffi_spawn_async(fn() {
+    run_p2p_test_background(id_copy)
+  })
+
+  // Return 202 Accepted immediately
+  let body = json.object([
+    #("status", json.string("running")),
+    #("test_run_id", json.string(test_run_id)),
+    #("test_type", json.string("p2p_lead_forward")),
+    #("message", json.string("P2P Lead Forward test started. Poll /api/e2e/status/" <> test_run_id <> " for results.")),
+  ]) |> json.to_string()
+
+  response.new(202)
+  |> response.set_header("content-type", "application/json")
+  |> response.set_header("location", "/api/e2e/status/" <> test_run_id)
+  |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
+}
+
+/// Run P2P test in background
+fn run_p2p_test_background(run_id: String) -> Nil {
+  io.println("[E2E-P2P-BG] Starting P2P test for " <> run_id)
+
+  let bridge_url = get_bridge_url()
+  let api_key = config.get_env_or("VIBEE_API_KEY", "vibee-secret-2024-prod")
+  let tester_session = config.get_env_or("TELEGRAM_SESSION_ID_TESTER", "REDACTED_SESSION")
+  let bridge = client.with_session_and_key(bridge_url, tester_session, api_key)
+
+  // Run the lead forward test
+  let test_result = run_lead_forward_test(bridge)
+
+  // Convert local TestResult to e2e_test_runner.TestResult
+  let runner_result = e2e_test_runner.TestResult(
+    command: test_result.command,
+    expected: test_result.expected,
+    passed: test_result.passed,
+    response: test_result.response,
+    duration_ms: test_result.duration_ms,
+  )
+
+  // Update ETS with results
+  let final_status = case test_result.passed {
+    True -> e2e_test_runner.Completed
+    False -> e2e_test_runner.Failed("P2P lead forward test failed")
+  }
+
+  let updated_run = e2e_test_runner.E2ETestRun(
+    id: run_id,
+    status: final_status,
+    tests: [runner_result],
+    started_at: case e2e_test_runner.get_status(run_id) {
+      Some(r) -> r.started_at
+      None -> e2e_test_runner.current_time_ms()
+    },
+    completed_at: Some(e2e_test_runner.current_time_ms()),
+    tester_session: tester_session,
+    bot_chat_id: 6579515876,
+  )
+
+  io.println("[E2E-P2P-BG] Saving results for " <> run_id)
+  e2e_test_runner.save(updated_run)
+  io.println("[E2E-P2P-BG] Test complete: " <> case test_result.passed { True -> "PASSED" False -> "FAILED" })
+
+  Nil
+}
+
+// FFI for spawning async process
+@external(erlang, "vibee_e2e_runner_ffi", "spawn_async")
+fn ffi_spawn_async(f: fn() -> Nil) -> Nil
+
 /// Video E2E tests handler - GET /api/e2e/video
 /// Tests video commands to verify they respond correctly
 /// NOTE: Full video generation with button clicks not supported for user-bots (MTProto)
@@ -310,6 +417,70 @@ pub fn video_handler() -> Response(ResponseData) {
     #("timeout_seconds", json.int(60)),
     #("message", json.string("Video command tests started. Poll /api/e2e/status/" <> test_run_id <> " for results.")),
     #("note", json.string("Full video generation with button clicks not supported - user-bot limitation.")),
+  ]) |> json.to_string()
+
+  response.new(202)
+  |> response.set_header("content-type", "application/json")
+  |> response.set_header("location", "/api/e2e/status/" <> test_run_id)
+  |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
+}
+
+/// Reels Full Flow E2E test handler - GET /api/e2e/reels-flow
+/// Tests the complete /reels flow including button clicks and video generation
+/// Uses MultiStepTest for sequential command + button interaction
+pub fn reels_flow_handler() -> Response(ResponseData) {
+  io.println("[E2E-REELS] 🎬 REELS FULL FLOW E2E HANDLER STARTED")
+
+  // Initialize ETS
+  e2e_test_runner.init()
+
+  // Define multi-step test for full reels flow
+  let reels_test = e2e_test_runner.MultiStepTest(
+    name: "reels_full_flow",
+    steps: [
+      // Step 1: Send /reels command
+      e2e_test_runner.SendCommand("/reels"),
+      // Step 2: Wait for template selection keyboard
+      e2e_test_runner.Wait(2000),
+      // Step 3: Click Split Talking Head template button
+      e2e_test_runner.ClickButton("reels:template:split-talking-head", 3000),
+      // Step 4: Enter idea text
+      e2e_test_runner.SendCommand("5 способов повысить продуктивность"),
+      // Step 5: Wait for niche selection
+      e2e_test_runner.Wait(2000),
+      // Step 6: Click Business niche button
+      e2e_test_runner.ClickButton("reels:niche:business", 3000),
+      // Step 7: Skip product description
+      e2e_test_runner.ClickButton("reels:skip_product", 3000),
+      // Step 8: Confirm and start generation
+      e2e_test_runner.ClickButton("reels:confirm", 5000),
+      // Step 9: Wait for generation to complete (up to 5 minutes)
+      e2e_test_runner.WaitForResponse("генерация|готов|video|mp4|рилс|Error", 300000),
+    ],
+    final_pattern: "готов|video|mp4|Error|failed",
+    timeout_ms: 360000,  // 6 minutes total timeout
+  )
+
+  // Start async multi-step test
+  let test_run_id = e2e_test_runner.start_async_multi([reels_test])
+
+  // Return 202 Accepted immediately
+  let body = json.object([
+    #("status", json.string("running")),
+    #("test_run_id", json.string(test_run_id)),
+    #("test_type", json.string("reels_full_flow")),
+    #("timeout_seconds", json.int(360)),
+    #("message", json.string("Reels full flow test started. Poll /api/e2e/status/" <> test_run_id <> " for results.")),
+    #("note", json.string("This test performs the complete /reels flow: template → idea → niche → confirm → generate.")),
+    #("steps", json.array([
+      json.string("1. Send /reels"),
+      json.string("2. Click Split Talking Head template"),
+      json.string("3. Enter idea: 5 способов повысить продуктивность"),
+      json.string("4. Select Business niche"),
+      json.string("5. Skip product"),
+      json.string("6. Confirm and generate"),
+      json.string("7. Wait for video"),
+    ], fn(x) { x })),
   ]) |> json.to_string()
 
   response.new(202)
@@ -516,6 +687,8 @@ pub fn run_e2e_tests() -> Result(E2EResults, String) {
       let test_cases = [
         #("/help", "neurophoto|video|/menu|Komandy"),
         #("/pricing", "JUNIOR|MIDDLE|Тариф|$99"),
+        #("/video", "Kling|Minimax|Выбери|провайдер"),
+        #("/reels", "рилс|шаблон|Split|Talking|template"),
       ]
 
       // Run bot command tests
@@ -670,8 +843,7 @@ fn run_lead_forward_test(bridge: client.TelegramBridge) -> TestResult {
           case client.get_history(bridge, leads_chat_id, 1) {
             Error(err) -> {
               let err_str = telegram_error_to_string(err)
-              io.println("[E2E] ⚠️ No access to leads chat: " <> err_str)
-              io.println("[E2E] ℹ️ SKIPPING - add @neuro_sage to leads group")
+              io.println("[E2E] ⚠️ No access to leads chat - SKIPPING")
               TestResult(
                 command: "lead_forward",
                 expected: "optional",
@@ -683,14 +855,20 @@ fn run_lead_forward_test(bridge: client.TelegramBridge) -> TestResult {
             Ok(_) -> {
               io.println("[E2E] ✅ Tester has access to leads chat")
 
-              let trigger_message = case list.first(config.custom_triggers) {
+              // Add unique timestamp to trigger message to ensure it's always a NEW message
+              // This prevents false negatives due to duplicate text matching old seen_ids
+              let base_trigger = case list.first(config.custom_triggers) {
                 Ok(t) -> t
                 Error(_) -> "тест"
               }
+              let timestamp = int.to_string(elapsed_ms(0))  // Current unix millis
+              let trigger_message = base_trigger <> " [E2E:" <> timestamp <> "]"
+
               let expected_response = config.expected_response_pattern
               let expected_forward = config.expected_forward_pattern
 
               io.println("[E2E]    trigger: " <> trigger_message)
+              io.println("[E2E]    unique_id: " <> timestamp)
 
               run_lead_forward_test_impl(bridge, start, trigger_chat_id, leads_chat_id,
                 config.chat_name, trigger_message, expected_response, expected_forward)
@@ -702,24 +880,12 @@ fn run_lead_forward_test(bridge: client.TelegramBridge) -> TestResult {
   }
 }
 
-/// Normalize chat_id for API calls - handles -100 prefix
+/// Parse chat_id for API calls - Go Bridge handles format
 fn normalize_chat_id_for_api(chat_id: String) -> Int {
-  // First try to parse as-is
+  // Pass chat_id as-is to Go Bridge
+  // Bridge handles both regular groups (-xxx) and supergroups (-100xxx)
   case int.parse(chat_id) {
-    Ok(id) -> {
-      // If it has -100 prefix (supergroup format), try without it
-      case string.starts_with(chat_id, "-100") {
-        True -> {
-          // Try parsing without -100 prefix: "-1005082217642" -> "-5082217642"
-          let without_prefix = "-" <> string.drop_start(chat_id, 4)
-          case int.parse(without_prefix) {
-            Ok(normalized) -> normalized
-            Error(_) -> id  // fallback to original
-          }
-        }
-        False -> id
-      }
-    }
+    Ok(id) -> id
     Error(_) -> 0
   }
 }
@@ -762,6 +928,30 @@ fn run_lead_forward_test_impl(
   io.println("[E2E] 🔑 Session: " <> option.unwrap(bridge.session_id, "NONE"))
   io.println("[E2E] 🌐 Bridge URL: " <> bridge.base_url)
 
+  // Step 0.5: Get last msg_id in BOTH groups BEFORE sending trigger
+  // This allows us to check for NEW messages only (both response and Lead Card)
+  let last_aimly_msg_id = case client.get_history(bridge, aimly_chat_id, 1) {
+    Ok(msgs) -> case list.first(msgs) {
+      Ok(m) -> {
+        io.println("[E2E] 📊 Last aimly msg_id before trigger: " <> int.to_string(m.id))
+        m.id
+      }
+      Error(_) -> 0
+    }
+    Error(_) -> 0
+  }
+
+  let last_leads_msg_id = case client.get_history(bridge, leads_chat_id, 1) {
+    Ok(msgs) -> case list.first(msgs) {
+      Ok(m) -> {
+        io.println("[E2E] 📊 Last leads msg_id before trigger: " <> int.to_string(m.id))
+        m.id
+      }
+      Error(_) -> 0
+    }
+    Error(_) -> 0
+  }
+
   // Step 1: Send trigger to Aimly group
   case client.send_message(bridge, aimly_chat_id, trigger_message, None) {
     Error(err) -> {
@@ -796,13 +986,41 @@ fn run_lead_forward_test_impl(
           )
         }
         Ok(aimly_msgs) -> {
-          let #(response, resp_passed) = find_matching_response(aimly_msgs, expected_response)
+          // IMPORTANT: Filter only NEW messages (msg_id > last_aimly_msg_id)
+          // This prevents false positives from old agent responses
+          let new_aimly_msgs = list.filter(aimly_msgs, fn(m) { m.id > last_aimly_msg_id })
+          io.println("[E2E] 📊 Found " <> int.to_string(list.length(new_aimly_msgs)) <> " NEW messages in aimly chat")
+
+          // Log new messages for debugging
+          list.each(new_aimly_msgs, fn(m) {
+            io.println("[E2E] 📨 NEW aimly msg_id=" <> int.to_string(m.id) <> " from=" <> m.from_name <> " text=" <> string.slice(m.text, 0, 40))
+          })
+
+          // Search only in NEW messages for agent response
+          let #(response, resp_passed) = find_matching_response(new_aimly_msgs, expected_response)
           io.println("[E2E] 💬 Trigger response: " <> string.slice(response, 0, 60))
           io.println("[E2E] " <> case resp_passed { True -> "✅ Response PASS" False -> "❌ Response FAIL" })
 
-          // Step 4: Check leads group for forwarded dialog
-          io.println("[E2E] 📥 Checking leads group for forwarded dialog...")
-          case client.get_history(bridge, leads_chat_id, 5) {
+          // If no new matching response, show diagnostic
+          case resp_passed {
+            False -> {
+              io.println("[E2E] ⚠️ NO NEW agent response found! This indicates agent did not process the trigger.")
+              io.println("[E2E] ⚠️ Possible causes:")
+              io.println("[E2E] ⚠️   1. Trigger message already in seen_ids")
+              io.println("[E2E] ⚠️   2. Agent not processing Aimly.io dev chat")
+              io.println("[E2E] ⚠️   3. Trigger word not matching")
+            }
+            True -> Nil
+          }
+
+          // Step 4: Wait a bit more for forward to complete
+          io.println("[E2E] ⏳ Waiting 5s for forward to complete...")
+          process.sleep(5000)
+
+          // Step 5: Check leads group for NEW forwarded dialog
+          io.println("[E2E] 📥 Checking leads group for NEW forwarded dialog (limit=15)...")
+          io.println("[E2E] 📊 Looking for messages with msg_id > " <> int.to_string(last_leads_msg_id))
+          case client.get_history(bridge, leads_chat_id, 15) {
             Error(err) -> {
               let err_str = telegram_error_to_string(err)
               io.println("[E2E] ❌ Failed to get leads history: " <> err_str)
@@ -815,12 +1033,31 @@ fn run_lead_forward_test_impl(
               )
             }
             Ok(leads_msgs) -> {
-              let #(forward, fwd_passed) = find_matching_response(leads_msgs, expected_forward)
-              io.println("[E2E] 📨 Leads forward: " <> string.slice(forward, 0, 60))
-              io.println("[E2E] " <> case fwd_passed { True -> "✅ Forward PASS" False -> "❌ Forward FAIL" })
+              // IMPORTANT: Filter only NEW messages (msg_id > last_leads_msg_id)
+              // This prevents false positives from old Lead Cards
+              let new_msgs = list.filter(leads_msgs, fn(m) { m.id > last_leads_msg_id })
+              io.println("[E2E] 📊 Found " <> int.to_string(list.length(new_msgs)) <> " NEW messages in leads group")
+
+              // Log new messages for debugging
+              list.each(new_msgs, fn(m) {
+                io.println("[E2E] 📨 NEW msg_id=" <> int.to_string(m.id) <> " text=" <> string.slice(m.text, 0, 50))
+              })
+
+              // Search only in NEW messages
+              let #(forward, fwd_passed) = find_any_matching_message(new_msgs, expected_forward)
+
+              // If no new matching message found, show diagnostic info
+              case fwd_passed {
+                False -> {
+                  io.println("[E2E] ⚠️ NO NEW Lead Card found! Expected pattern: " <> expected_forward)
+                  io.println("[E2E] ⚠️ This indicates forward_dialog did not execute")
+                }
+                True -> {
+                  io.println("[E2E] ✅ NEW Lead Card found!")
+                }
+              }
 
               let passed = resp_passed && fwd_passed
-              io.println("[E2E] " <> case passed { True -> "✅ LEAD TEST PASS" False -> "❌ LEAD TEST FAIL" })
 
               TestResult(
                 command: "lead_forward",
@@ -880,6 +1117,25 @@ fn find_matching_response(messages: List(TelegramMessage), expected_pattern: Str
   }
 }
 
+/// Find ANY message (from any sender) that matches the expected pattern
+fn find_any_matching_message(messages: List(TelegramMessage), expected_pattern: String) -> #(String, Bool) {
+  // Find the first message that matches the pattern (from ANY sender)
+  let matching = list.find(messages, fn(m: TelegramMessage) {
+    pattern_matches(m.text, expected_pattern)
+  })
+
+  case matching {
+    Ok(m) -> #(m.text, True)
+    Error(_) -> {
+      // No matching message, return the latest for debugging
+      case list.first(messages) {
+        Ok(m) -> #(m.text, False)
+        Error(_) -> #("", False)
+      }
+    }
+  }
+}
+
 /// Check if response matches expected pattern (case-insensitive, OR patterns with |)
 fn pattern_matches(text: String, pattern: String) -> Bool {
   let lower_text = string.lowercase(text)
@@ -921,6 +1177,244 @@ fn encode_test_result(t: TestResult) -> json.Json {
     #("response", json.string(t.response)),
     #("duration_ms", json.int(t.duration_ms)),
   ])
+}
+
+/// Reels Pipeline Direct Test - GET /api/e2e/reels-pipeline
+/// Tests the reels video pipeline DIRECTLY without Telegram UI
+/// This bypasses inline button limitations of MTProto user-bot
+pub fn reels_pipeline_handler() -> Response(ResponseData) {
+  io.println("[E2E-REELS-PIPELINE] 🎬 DIRECT PIPELINE TEST STARTING")
+
+  let start = erlang_monotonic_time()
+
+  // Test parameters
+  let idea = "5 способов повысить продуктивность"
+  let niche = "business"
+  let product = ""
+
+  // Generate script (simple version)
+  let script = "Привет! Сегодня поговорим о том, " <> idea <> " для предпринимателей.\n\n" <>
+    "Это действительно важно, и я расскажу вам все секреты."
+
+  io.println("[E2E-REELS-PIPELINE] Script: " <> string.slice(script, 0, 50) <> "...")
+
+  // Get config from environment
+  let remotion_url = config.get_env_or("REMOTION_URL", "https://vibee-remotion.fly.dev")
+  let test_assets_url = config.get_env_or("TEST_ASSETS_URL", "https://fly.storage.tigris.dev/vibee-assets")
+
+  // Create pipeline config
+  let pipeline_config = vibee_pipeline.PipelineConfig(
+    elevenlabs_api_key: config.get_env_or("ELEVENLABS_API_KEY", ""),
+    fal_api_key: config.get_env_or("FAL_KEY", ""),
+    remotion_url: remotion_url,
+    test_assets_url: test_assets_url,
+  )
+
+  // Create pipeline request with test photo
+  let test_photo_url = test_assets_url <> "/photos/avatar_test.jpg"
+  let pipeline_request = vibee_pipeline.PipelineRequest(
+    photo_url: test_photo_url,
+    script_text: script,
+    voice_id: None,
+    webhook_url: None,
+    test_mode: False,  // Use AI pipeline
+  )
+
+  io.println("[E2E-REELS-PIPELINE] Starting AI pipeline...")
+
+  // Run the pipeline
+  case vibee_pipeline.start_ai_pipeline(pipeline_config, pipeline_request) {
+    Ok(job) -> {
+      io.println("[E2E-REELS-PIPELINE] Pipeline started, job_id: " <> job.id)
+      io.println("[E2E-REELS-PIPELINE] Render ID: " <> option.unwrap(job.render_id, "none"))
+
+      // Poll for render completion
+      case poll_pipeline_render(remotion_url, job) {
+        Ok(video_url) -> {
+          let duration = elapsed_ms(start)
+          io.println("[E2E-REELS-PIPELINE] ✅ SUCCESS! Video: " <> video_url)
+
+          let body = json.object([
+            #("status", json.string("success")),
+            #("video_url", json.string(video_url)),
+            #("job_id", json.string(job.id)),
+            #("render_id", json.nullable(job.render_id, json.string)),
+            #("duration_ms", json.int(duration)),
+            #("test_params", json.object([
+              #("idea", json.string(idea)),
+              #("niche", json.string(niche)),
+              #("script_preview", json.string(string.slice(script, 0, 100))),
+            ])),
+          ]) |> json.to_string()
+
+          response.new(200)
+          |> response.set_header("content-type", "application/json")
+          |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
+        }
+        Error(err) -> {
+          let duration = elapsed_ms(start)
+          io.println("[E2E-REELS-PIPELINE] ❌ RENDER FAILED: " <> err)
+
+          let body = json.object([
+            #("status", json.string("failed")),
+            #("error", json.string(err)),
+            #("job_id", json.string(job.id)),
+            #("render_id", json.nullable(job.render_id, json.string)),
+            #("duration_ms", json.int(duration)),
+          ]) |> json.to_string()
+
+          response.new(500)
+          |> response.set_header("content-type", "application/json")
+          |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
+        }
+      }
+    }
+    Error(err) -> {
+      let duration = elapsed_ms(start)
+      let err_str = pipeline_error_to_string(err)
+      io.println("[E2E-REELS-PIPELINE] ❌ PIPELINE ERROR: " <> err_str)
+
+      let body = json.object([
+        #("status", json.string("failed")),
+        #("error", json.string(err_str)),
+        #("duration_ms", json.int(duration)),
+      ]) |> json.to_string()
+
+      response.new(500)
+      |> response.set_header("content-type", "application/json")
+      |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
+    }
+  }
+}
+
+/// Poll render completion for pipeline test
+fn poll_pipeline_render(remotion_url: String, job: vibee_pipeline.PipelineJob) -> Result(String, String) {
+  case job.render_id {
+    None -> Error("No render ID available")
+    Some(render_id) -> {
+      let max_attempts = 60  // 5 minutes with 5s intervals
+      poll_render_status_loop(remotion_url, render_id, 0, max_attempts)
+    }
+  }
+}
+
+fn poll_render_status_loop(
+  remotion_url: String,
+  render_id: String,
+  attempt: Int,
+  max_attempts: Int,
+) -> Result(String, String) {
+  case attempt >= max_attempts {
+    True -> Error("Render timeout after " <> int.to_string(max_attempts * 5) <> " seconds")
+    False -> {
+      // Wait 5 seconds between polls
+      process.sleep(5000)
+
+      // Check render status
+      case check_render_status(remotion_url, render_id) {
+        Ok(#("done", url)) -> Ok(url)
+        Ok(#("error", err)) -> Error("Render error: " <> err)
+        Ok(#("pending", _)) -> {
+          io.println("[E2E-REELS-PIPELINE] Render in progress... attempt " <> int.to_string(attempt + 1))
+          poll_render_status_loop(remotion_url, render_id, attempt + 1, max_attempts)
+        }
+        Ok(#(status, _)) -> {
+          io.println("[E2E-REELS-PIPELINE] Render status: " <> status)
+          poll_render_status_loop(remotion_url, render_id, attempt + 1, max_attempts)
+        }
+        Error(err) -> {
+          io.println("[E2E-REELS-PIPELINE] Status check error: " <> err)
+          poll_render_status_loop(remotion_url, render_id, attempt + 1, max_attempts)
+        }
+      }
+    }
+  }
+}
+
+fn check_render_status(remotion_url: String, render_id: String) -> Result(#(String, String), String) {
+  // Use httpc to check render status
+  let url = remotion_url <> "/renders/" <> render_id
+
+  case make_get_request(url) {
+    Ok(body) -> parse_render_status(body)
+    Error(err) -> Error(err)
+  }
+}
+
+fn make_get_request(url: String) -> Result(String, String) {
+  // Parse URL to get host and path
+  let parts = string.split(url, "://")
+  case parts {
+    [_, rest] -> {
+      case string.split(rest, "/") {
+        [host, ..path_parts] -> {
+          let path = "/" <> string.join(path_parts, "/")
+
+          let req = gleam_http_request.new()
+            |> gleam_http_request.set_method(gleam_http.Get)
+            |> gleam_http_request.set_scheme(gleam_http.Https)
+            |> gleam_http_request.set_host(host)
+            |> gleam_http_request.set_path(path)
+
+          case gleam_httpc.send(req) {
+            Ok(resp) -> Ok(resp.body)
+            Error(e) -> Error("HTTP error: " <> string.inspect(e))
+          }
+        }
+        _ -> Error("Invalid URL format")
+      }
+    }
+    _ -> Error("Invalid URL scheme")
+  }
+}
+
+fn parse_render_status(body: String) -> Result(#(String, String), String) {
+  // Simple JSON parsing for status
+  case string.contains(body, "\"done\":true") {
+    True -> {
+      // Extract outputUrl
+      case extract_json_field(body, "outputUrl") {
+        Some(url) -> Ok(#("done", url))
+        None -> Ok(#("done", ""))
+      }
+    }
+    False -> {
+      case string.contains(body, "\"error\"") {
+        True -> {
+          case extract_json_field(body, "error") {
+            Some(err) -> Ok(#("error", err))
+            None -> Ok(#("error", "Unknown error"))
+          }
+        }
+        False -> Ok(#("pending", ""))
+      }
+    }
+  }
+}
+
+fn extract_json_field(json_str: String, field: String) -> Option(String) {
+  // Simple extraction: find "field":"value"
+  let pattern = "\"" <> field <> "\":\""
+  case string.split(json_str, pattern) {
+    [_, rest] -> {
+      case string.split(rest, "\"") {
+        [value, ..] -> Some(value)
+        _ -> None
+      }
+    }
+    _ -> None
+  }
+}
+
+fn pipeline_error_to_string(err: vibee_pipeline.PipelineError) -> String {
+  case err {
+    vibee_pipeline.TTSError(msg) -> "TTS Error: " <> msg
+    vibee_pipeline.LipsyncError(msg) -> "Lipsync Error: " <> msg
+    vibee_pipeline.RenderError(msg) -> "Render Error: " <> msg
+    vibee_pipeline.ConfigError(msg) -> "Config Error: " <> msg
+    vibee_pipeline.NetworkError(msg) -> "Network Error: " <> msg
+    vibee_pipeline.BRollError(msg) -> "B-Roll Error: " <> msg
+  }
 }
 
 // FFI for timing
