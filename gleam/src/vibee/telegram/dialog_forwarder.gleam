@@ -2,6 +2,7 @@
 // Пересылка диалогов (вопрос + ответ) в целевую группу
 // Production-ready с валидацией и обработкой edge cases
 
+import gleam/dynamic/decode
 import gleam/http
 import gleam/http/request
 import gleam/httpc
@@ -12,10 +13,11 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
-import shellout
+import pog
 import vibee/config/telegram_config
 import vibee/mcp/config
 import vibee/config/trigger_chats
+import vibee/db/postgres
 import vibee/http_retry
 import vibee/vibe_logger
 
@@ -445,7 +447,14 @@ fn send_message(
       case http_retry.send_with_retry(req, retry_config) {
         Ok(response) -> {
           case response.status {
-            200 -> Ok(0)
+            200 -> {
+              // Parse message_id from response: {"success": true, "message_id": 12345}
+              let msg_id = decode_message_id(response.body)
+              vibe_logger.info(send_log
+                |> vibe_logger.with_data("msg_id", json.int(msg_id)),
+                "Lead Card sent successfully")
+              Ok(msg_id)
+            }
             status -> {
               vibe_logger.error(send_log
                 |> vibe_logger.with_data("status", json.int(status))
@@ -515,34 +524,82 @@ pub fn get_forward_target(chat_id: String) -> Result(String, Nil) {
 }
 
 /// Проверяет был ли недавний форвард от этого пользователя (дедупликация)
+/// Использует pog для надёжного подключения к БД
 fn check_recent_forward(user_id: Int, target_chat_id: String) -> Bool {
-  let db_url = config.get_env_or("DATABASE_URL", "")
-  case db_url {
-    "" -> False  // Если нет БД - пропускаем проверку
-    url -> {
-      // Проверяем был ли успешный форвард за последние 24 часа
-      let sql = "SELECT COUNT(*) FROM lead_forwards WHERE user_id = "
-        <> int.to_string(user_id)
-        <> " AND target_chat_id = " <> target_chat_id
-        <> " AND status = 'forwarded'"
-        <> " AND forwarded_at > NOW() - INTERVAL '24 hours'"
+  let log = vibe_logger.new("dedup_check")
+    |> vibe_logger.with_data("user_id", json.int(user_id))
+    |> vibe_logger.with_data("target_chat_id", json.string(target_chat_id))
 
-      case shellout.command(run: "psql", with: [url, "-t", "-c", sql], in: ".", opt: []) {
-        Ok(output) -> {
-          // Парсим результат - если count > 0, значит был форвард
-          let trimmed = string.trim(output)
-          case int.parse(trimmed) {
-            Ok(count) -> count > 0
-            Error(_) -> False  // Не удалось распарсить - пропускаем
-          }
+  // Получаем глобальный пул соединений
+  case postgres.get_global_pool() {
+    None -> {
+      vibe_logger.warn(log, "No database pool - skipping dedup check")
+      False
+    }
+    Some(pool) -> {
+      // SQL с параметрами (безопасно от SQL injection)
+      let sql = "SELECT COUNT(*)::int FROM lead_forwards
+                 WHERE user_id = $1
+                 AND target_chat_id = $2
+                 AND status = 'forwarded'
+                 AND forwarded_at > NOW() - INTERVAL '1 hour'"
+
+      // Декодер для COUNT результата
+      let count_decoder = {
+        use count <- decode.field(0, decode.int)
+        decode.success(count)
+      }
+
+      // Парсим target_chat_id как int (убираем минус для supergroups)
+      let target_id = case int.parse(target_chat_id) {
+        Ok(id) -> id
+        Error(_) -> 0
+      }
+
+      case pog.query(sql)
+        |> pog.parameter(pog.int(user_id))
+        |> pog.parameter(pog.int(target_id))
+        |> pog.returning(count_decoder)
+        |> pog.execute(pool)
+      {
+        Ok(pog.Returned(_, [count])) -> {
+          let is_dup = count > 0
+          vibe_logger.info(log
+            |> vibe_logger.with_data("count", json.int(count))
+            |> vibe_logger.with_data("is_duplicate", json.bool(is_dup)),
+            "Dedup check complete")
+          is_dup
         }
-        Error(_) -> False  // Ошибка запроса - пропускаем
+        Ok(_) -> {
+          vibe_logger.warn(log, "Unexpected query result - skipping dedup")
+          False
+        }
+        Error(err) -> {
+          vibe_logger.error(log
+            |> vibe_logger.with_data("error", json.string(pog_error_to_string(err))),
+            "Database query failed - skipping dedup")
+          False
+        }
       }
     }
   }
 }
 
+/// Конвертирует pog ошибку в строку для логирования
+fn pog_error_to_string(err: pog.QueryError) -> String {
+  case err {
+    pog.ConnectionUnavailable -> "ConnectionUnavailable"
+    pog.ConstraintViolated(msg, constraint, _) -> "ConstraintViolated: " <> msg <> " (" <> constraint <> ")"
+    pog.PostgresqlError(code, name, msg) -> "PostgresqlError " <> code <> " " <> name <> ": " <> msg
+    pog.UnexpectedArgumentCount(expected, got) -> "UnexpectedArgumentCount: expected " <> int.to_string(expected) <> ", got " <> int.to_string(got)
+    pog.UnexpectedArgumentType(expected, got) -> "UnexpectedArgumentType: expected " <> expected <> ", got " <> got
+    pog.UnexpectedResultType(_) -> "UnexpectedResultType"
+    pog.QueryTimeout -> "QueryTimeout"
+  }
+}
+
 /// Логирует форвард в БД для метрик
+/// Использует pog для безопасных параметризованных запросов
 fn log_forward_to_db(
   source_chat_id: String,
   target_chat_id: String,
@@ -556,39 +613,65 @@ fn log_forward_to_db(
   message_id: Int,
   error_message: String,
 ) -> Nil {
-  let db_url = config.get_env_or("DATABASE_URL", "")
-  case db_url {
-    "" -> Nil  // Skip if no DATABASE_URL
-    url -> {
-      // Escape strings for SQL
-      let escaped_name = string.replace(user_name, "'", "''")
-      let escaped_username = string.replace(username, "'", "''")
-      let escaped_intent = string.replace(intent, "'", "''")
-      let escaped_urgency = string.replace(urgency, "'", "''")
-      let escaped_error = string.replace(error_message, "'", "''")
+  let metrics_log = vibe_logger.new("metrics")
+    |> vibe_logger.with_data("status", json.string(status))
+    |> vibe_logger.with_data("user_id", json.int(user_id))
 
-      let sql = "INSERT INTO lead_forwards (source_chat_id, target_chat_id, user_id, user_name, username, status, quality_score, intent, urgency, message_id, error_message, forwarded_at) VALUES ("
-        <> source_chat_id <> ", "
-        <> target_chat_id <> ", "
-        <> int.to_string(user_id) <> ", "
-        <> "'" <> escaped_name <> "', "
-        <> "'" <> escaped_username <> "', "
-        <> "'" <> status <> "', "
-        <> int.to_string(quality_score) <> ", "
-        <> "'" <> escaped_intent <> "', "
-        <> "'" <> escaped_urgency <> "', "
-        <> int.to_string(message_id) <> ", "
-        <> "'" <> escaped_error <> "', "
-        <> "NOW())"
+  case postgres.get_global_pool() {
+    None -> {
+      vibe_logger.warn(metrics_log, "No database pool - skipping metrics log")
+      Nil
+    }
+    Some(pool) -> {
+      // Параметризованный SQL (безопасно от SQL injection)
+      let sql = "INSERT INTO lead_forwards
+        (source_chat_id, target_chat_id, user_id, user_name, username, status,
+         quality_score, intent, urgency, message_id, error_message, forwarded_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())"
 
-      let metrics_log = vibe_logger.new("metrics")
-        |> vibe_logger.with_data("status", json.string(status))
-        |> vibe_logger.with_data("user_id", json.int(user_id))
-      case shellout.command(run: "psql", with: [url, "-c", sql], in: ".", opt: []) {
+      // Парсим chat_id как int
+      let source_id = case int.parse(source_chat_id) {
+        Ok(id) -> id
+        Error(_) -> 0
+      }
+      let target_id = case int.parse(target_chat_id) {
+        Ok(id) -> id
+        Error(_) -> 0
+      }
+
+      case pog.query(sql)
+        |> pog.parameter(pog.int(source_id))
+        |> pog.parameter(pog.int(target_id))
+        |> pog.parameter(pog.int(user_id))
+        |> pog.parameter(pog.text(user_name))
+        |> pog.parameter(pog.text(username))
+        |> pog.parameter(pog.text(status))
+        |> pog.parameter(pog.int(quality_score))
+        |> pog.parameter(pog.text(intent))
+        |> pog.parameter(pog.text(urgency))
+        |> pog.parameter(pog.int(message_id))
+        |> pog.parameter(pog.text(error_message))
+        |> pog.execute(pool)
+      {
         Ok(_) -> vibe_logger.debug(metrics_log, "Forward logged to DB")
-        Error(_) -> vibe_logger.warn(metrics_log, "Failed to log forward to DB")
+        Error(err) -> vibe_logger.warn(metrics_log
+          |> vibe_logger.with_data("error", json.string(pog_error_to_string(err))),
+          "Failed to log forward to DB")
       }
       Nil
     }
+  }
+}
+
+/// Decode message_id from Bridge response
+/// Response format: {"success": true, "message_id": 12345}
+fn decode_message_id(body: String) -> Int {
+  let decoder = {
+    use message_id <- decode.field("message_id", decode.int)
+    decode.success(message_id)
+  }
+  case json.parse(body, decoder) {
+    Ok(id) -> id
+    Error(_) -> 0  // Fallback if parsing fails
   }
 }
