@@ -22,6 +22,7 @@ import {
 import { TimeRuler } from './TimeRuler';
 import { Track } from './Track';
 import { Playhead } from './Playhead';
+import { VolumePopup } from './VolumePopup';
 import { Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, ChevronDown, ChevronUp, Magnet, Lock, Unlock, Maximize2, Volume2, VolumeX } from 'lucide-react';
 import './Timeline.css';
 
@@ -394,6 +395,9 @@ export function Timeline() {
           </div>
         </div>
       </div>
+
+      {/* Volume Popup - Rendered here to bypass TrackItem memo */}
+      <VolumePopup />
     </div>
   );
 }

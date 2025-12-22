@@ -2,6 +2,7 @@
 // Аналог TelegramService из plugin-telegram-craft
 // Работает через Go bridge для MTProto
 
+import gleam/dict
 import gleam/http
 import gleam/http/request
 import gleam/httpc
@@ -28,6 +29,8 @@ import vibee/telegram/dialog_forwarder
 import vibee/integrations/telegram/bot_api
 import vibee/integrations/telegram/client as tg_client
 import vibee/integrations/telegram/types as tg_types
+import vibee/agent/reels_plugin
+import vibee/agent/eliza.{ActionContext}
 
 /// Get VIBEE_API_KEY from environment
 @external(erlang, "vibee_polling_ffi", "get_api_key")
@@ -504,9 +507,21 @@ pub fn handle_incoming_message(
               // Обычный режим - Digital Twin или normal mode
               case updated_state.config.digital_twin_enabled {
                 True -> {
-                  // Digital Twin отвечает на ВСЕ сообщения (кроме sniper чатов)
-                  vibe_logger.info(vibe_logger.new("twin") |> vibe_logger.with_data("chat_id", json.string(chat_id)), "Responding to message")
-                  process_with_digital_twin(updated_state, chat_id, message_id, text, from_name, username, phone, lang_code, is_premium, from_id)
+                  // ElizaOS: Сначала проверяем Actions (NLP-based, без /commands)
+                  case reels_plugin.should_handle_message(text) {
+                    True -> {
+                      // Reels Action matched! Обрабатываем через плагин
+                      vibe_logger.info(vibe_logger.new("eliza")
+                        |> vibe_logger.with_data("action", json.string("CREATE_REELS"))
+                        |> vibe_logger.with_data("chat_id", json.string(chat_id)), "ElizaOS Action matched")
+                      handle_reels_action(updated_state, chat_id, message_id, text, from_name, from_id)
+                    }
+                    False -> {
+                      // Нет matching action - Digital Twin отвечает как обычно
+                      vibe_logger.info(vibe_logger.new("twin") |> vibe_logger.with_data("chat_id", json.string(chat_id)), "Responding to message")
+                      process_with_digital_twin(updated_state, chat_id, message_id, text, from_name, username, phone, lang_code, is_premium, from_id)
+                    }
+                  }
                 }
                 False -> {
                   // Обычный режим - проверяем target_chats и триггеры
@@ -807,6 +822,99 @@ fn process_with_digital_twin(state: AgentState, chat_id: String, message_id: Int
           state
         }
       }
+    }
+  }
+}
+
+// ============================================================
+// ElizaOS Actions Handler
+// ============================================================
+
+/// Handle reels action through ElizaOS plugin
+fn handle_reels_action(
+  state: AgentState,
+  chat_id: String,
+  message_id: Int,
+  text: String,
+  from_name: String,
+  from_id: Int,
+) -> AgentState {
+  let log = vibe_logger.new("reels_action")
+    |> vibe_logger.with_data("chat_id", json.string(chat_id))
+    |> vibe_logger.with_data("from_id", json.int(from_id))
+
+  vibe_logger.info(log, "Starting reels action")
+
+  // Send "generating" message
+  let _ = send_message(state.config, chat_id,
+    "🎬 Создаю рилс...\n\n" <>
+    "Этапы:\n" <>
+    "1. Генерация скрипта\n" <>
+    "2. Озвучка (TTS)\n" <>
+    "3. Lipsync аватар\n" <>
+    "4. B-roll видео\n" <>
+    "5. Финальный рендер\n\n" <>
+    "⏱ Это займёт 2-5 минут...",
+    Some(message_id))
+
+  // Build action context
+  let context = ActionContext(
+    user_id: from_id,
+    chat_id: chat_id,
+    message: text,
+    history: [],  // TODO: Get recent history from DB
+    user_name: Some(from_name),
+    photo_url: None,  // TODO: Get user photo from Telegram
+    previous_results: [],
+  )
+
+  // Initialize plugin and process message
+  let registry = reels_plugin.init()
+
+  case reels_plugin.process_message(registry, context) {
+    Ok(result) -> {
+      case result.success {
+        True -> {
+          // Get video URL from result
+          let video_url = case list.find(
+            result.data |> dict.to_list(),
+            fn(pair) { pair.0 == "video_url" }
+          ) {
+            Ok(#(_, url)) -> url
+            Error(_) -> ""
+          }
+
+          case video_url {
+            "" -> {
+              let _ = send_message(state.config, chat_id,
+                "✅ " <> result.text,
+                Some(message_id))
+              AgentState(..state, total_messages: state.total_messages + 1)
+            }
+            url -> {
+              // Send video
+              let _ = send_message(state.config, chat_id,
+                "✅ Рилс готов!\n\n🎬 " <> url,
+                Some(message_id))
+              AgentState(..state, total_messages: state.total_messages + 1)
+            }
+          }
+        }
+        False -> {
+          vibe_logger.error(log |> vibe_logger.with_data("error", json.string(result.text)), "Reels action failed")
+          let _ = send_message(state.config, chat_id,
+            "❌ Ошибка: " <> result.text,
+            Some(message_id))
+          AgentState(..state, total_messages: state.total_messages + 1)
+        }
+      }
+    }
+    Error(err) -> {
+      vibe_logger.error(log |> vibe_logger.with_data("error", json.string(err)), "Reels plugin error")
+      let _ = send_message(state.config, chat_id,
+        "❌ Ошибка плагина: " <> err,
+        Some(message_id))
+      AgentState(..state, total_messages: state.total_messages + 1)
     }
   }
 }

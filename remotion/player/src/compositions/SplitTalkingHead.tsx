@@ -17,7 +17,6 @@ import React, { useEffect, useRef } from 'react';
 import {
   AbsoluteFill,
   Video,
-  OffthreadVideo,
   Img,
   Audio,
   Sequence,
@@ -57,7 +56,8 @@ export const SplitTalkingHeadSchema = z.object({
   captionColor: z.string().default('#FFFF00'),
   splitRatio: z.number().default(0.5),
   backgroundMusic: z.string().optional(),
-  musicVolume: z.number().default(0.15),
+  musicVolume: z.number().default(0.10),
+  videoVolume: z.number().default(1),  // LipSync video volume (0-1)
   ctaText: z.string().optional(),
   ctaHighlight: z.string().optional(),
   // 📝 TikTok-style Captions
@@ -117,15 +117,17 @@ const BRollLayer: React.FC<BRollLayerProps> = ({ segment, height, splitRatio, se
             }}
           />
         ) : (
-          <OffthreadVideo
+          <Video
             src={resolveMediaPath(segment.bRollUrl)}
             startFrom={0}
+            pauseWhenBuffering
             style={{
               width: '100%',
               height: '100%',
               objectFit: 'cover',
             }}
             muted
+            loop
           />
         )}
       </div>
@@ -143,7 +145,8 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
   captionColor = '#FFFF00',
   splitRatio = 0.5,
   backgroundMusic,
-  musicVolume = 0.15,
+  musicVolume = 0.10,
+  videoVolume = 1,
   // 📝 TikTok-style Captions
   captions = [],
   showCaptions = true,
@@ -284,7 +287,7 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
       >
         <Video
           src={resolveMediaPath(lipSyncVideo)}
-          volume={1}
+          volume={videoVolume}
           style={{
             width: `${100 * faceScale}%`,
             height: `${100 * faceScale}%`,

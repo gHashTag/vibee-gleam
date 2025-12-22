@@ -105,6 +105,8 @@ function convertToSplitTalkingHeadProps(
     faceOffsetX: props.faceOffsetX ?? 0,
     faceOffsetY: props.faceOffsetY ?? 0,
     faceScale: props.faceScale ?? 1,
+    // Video volume (default 1, applied in splitTalkingHeadProps override)
+    videoVolume: 1,
   };
 }
 
@@ -158,13 +160,16 @@ export function InteractiveCanvas() {
     [lipSyncPropsWithUrls, project.durationInFrames, project.fps, videoTrackItems, assets]
   );
 
-  // Apply mute/volume state to music
+  // Apply mute/volume state to music and video
+  // musicVolume uses the stored value (same as render), video uses volume slider
   const splitTalkingHeadProps = useMemo(
     () => {
       const props = {
         ...splitTalkingHeadPropsBase,
-        // Background music volume - use store volume (0.5 base * volume slider)
-        musicVolume: isMuted ? 0 : 0.05 * volume,
+        // Background music - use stored musicVolume (synced with render)
+        musicVolume: isMuted ? 0 : splitTalkingHeadPropsBase.musicVolume,
+        // LipSync video volume - controlled by volume slider
+        videoVolume: isMuted ? 0 : volume,
       };
       return props;
     },
@@ -341,7 +346,7 @@ export function InteractiveCanvas() {
           loop
           clickToPlay={true}
           playbackRate={playbackRate}
-          numberOfSharedAudioTags={5}
+          numberOfSharedAudioTags={2}
         />
       </div>
     </div>

@@ -5,7 +5,7 @@ import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition, renderStill } from "@remotion/renderer";
 import path from "node:path";
 import fs from "node:fs";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHmac } from "node:crypto";
 import { execSync } from "node:child_process";
 import { S3Client, PutObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { transcribeVideo } from "./src/lib/transcribe";
@@ -137,6 +137,87 @@ async function listS3Assets(prefix: string = "assets/"): Promise<{
   }
 }
 
+// Webhook callback with retry
+async function sendWebhook(
+  url: string,
+  payload: WebhookPayload,
+  secret?: string,
+  retryCount = 0
+): Promise<void> {
+  const maxRetries = 3;
+  const retryDelays = [0, 5000, 15000];
+
+  try {
+    const body = JSON.stringify(payload);
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (secret) {
+      const signature = createHmac("sha256", secret).update(body).digest("hex");
+      headers["X-Vibee-Signature"] = `sha256=${signature}`;
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body,
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    console.log(`✅ [Webhook] Sent to ${url}`);
+  } catch (error) {
+    console.error(`❌ [Webhook] Failed attempt ${retryCount + 1}:`, error);
+    if (retryCount < maxRetries - 1) {
+      const delay = retryDelays[retryCount + 1];
+      console.log(`🔄 [Webhook] Retrying in ${delay}ms...`);
+      setTimeout(() => sendWebhook(url, payload, secret, retryCount + 1), delay);
+    }
+  }
+}
+
+// Upload rendered file to S3
+async function uploadRenderedFile(
+  filePath: string,
+  prefix: string = "renders/"
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    const fileBuffer = fs.readFileSync(filePath);
+    const filename = path.basename(filePath);
+    const key = `${prefix}${Date.now()}-${filename}`;
+
+    await s3Client.send(new PutObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key,
+      Body: fileBuffer,
+      ContentType: "video/mp4",
+    }));
+
+    const url = `${S3_PUBLIC_URL}/${key}`;
+    console.log(`✅ [S3] Uploaded rendered video: ${url}`);
+    return { success: true, url };
+  } catch (error) {
+    console.error("❌ [S3] Failed to upload rendered file:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Upload failed",
+    };
+  }
+}
+
+// Convert simplified segments (seconds) to composition segments (frames)
+function convertSegmentsToFrames(segments: SimplifiedSegment[], fps = 30) {
+  return segments.map((seg) => ({
+    type: seg.type,
+    startFrame: Math.round(seg.startSeconds * fps),
+    durationFrames: Math.round(seg.durationSeconds * fps),
+    bRollUrl: seg.bRollUrl,
+    bRollType: seg.bRollUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? 'image' as const : 'video' as const,
+    caption: '',
+  }));
+}
+
 // Get content type from filename
 function getContentType(filename: string): string {
   const ext = path.extname(filename).toLowerCase();
@@ -180,6 +261,48 @@ interface RenderJob {
   outputUrl?: string;
   error?: string;
   startedAt: Date;
+}
+
+// Universal template render API types
+interface TemplateRenderRequest {
+  // Required
+  compositionId: string;           // Template name: "SplitTalkingHead", "LipSyncMain", etc.
+
+  // Common props (used by most templates)
+  lipSyncVideo?: string;
+  segments?: SimplifiedSegment[];
+  captions?: Caption[];
+
+  // Template-specific props (passed through as-is)
+  props?: Record<string, unknown>;
+
+  // Render options
+  uploadToS3?: boolean;            // default: true
+  s3Prefix?: string;               // default: "renders/"
+  webhookUrl?: string;             // POST on completion
+  webhookSecret?: string;          // HMAC signature
+}
+
+interface SimplifiedSegment {
+  type: 'split' | 'fullscreen';
+  startSeconds: number;
+  durationSeconds: number;
+  bRollUrl?: string;
+}
+
+interface Caption {
+  text: string;
+  startMs: number;
+  endMs: number;
+}
+
+interface WebhookPayload {
+  renderId: string;
+  status: 'completed' | 'failed';
+  publicUrl?: string;
+  error?: string;
+  renderTimeMs: number;
+  timestamp: string;
 }
 
 const renderJobs = new Map<string, RenderJob>();
@@ -450,6 +573,7 @@ const server = createServer(async (req, res) => {
           { id: "DynamicVideo", description: "Data-driven video with message" },
           { id: "LipSyncMain", description: "Avatar lip-sync video template" },
           { id: "LipSyncBusiness", description: "Business theme with lipsync avatar and B-roll" },
+          { id: "SplitTalkingHead", description: "Split layout with talking head, B-roll and TikTok-style captions" },
         ],
       })
     );
@@ -859,6 +983,256 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Universal template render endpoint
+  if (req.url === "/render/template" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on("end", async () => {
+      try {
+        const request: TemplateRenderRequest = JSON.parse(body);
+
+        if (!request.compositionId) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "compositionId is required" }));
+          return;
+        }
+
+        const renderId = randomUUID();
+        const fps = 30;
+        const startTime = Date.now();
+
+        // Create job entry
+        renderJobs.set(renderId, {
+          id: renderId,
+          status: 'pending',
+          progress: 0,
+          startedAt: new Date(),
+        });
+
+        // Return immediately with job info
+        res.writeHead(202, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          success: true,
+          renderId,
+          compositionId: request.compositionId,
+          statusUrl: `/render/${renderId}`,
+          sseUrl: `/render/${renderId}/status`,
+          message: "Render started. Use SSE endpoint for progress updates.",
+        }));
+
+        // Start render in background
+        (async () => {
+          const job = renderJobs.get(renderId)!;
+          job.status = 'rendering';
+
+          try {
+            if (!bundleLocation) {
+              throw new Error("Bundle not initialized");
+            }
+
+            // Build input props from request
+            const inputProps: Record<string, unknown> = {
+              ...(request.props || {}),
+            };
+
+            let durationInFrames = 900; // 30 seconds default
+
+            // Handle lipSyncVideo if provided (common for talking head templates)
+            if (request.lipSyncVideo) {
+              inputProps.lipSyncVideo = request.lipSyncVideo;
+
+              const videoPath = resolveMediaPath(request.lipSyncVideo);
+              if (fs.existsSync(videoPath)) {
+                // Get video duration
+                const duration = getVideoDuration(videoPath);
+                if (duration > 0) {
+                  durationInFrames = Math.ceil(duration * fps);
+                  console.log(`📏 Video duration: ${duration.toFixed(2)}s = ${durationInFrames} frames`);
+                }
+
+                // Auto face detection (if not already provided)
+                if (inputProps.faceOffsetX === undefined) {
+                  try {
+                    console.log(`👤 Auto-detecting face in: ${videoPath}`);
+                    const faceBox = await detectFaceInVideo(videoPath);
+                    if (faceBox) {
+                      const crop = calculateCropSettings(faceBox, 'portrait');
+                      inputProps.faceOffsetX = crop.offsetX;
+                      inputProps.faceOffsetY = crop.offsetY;
+                      inputProps.faceScale = crop.scale;
+                      console.log(`✅ Face detected: offsetX=${crop.offsetX.toFixed(1)}, offsetY=${crop.offsetY.toFixed(1)}, scale=${crop.scale.toFixed(2)}`);
+                    }
+                  } catch (e) {
+                    console.warn("⚠️ Face detection failed:", e);
+                  }
+                }
+              }
+            }
+
+            // Handle segments (convert from seconds to frames)
+            if (request.segments) {
+              inputProps.segments = convertSegmentsToFrames(request.segments, fps);
+            } else if (request.lipSyncVideo && !inputProps.segments) {
+              // Default fullscreen segment for lipsync videos
+              inputProps.segments = [{ type: 'fullscreen', startFrame: 0, durationFrames: durationInFrames, caption: '' }];
+            }
+
+            // Handle captions
+            if (request.captions) {
+              inputProps.captions = request.captions;
+              inputProps.showCaptions = request.captions.length > 0;
+            }
+
+            // Apply template-specific defaults
+            const templateDefaults: Record<string, Record<string, unknown>> = {
+              SplitTalkingHead: {
+                splitRatio: 0.5,
+                musicVolume: 0.06,
+                captionColor: '#FFFF00',
+                captionStyle: {},
+                faceOffsetX: 0,
+                faceOffsetY: 0,
+                faceScale: 1,
+              },
+              LipSyncMain: {
+                musicVolume: 0.06,
+              },
+              LipSyncBusiness: {
+                musicVolume: 0.06,
+              },
+            };
+
+            const defaults = templateDefaults[request.compositionId] || {};
+            for (const [key, value] of Object.entries(defaults)) {
+              if (inputProps[key] === undefined) {
+                inputProps[key] = value;
+              }
+            }
+
+            console.log(`🎬 Rendering ${request.compositionId} with props:`, Object.keys(inputProps));
+
+            // Select composition
+            const composition = await selectComposition({
+              serveUrl: bundleLocation,
+              id: request.compositionId,
+              inputProps,
+              chromiumOptions: {
+                enableMultiProcessOnLinux: true,
+                disableWebSecurity: true,
+                gl: null,
+                headless: true,
+                args: [
+                  '--no-sandbox',
+                  '--disable-setuid-sandbox',
+                  '--disable-gpu',
+                  '--disable-software-rasterizer',
+                  '--disable-dev-shm-usage',
+                ],
+              },
+              timeoutInMilliseconds: 120000,
+            });
+
+            // Override duration if we detected it
+            if (durationInFrames > 0) {
+              (composition as any).durationInFrames = durationInFrames;
+            }
+
+            // Render video
+            const outputPath = path.join(OUTPUT_DIR, `${renderId}.mp4`);
+
+            await renderMedia({
+              composition,
+              serveUrl: bundleLocation,
+              codec: "h264",
+              outputLocation: outputPath,
+              inputProps,
+              concurrency: OPTIMAL_CONCURRENCY,
+              audioCodec: 'mp3',
+              chromiumOptions: {
+                enableMultiProcessOnLinux: true,
+                disableWebSecurity: true,
+                gl: null,
+                headless: true,
+                args: [
+                  '--no-sandbox',
+                  '--disable-setuid-sandbox',
+                  '--disable-gpu',
+                ],
+              },
+              timeoutInMilliseconds: 120000,
+              onProgress: ({ progress }) => {
+                job.progress = Math.round(progress * 100);
+              },
+            });
+
+            // Upload to S3 if enabled (default: true)
+            let publicUrl: string | undefined;
+            if (request.uploadToS3 !== false) {
+              const uploadResult = await uploadRenderedFile(
+                outputPath,
+                request.s3Prefix || "renders/"
+              );
+              if (uploadResult.success) {
+                publicUrl = uploadResult.url;
+              }
+            }
+
+            // Update job status
+            job.status = 'completed';
+            job.progress = 100;
+            job.outputUrl = publicUrl || `/renders/${renderId}.mp4`;
+
+            const renderTimeMs = Date.now() - startTime;
+            console.log(`✅ [Render] ${renderId} completed in ${renderTimeMs}ms`);
+
+            // Send webhook if configured
+            if (request.webhookUrl) {
+              sendWebhook(
+                request.webhookUrl,
+                {
+                  renderId,
+                  status: 'completed',
+                  publicUrl,
+                  renderTimeMs,
+                  timestamp: new Date().toISOString(),
+                },
+                request.webhookSecret
+              );
+            }
+
+          } catch (error) {
+            console.error(`❌ [Render] ${renderId} failed:`, error);
+            job.status = 'failed';
+            job.error = error instanceof Error ? error.message : "Unknown error";
+
+            // Send failure webhook
+            if (request.webhookUrl) {
+              sendWebhook(
+                request.webhookUrl,
+                {
+                  renderId,
+                  status: 'failed',
+                  error: job.error,
+                  renderTimeMs: Date.now() - startTime,
+                  timestamp: new Date().toISOString(),
+                },
+                request.webhookSecret
+              );
+            }
+          }
+        })();
+
+      } catch (error) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON" }));
+      }
+    });
+    return;
+  }
+
   // Render endpoint - starts async render and returns immediately
   if (req.url === "/render" && req.method === "POST") {
     let body = "";
@@ -976,6 +1350,7 @@ async function main() {
     console.log(`   GET  /health       - Health check`);
     console.log(`   GET  /compositions - List compositions`);
     console.log(`   POST /render       - Render video/still`);
+    console.log(`   POST /render/template - Universal template API (S3 + webhook)`);
     console.log(`   GET  /renders/:id  - Download rendered file`);
     console.log(`   POST /upload       - Upload asset to S3`);
     console.log(`   GET  /assets       - List S3 assets`);

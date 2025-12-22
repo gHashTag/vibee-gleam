@@ -41,6 +41,6 @@ primary_region = 'ams'
     timeout = '10s'
     type = 'http'
 
-[mounts]
+[[mounts]]
   source = 'vibee_storage'
   destination = '/app/storage'

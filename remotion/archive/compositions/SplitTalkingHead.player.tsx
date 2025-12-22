@@ -13,7 +13,7 @@
  * Montserrat Bold font, and smooth animations.
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   AbsoluteFill,
   Video,
@@ -21,13 +21,14 @@ import {
   Img,
   Audio,
   Sequence,
+  prefetch,
   useCurrentFrame,
   useVideoConfig,
 } from 'remotion';
 import { z } from 'zod';
-import { Captions, type Caption } from '../components/Captions';
-import { resolveMediaPath } from '../shared/mediaPath';
-import { CAPTION_DEFAULTS } from '../constants/captions';
+import { Captions, type Caption } from './Captions';
+import { resolveMediaPath } from '@/shared/mediaPath';
+import { CAPTION_DEFAULTS } from '@/constants/captions';
 
 // ============================================================
 // Schema
@@ -56,8 +57,7 @@ export const SplitTalkingHeadSchema = z.object({
   captionColor: z.string().default('#FFFF00'),
   splitRatio: z.number().default(0.5),
   backgroundMusic: z.string().optional(),
-  musicVolume: z.number().default(0.10),
-  videoVolume: z.number().default(1),  // LipSync video volume (0-1)
+  musicVolume: z.number().default(0.15),
   ctaText: z.string().optional(),
   ctaHighlight: z.string().optional(),
   // 📝 TikTok-style Captions
@@ -74,7 +74,7 @@ export type SplitTalkingHeadProps = z.infer<typeof SplitTalkingHeadSchema>;
 export type Segment = z.infer<typeof SegmentSchema>;
 
 // ============================================================
-// B-Roll Layer Component (with Sequence for proper headless rendering)
+// B-Roll Layer Component (with Sequence for proper playback)
 // ============================================================
 
 interface BRollLayerProps {
@@ -143,8 +143,7 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
   captionColor = '#FFFF00',
   splitRatio = 0.5,
   backgroundMusic,
-  musicVolume = 0.10,
-  videoVolume = 1,
+  musicVolume = 0.15,
   // 📝 TikTok-style Captions
   captions = [],
   showCaptions = true,
@@ -154,8 +153,94 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
   faceOffsetY = 0,
   faceScale = 1,
 }) => {
+  console.log('[SplitTalkingHead] backgroundMusic:', backgroundMusic, 'musicVolume:', musicVolume);
   const frame = useCurrentFrame();
-  const { height } = useVideoConfig();
+  const { height, fps, durationInFrames } = useVideoConfig();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastFrameRef = useRef(0);
+
+  // 🎵 HTML5 Audio for background music (bypasses Remotion Audio issues)
+  useEffect(() => {
+    if (!backgroundMusic) return;
+
+    const audioSrc = resolveMediaPath(backgroundMusic);
+    console.log('[SplitTalkingHead] Creating HTML5 Audio:', audioSrc);
+
+    const audio = new window.Audio(audioSrc);
+    audio.loop = true;
+    audio.volume = musicVolume;
+    audio.crossOrigin = 'anonymous';
+    audioRef.current = audio;
+
+    return () => {
+      audio.pause();
+      audio.src = '';
+      audioRef.current = null;
+    };
+  }, [backgroundMusic]);
+
+  // Sync audio with player - use interval to detect play/pause
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.volume = musicVolume;
+
+    // Stop audio at video end
+    if (frame >= durationInFrames - 1) {
+      if (!audio.paused) {
+        console.log('[Audio] Stopping - video ended');
+        audio.pause();
+      }
+      return;
+    }
+
+    // Update frame ref and check if playing
+    const wasPlaying = lastFrameRef.current !== frame;
+    lastFrameRef.current = frame;
+
+    if (wasPlaying && audio.paused) {
+      const currentTime = frame / fps;
+      audio.currentTime = currentTime % (audio.duration || 1000);
+      audio.play().catch(e => console.warn('[Audio] Play failed:', e));
+    }
+  }, [frame, fps, musicVolume, durationInFrames]);
+
+  // Detect pause - simplified, less CPU intensive
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    let lastCheck = lastFrameRef.current;
+    const checkPause = setInterval(() => {
+      if (lastFrameRef.current === lastCheck && !audio.paused) {
+        audio.pause();
+      }
+      lastCheck = lastFrameRef.current;
+    }, 300); // Check every 300ms instead of 150ms
+
+    return () => clearInterval(checkPause);
+  }, []);
+
+  // 🎬 Prefetch all b-roll videos for smooth playback
+  useEffect(() => {
+    const videoUrls = segments
+      .filter((seg) => seg.type === 'split' && seg.bRollUrl && seg.bRollType === 'video')
+      .map((seg) => resolveMediaPath(seg.bRollUrl!));
+
+    const prefetchers = videoUrls.map((url) => {
+      try {
+        return prefetch(url);
+      } catch (e) {
+        console.warn('Failed to prefetch:', url, e);
+        return null;
+      }
+    });
+
+    return () => {
+      prefetchers.forEach((p) => p?.free());
+    };
+  }, [segments]);
 
   // Find current segment
   const currentSegment = segments.find(
@@ -199,7 +284,7 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
       >
         <Video
           src={resolveMediaPath(lipSyncVideo)}
-          volume={videoVolume}
+          volume={0.3}
           style={{
             width: `${100 * faceScale}%`,
             height: `${100 * faceScale}%`,
@@ -223,9 +308,7 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
       )}
 
       {/* ========== BACKGROUND MUSIC ========== */}
-      {backgroundMusic && (
-        <Audio src={resolveMediaPath(backgroundMusic)} volume={musicVolume} />
-      )}
+      {/* Audio is handled via HTML5 Audio in useEffect above */}
     </AbsoluteFill>
   );
 };

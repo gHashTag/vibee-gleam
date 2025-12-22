@@ -7,7 +7,7 @@ import type { Project } from '@/store/types';
 
 const DEFAULT_PROJECT: Project = {
   id: '',
-  name: 'Untitled Project',
+  name: 'Vibee Reel',
   fps: 30,
   width: 1080,
   height: 1920,
@@ -15,6 +15,6 @@ const DEFAULT_PROJECT: Project = {
 };
 
 export const projectAtom = atomWithStorage<Project>(
-  'vibee-project-v14',
+  'vibee-project-v15',
   DEFAULT_PROJECT
 );

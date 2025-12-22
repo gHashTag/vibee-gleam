@@ -251,11 +251,11 @@ export const AvatarMorph: React.FC<AvatarMorphProps> = ({
               zIndex: 1,
             }}
           >
-            {/* Avatar video with audio */}
+            {/* Avatar video with audio (30% volume) */}
             <Video
               src={resolveMediaPath(lipSyncVideo)}
               preload="auto"
-              volume={1}
+              volume={0.13}
               style={{
                 width: '100%',
                 height: '100%',

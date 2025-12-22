@@ -82,6 +82,7 @@ export {
   markersAtom,
   isExportingAtom,
   exportProgressAtom,
+  volumePopupItemIdAtom,
   setSnapEnabledAtom,
   setSnapIntervalAtom,
   addMarkerAtom,
@@ -136,3 +137,12 @@ export {
   captionsErrorAtom,
   updateDurationFromLipSyncAtom,
 } from './captions';
+
+// Templates Atoms
+export {
+  templatesAtom,
+  selectedTemplateIdAtom,
+  selectedTemplateAtom,
+  selectTemplateAtom,
+  type Template,
+} from './templates';

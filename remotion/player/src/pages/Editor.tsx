@@ -7,17 +7,18 @@ import { PropertiesPanel } from '@/components/Panels/PropertiesPanel';
 import { LayersPanel } from '@/components/Panels/LayersPanel';
 import { CaptionsPanel } from '@/components/Panels/CaptionsPanel';
 import { ChatPanel } from '@/components/Panels/ChatPanel';
+import { TemplatesPanel } from '@/components/Panels/TemplatesPanel';
 import { InteractiveCanvas } from '@/components/Canvas/InteractiveCanvas';
 import { Timeline } from '@/components/Timeline/Timeline';
 import { ShortcutsModal } from '@/components/Modals/ShortcutsModal';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboard';
 import { useWebSocket, setGlobalWsSend } from '@/lib/websocket';
-import { Film, Layers, Settings, Subtitles } from 'lucide-react';
+import { Film, Layers, Settings, Subtitles, LayoutTemplate } from 'lucide-react';
 
-type LeftPanelTab = 'assets' | 'layers' | 'props' | 'captions';
+type LeftPanelTab = 'templates' | 'assets' | 'layers' | 'props' | 'captions';
 
 function EditorContent() {
-  const [leftTab, setLeftTab] = useState<LeftPanelTab>('assets');
+  const [leftTab, setLeftTab] = useState<LeftPanelTab>('templates');
   const [showShortcuts, setShowShortcuts] = useState(false);
 
   // Use atoms directly instead of bridge
@@ -73,12 +74,18 @@ function EditorContent() {
         <aside className="sidebar sidebar-left">
           <div className="sidebar-header sidebar-tabs">
             <button
+              className={`sidebar-tab ${leftTab === 'templates' ? 'active' : ''}`}
+              onClick={() => setLeftTab('templates')}
+              title="Templates"
+            >
+              <LayoutTemplate size={16} />
+            </button>
+            <button
               className={`sidebar-tab ${leftTab === 'assets' ? 'active' : ''}`}
               onClick={() => setLeftTab('assets')}
               title="Assets"
             >
               <Film size={16} />
-              <span>Assets</span>
             </button>
             <button
               className={`sidebar-tab ${leftTab === 'layers' ? 'active' : ''}`}
@@ -86,7 +93,6 @@ function EditorContent() {
               title="Layers"
             >
               <Layers size={16} />
-              <span>Layers</span>
             </button>
             <button
               className={`sidebar-tab ${leftTab === 'props' ? 'active' : ''}`}
@@ -94,7 +100,6 @@ function EditorContent() {
               title="Properties"
             >
               <Settings size={16} />
-              <span>Props</span>
             </button>
             <button
               className={`sidebar-tab ${leftTab === 'captions' ? 'active' : ''}`}
@@ -102,10 +107,10 @@ function EditorContent() {
               title="Captions"
             >
               <Subtitles size={16} />
-              <span>Captions</span>
             </button>
           </div>
           <div className="sidebar-content">
+            {leftTab === 'templates' && <TemplatesPanel />}
             {leftTab === 'assets' && <AssetsPanel />}
             {leftTab === 'layers' && <LayersPanel />}
             {leftTab === 'props' && <PropertiesPanel />}

@@ -30,7 +30,7 @@ export const backgroundMusicAtom = atomWithStorage(
 
 export const musicVolumeAtom = atomWithStorage(
   'vibee-music-volume',
-  0.13
+  0.06
 );
 
 export const coverDurationAtom = atomWithStorage(

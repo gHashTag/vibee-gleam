@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { selectItemsAtom, selectRangeAtom, moveItemAtom, resizeItemAtom, getAssetByIdAtom } from '@/atoms';
+import { selectItemsAtom, selectRangeAtom, moveItemAtom, resizeItemAtom, getAssetByIdAtom, volumePopupItemIdAtom, musicVolumeAtom } from '@/atoms';
 import { ContextMenu } from './ContextMenu';
 import type { TrackItem as TrackItemType } from '@/store/types';
 
@@ -19,6 +19,12 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
   const resizeItem = useSetAtom(resizeItemAtom);
   const getAssetById = useAtomValue(getAssetByIdAtom);
 
+  // Single source of truth for music volume (Jotai)
+  const musicVolume = useAtomValue(musicVolumeAtom);
+
+  // Volume popup - only need setter (popup is rendered in Timeline)
+  const setVolumePopupItemId = useSetAtom(volumePopupItemIdAtom);
+
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState<'left' | 'right' | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -32,7 +38,8 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
 
   // Get item-specific props for badges
   const playbackRate = item.type === 'video' ? (item as any).playbackRate : null;
-  const volume = (item.type === 'video' || item.type === 'audio') ? (item as any).volume : null;
+  // Use musicVolumeAtom as single source of truth for audio tracks
+  const volume = (item.type === 'audio') ? musicVolume : null;
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -45,6 +52,14 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
     } else {
       // Regular click: single select
       selectItems({ itemIds: [item.id], addToSelection: false });
+    }
+  };
+
+  // Double-click on audio track opens volume popup
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (item.type === 'audio') {
+      setVolumePopupItemId(item.id);
     }
   };
 
@@ -63,6 +78,14 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
   const closeContextMenu = useCallback(() => {
     setContextMenu(null);
   }, []);
+
+  // Volume popup handlers - only for audio tracks
+  const handleVolumeClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (item.type === 'audio') {
+      setVolumePopupItemId(item.id);
+    }
+  }, [item.type, item.id, setVolumePopupItemId]);
 
   const handleMouseDown = (e: React.MouseEvent, type: 'drag' | 'resize-left' | 'resize-right') => {
     e.stopPropagation();
@@ -156,6 +179,7 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
         width: item.durationInFrames * pxPerFrame,
       }}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onMouseDown={(e) => handleMouseDown(e, 'drag')}
       onContextMenu={handleContextMenu}
       onDragOver={handleDragOver}
@@ -181,8 +205,12 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
             {playbackRate}x
           </span>
         )}
-        {volume !== null && volume !== 1 && (
-          <span className={`track-badge volume ${volume === 0 ? 'muted' : ''}`}>
+        {volume !== null && (
+          <span
+            className={`track-badge volume clickable ${volume === 0 ? 'muted' : ''}`}
+            onClick={handleVolumeClick}
+            title="Click to adjust volume"
+          >
             {volume === 0 ? '🔇' : `${Math.round(volume * 100)}%`}
           </span>
         )}
@@ -208,6 +236,7 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
   );
 }, (prevProps, nextProps) => {
   // Custom comparison for optimal re-renders
+  // Note: musicVolume comes from Jotai atom, not props, so component re-renders automatically
   return (
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isLocked === nextProps.isLocked &&

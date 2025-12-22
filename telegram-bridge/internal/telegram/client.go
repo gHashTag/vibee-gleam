@@ -73,6 +73,11 @@ type Message struct {
 	Text      string `json:"text"`
 	FromID    int64  `json:"from_id"`
 	FromName  string `json:"from_name"`
+	Username  string `json:"username"`              // Always include for Lead Card
+	Phone     string `json:"phone"`                // User's phone number (if available)
+	LangCode  string `json:"lang_code"`            // User's language code (ru, en, etc)
+	Premium   bool   `json:"premium,omitempty"`   // Telegram Premium status
+	Bot       bool   `json:"bot,omitempty"`       // Is user a bot
 	Date      string `json:"date"`
 	Out       bool   `json:"out"`
 	ReplyToID int    `json:"reply_to_id,omitempty"`
@@ -101,8 +106,20 @@ type User struct {
 	ID        int64  `json:"id"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name,omitempty"`
-	Username  string `json:"username,omitempty"`
-	Phone     string `json:"phone,omitempty"`
+	Username  string `json:"username"`           // Always include
+	Phone     string `json:"phone"`              // Always include
+}
+
+// ProfilePhoto represents a user's profile photo
+type ProfilePhoto struct {
+	PhotoID    int64  `json:"photo_id"`
+	Width      int    `json:"width"`
+	Height     int    `json:"height"`
+	FileSize   int    `json:"file_size,omitempty"`
+	DCId       int    `json:"dc_id"`
+	AccessHash int64  `json:"access_hash"`
+	// For download
+	FileReference []byte `json:"-"`
 }
 
 // NewClient creates a new Telegram client
@@ -369,6 +386,157 @@ func (c *Client) GetMe(ctx context.Context) (*User, error) {
 	}, nil
 }
 
+// GetUserProfilePhotos returns profile photos for a user
+func (c *Client) GetUserProfilePhotos(ctx context.Context, userID int64) ([]ProfilePhoto, error) {
+	c.mu.RLock()
+	api := c.api
+	c.mu.RUnlock()
+
+	if api == nil {
+		return nil, fmt.Errorf("not connected")
+	}
+
+	// First, resolve the user to get access hash
+	users, err := api.API().UsersGetUsers(ctx, []tg.InputUserClass{
+		&tg.InputUser{UserID: userID},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+
+	if len(users) == 0 {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	user, ok := users[0].(*tg.User)
+	if !ok {
+		return nil, fmt.Errorf("unexpected user type")
+	}
+
+	// Get user photos
+	result, err := api.API().PhotosGetUserPhotos(ctx, &tg.PhotosGetUserPhotosRequest{
+		UserID: &tg.InputUser{
+			UserID:     user.ID,
+			AccessHash: user.AccessHash,
+		},
+		Limit: 1, // We only need the latest profile photo
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get user photos: %w", err)
+	}
+
+	var photos []ProfilePhoto
+
+	switch v := result.(type) {
+	case *tg.PhotosPhotos:
+		photos = c.parseProfilePhotos(v.Photos)
+	case *tg.PhotosPhotosSlice:
+		photos = c.parseProfilePhotos(v.Photos)
+	default:
+		return nil, fmt.Errorf("unexpected result type")
+	}
+
+	return photos, nil
+}
+
+// parseProfilePhotos extracts photo info from Telegram photos
+func (c *Client) parseProfilePhotos(photoList []tg.PhotoClass) []ProfilePhoto {
+	var result []ProfilePhoto
+
+	for _, p := range photoList {
+		photo, ok := p.(*tg.Photo)
+		if !ok {
+			continue
+		}
+
+		// Find largest size
+		var bestSize *tg.PhotoSize
+		for _, size := range photo.Sizes {
+			if ps, ok := size.(*tg.PhotoSize); ok {
+				if bestSize == nil || ps.Size > bestSize.Size {
+					bestSize = ps
+				}
+			}
+		}
+
+		if bestSize == nil {
+			continue
+		}
+
+		result = append(result, ProfilePhoto{
+			PhotoID:       photo.ID,
+			Width:         bestSize.W,
+			Height:        bestSize.H,
+			FileSize:      bestSize.Size,
+			DCId:          photo.DCID,
+			AccessHash:    photo.AccessHash,
+			FileReference: photo.FileReference,
+		})
+	}
+
+	return result
+}
+
+// DownloadProfilePhoto downloads a user's profile photo
+func (c *Client) DownloadProfilePhoto(ctx context.Context, userID int64) (*MediaDownloadResult, error) {
+	photos, err := c.GetUserProfilePhotos(ctx, userID)
+	if err != nil {
+		return &MediaDownloadResult{Success: false, Error: err.Error()}, nil
+	}
+
+	if len(photos) == 0 {
+		return &MediaDownloadResult{Success: false, Error: "user has no profile photo"}, nil
+	}
+
+	photo := photos[0]
+
+	// Create temp directory
+	tmpDir := "/tmp/vibee/profile_photos"
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return &MediaDownloadResult{Success: false, Error: fmt.Sprintf("create temp dir: %v", err)}, nil
+	}
+
+	// Create file
+	filename := fmt.Sprintf("profile_%d_%d.jpg", userID, photo.PhotoID)
+	filePath := filepath.Join(tmpDir, filename)
+
+	file, err := os.Create(filePath)
+	if err != nil {
+		return &MediaDownloadResult{Success: false, Error: fmt.Sprintf("create file: %v", err)}, nil
+	}
+	defer file.Close()
+
+	// Create location for download
+	location := &tg.InputPeerPhotoFileLocation{
+		Peer: &tg.InputPeerUser{
+			UserID: userID,
+		},
+		PhotoID: photo.PhotoID,
+		Big:     true, // Get high resolution
+	}
+
+	// Download
+	d := downloader.NewDownloader()
+	_, err = d.Download(c.api.API(), location).Stream(ctx, file)
+	if err != nil {
+		os.Remove(filePath)
+		return &MediaDownloadResult{Success: false, Error: fmt.Sprintf("download: %v", err)}, nil
+	}
+
+	// Get file size
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return &MediaDownloadResult{Success: false, Error: fmt.Sprintf("stat file: %v", err)}, nil
+	}
+
+	return &MediaDownloadResult{
+		Success:  true,
+		FilePath: filePath,
+		FileSize: fileInfo.Size(),
+		MimeType: "image/jpeg",
+	}, nil
+}
+
 // GetDialogs returns list of dialogs with FLOOD_WAIT retry handling
 func (c *Client) GetDialogs(ctx context.Context, limit int) ([]Dialog, error) {
 	const maxRetries = 5
@@ -539,6 +707,12 @@ func (c *Client) parseMessagesWithChatID(msgList []tg.MessageClass, users []tg.U
 		}
 	}
 
+	// DEBUG: Log userMap contents
+	log.Printf("[DEBUG] parseMessagesWithChatID: userMap has %d users for chatID=%d", len(userMap), chatID)
+	for id, u := range userMap {
+		log.Printf("[DEBUG]   userMap[%d] = %s %s (@%s)", id, u.FirstName, u.LastName, u.Username)
+	}
+
 	var result []Message
 
 	for _, m := range msgList {
@@ -568,6 +742,14 @@ func (c *Client) parseMessagesWithChatID(msgList []tg.MessageClass, users []tg.U
 					if user.LastName != "" {
 						item.FromName += " " + user.LastName
 					}
+					item.Username = user.Username
+					item.Phone = user.Phone
+					item.LangCode = user.LangCode
+					item.Premium = user.Premium
+					item.Bot = user.Bot
+					log.Printf("[DEBUG] MSG %d: Found user %d in map: name=%s username=%s", msg.ID, peer.UserID, item.FromName, item.Username)
+				} else {
+					log.Printf("[DEBUG] MSG %d: User %d NOT in userMap!", msg.ID, peer.UserID)
 				}
 			}
 		} else if chatID > 0 && !msg.Out {
@@ -579,6 +761,11 @@ func (c *Client) parseMessagesWithChatID(msgList []tg.MessageClass, users []tg.U
 				if user.LastName != "" {
 					item.FromName += " " + user.LastName
 				}
+				item.Username = user.Username
+				item.Phone = user.Phone
+				item.LangCode = user.LangCode
+				item.Premium = user.Premium
+				item.Bot = user.Bot
 			}
 		}
 

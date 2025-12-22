@@ -192,6 +192,10 @@ func (r *Router) setupRoutes() {
 	r.mux.HandleFunc("/api/v1/download", r.handleDownloadMedia)
 	r.mux.HandleFunc("/api/v1/media/", r.handleGetMediaInfo)
 
+	// User profile photo endpoints
+	r.mux.HandleFunc("/api/v1/user/photos/", r.handleGetUserPhotos)
+	r.mux.HandleFunc("/api/v1/user/photo/download/", r.handleDownloadUserPhoto)
+
 	// Callback endpoint (for clicking inline buttons)
 	r.mux.HandleFunc("/api/v1/callback", r.handleCallback)
 
@@ -1195,4 +1199,105 @@ func (r *Router) handleBotStatus(w http.ResponseWriter, req *http.Request) {
 		"bot_id":     r.botClient.GetBotID(),
 		"username":   r.botClient.GetBotUsername(),
 	})
+}
+
+// handleGetUserPhotos returns profile photos for a user
+// GET /api/v1/user/photos/{user_id}
+func (r *Router) handleGetUserPhotos(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		respondError(w, http.StatusMethodNotAllowed, "GET required")
+		return
+	}
+
+	// Get session from header
+	sessionID := req.Header.Get("X-Session-ID")
+	if sessionID == "" {
+		respondError(w, http.StatusBadRequest, "X-Session-ID header required")
+		return
+	}
+
+	// Get user ID from path: /api/v1/user/photos/{user_id}
+	path := strings.TrimPrefix(req.URL.Path, "/api/v1/user/photos/")
+	userID, err := strconv.ParseInt(path, 10, 64)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid user_id")
+		return
+	}
+
+	// Get client
+	r.mu.RLock()
+	client, exists := r.clients[sessionID]
+	r.mu.RUnlock()
+
+	if !exists {
+		respondError(w, http.StatusNotFound, "session not found")
+		return
+	}
+
+	// Get photos
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	photos, err := client.GetUserProfilePhotos(ctx, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to get photos: "+err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"user_id": userID,
+		"photos":  photos,
+		"count":   len(photos),
+	})
+}
+
+// handleDownloadUserPhoto downloads a user's profile photo
+// GET /api/v1/user/photo/download/{user_id}
+func (r *Router) handleDownloadUserPhoto(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		respondError(w, http.StatusMethodNotAllowed, "GET required")
+		return
+	}
+
+	// Get session from header
+	sessionID := req.Header.Get("X-Session-ID")
+	if sessionID == "" {
+		respondError(w, http.StatusBadRequest, "X-Session-ID header required")
+		return
+	}
+
+	// Get user ID from path: /api/v1/user/photo/download/{user_id}
+	path := strings.TrimPrefix(req.URL.Path, "/api/v1/user/photo/download/")
+	userID, err := strconv.ParseInt(path, 10, 64)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid user_id")
+		return
+	}
+
+	// Get client
+	r.mu.RLock()
+	client, exists := r.clients[sessionID]
+	r.mu.RUnlock()
+
+	if !exists {
+		respondError(w, http.StatusNotFound, "session not found")
+		return
+	}
+
+	// Download photo
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	result, err := client.DownloadProfilePhoto(ctx, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to download: "+err.Error())
+		return
+	}
+
+	if !result.Success {
+		respondJSON(w, http.StatusOK, result)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, result)
 }

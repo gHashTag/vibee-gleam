@@ -475,11 +475,11 @@ export const LipSyncMain: React.FC<LipSyncMainProps> = ({
                 );
               })()}
 
-              {/* 🎤 Видео аватара - со звуком */}
+              {/* 🎤 Видео аватара - со звуком (30% громкости) */}
               <Video
                 src={resolveMediaPath(lipSyncVideo)}
                 preload="auto"
-                volume={1}
+                volume={0.3}
                 style={{
                   width: '100%',
                   height: '100%',

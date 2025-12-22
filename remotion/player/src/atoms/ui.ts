@@ -34,6 +34,9 @@ export const markersAtom = atom<Marker[]>([]);
 export const isExportingAtom = atom(false);
 export const exportProgressAtom = atom(0);
 
+// Volume popup - which track item is showing volume popup (null = closed)
+export const volumePopupItemIdAtom = atom<string | null>(null);
+
 // Action: Set snap enabled
 export const setSnapEnabledAtom = atom(
   null,

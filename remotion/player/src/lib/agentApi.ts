@@ -4,8 +4,19 @@
 
 import { useChatStore, type AgentAction } from '@/store/chatStore';
 import { editorStore } from '@/atoms/Provider';
-import { templatePropsAtom, selectedItemIdsAtom, updateTemplatePropAtom } from '@/atoms';
-import type { LipSyncMainProps } from '@/store/types';
+import {
+  templatePropsAtom,
+  selectedItemIdsAtom,
+  updateTemplatePropAtom,
+  tracksAtom,
+  assetsAtom,
+  projectAtom,
+  addItemAtom,
+  updateItemAtom,
+  deleteItemsAtom,
+  selectItemsAtom,
+} from '@/atoms';
+import type { LipSyncMainProps, Track, Asset, Project, TrackItem } from '@/store/types';
 
 // Agent server URL - connects to Gleam MCP server via WebSocket
 const AGENT_WS_URL = import.meta.env.VITE_AGENT_WS_URL ||
@@ -46,6 +57,10 @@ export interface AgentContext {
   errors: string[];
   template: string;
   selectedItems: string[];
+  // Timeline context for full control
+  tracks: Track[];
+  assets: Asset[];
+  project: Project;
 }
 
 export interface TemplateInfo {
@@ -119,9 +134,30 @@ class AgentConnection {
   }
 
   private handleResponse(response: AgentResponse & { id?: number }): void {
+    // Parse actions with payloadJson into proper payload objects
+    const parseActions = (actions?: AgentAction[]): AgentAction[] | undefined => {
+      if (!actions) return undefined;
+      return actions.map(action => {
+        // If action has payloadJson, parse it into payload
+        const actionWithJson = action as AgentAction & { payloadJson?: string };
+        if (actionWithJson.payloadJson) {
+          try {
+            return {
+              ...action,
+              payload: JSON.parse(actionWithJson.payloadJson),
+            };
+          } catch {
+            return action;
+          }
+        }
+        return action;
+      });
+    };
+
     // Handle streaming responses
     if (response.type === 'streaming') {
       const { content, isComplete, codeBlock, actions } = response.payload;
+      const parsedActions = parseActions(actions);
 
       // Get current message being streamed
       const messages = useChatStore.getState().messages;
@@ -132,13 +168,13 @@ class AgentConnection {
         useChatStore.getState().updateMessage(lastMessage.id, {
           content: (lastMessage.content || '') + (content || ''),
           codeBlock,
-          actions,
+          actions: parsedActions,
         });
       } else if (content) {
         // Add new assistant message
         useChatStore.getState().addMessage('assistant', content, {
           codeBlock,
-          actions,
+          actions: parsedActions,
         });
       }
 
@@ -151,11 +187,12 @@ class AgentConnection {
     // Handle chat response (non-streaming)
     if (response.type === 'chat_response') {
       const { content, codeBlock, actions } = response.payload;
+      const parsedActions = parseActions(actions);
 
       if (content) {
         useChatStore.getState().addMessage('assistant', content, {
           codeBlock,
-          actions,
+          actions: parsedActions,
         });
       }
       useChatStore.getState().setStreaming(false);
@@ -225,13 +262,17 @@ export function isAgentConnected(): boolean {
 export async function sendToAgent(message: string): Promise<void> {
   const chatStore = useChatStore.getState();
 
-  // Build context using Jotai store
+  // Build context using Jotai store - includes full timeline state
   const context: AgentContext = {
     logs: chatStore.context.logs.slice(-50),
     props: editorStore.get(templatePropsAtom) as unknown as Record<string, unknown>,
     errors: chatStore.context.errors.map(e => e.message),
     template: chatStore.context.currentTemplate,
     selectedItems: editorStore.get(selectedItemIdsAtom),
+    // Timeline context for full control
+    tracks: editorStore.get(tracksAtom),
+    assets: editorStore.get(assetsAtom),
+    project: editorStore.get(projectAtom),
   };
 
   await agentConnection.send({
@@ -254,6 +295,37 @@ export async function applyAgentAction(action: AgentAction): Promise<void> {
       Object.entries(updates).forEach(([key, value]) => {
         editorStore.set(updateTemplatePropAtom, { key: key as any, value });
       });
+      break;
+    }
+
+    // Timeline actions - full layer control
+    case 'add_track_item': {
+      const { trackId, itemData } = action.payload as {
+        trackId: string;
+        itemData: Omit<TrackItem, 'id' | 'trackId'>;
+      };
+      editorStore.set(addItemAtom, { trackId, itemData });
+      break;
+    }
+
+    case 'update_track_item': {
+      const { itemId, updates } = action.payload as {
+        itemId: string;
+        updates: Partial<TrackItem>;
+      };
+      editorStore.set(updateItemAtom, { itemId, updates });
+      break;
+    }
+
+    case 'delete_track_items': {
+      const { itemIds } = action.payload as { itemIds: string[] };
+      editorStore.set(deleteItemsAtom, itemIds);
+      break;
+    }
+
+    case 'select_items': {
+      const { itemIds } = action.payload as { itemIds: string[] };
+      editorStore.set(selectItemsAtom, { itemIds, addToSelection: false });
       break;
     }
 

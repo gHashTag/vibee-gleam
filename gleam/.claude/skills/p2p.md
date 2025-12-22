@@ -143,3 +143,104 @@ vibe_logger.new("forward")
 2. **io.println не видно в логах** → Использовать vibe_logger! `io.println` не выводится в production.
 
 3. **Триггер найден, forward не вызван** → Проверить `find_chat_config(chat_id)` - нормализация ID может отличаться.
+
+4. **Deduplication блокирует Lead Card 24h** → E2E сообщения с `[E2E:...]` автоматически bypass dedup check.
+
+5. **Username пустой в Lead Card** → Проверить логи `username_empty: true/false`. Если true - Go Bridge не получает username.
+
+6. **WebFetch кэширует test_run_id** → Кэш 15 минут. Добавить `?t=timestamp` к URL или использовать curl.
+
+### Verified 22.12.2025
+
+**Логи подтверждают работу:**
+```json
+{
+  "logger": "forward",
+  "message": "forward_dialog_with_context CALLED",
+  "username": "neuro_sage",
+  "username_empty": false,
+  "from": "Dmitrii"
+}
+
+{
+  "logger": "forward",
+  "message": "E2E test detected - skipping dedup check"
+}
+
+{
+  "logger": "forward",
+  "message": "Dialog forwarded successfully"
+}
+```
+
+**Username flow работает:** Go Bridge → polling_actor → telegram_agent → dialog_forwarder
+
+**Lead Card формат с @username:**
+```
+👤 Клиент: @neuro_sage (Dmitrii)
+```
+
+## Архитектура Username Flow
+
+```
+Go Bridge (client.go:745)
+    userMap[user.ID].Username
+              ↓
+polling_actor.gleam:795
+    extract_json_field("username")
+              ↓
+telegram_agent.gleam:719
+    MessageInfo.username
+              ↓
+dialog_forwarder.gleam:217
+    "@" <> username <> " (" <> name <> ")"
+```
+
+## Архитектура Deduplication
+
+```
+dialog_forwarder.gleam:112
+    check_recent_forward(user_id, target_chat_id)
+              ↓
+SQL: SELECT COUNT(*) FROM lead_forwards
+     WHERE user_id = X
+     AND forwarded_at > NOW() - '24 hours'
+              ↓
+    True = Skip (дубликат)
+    False = Forward (новый лид)
+```
+
+**E2E Bypass:** Сообщения с `[E2E:...]` в тексте пропускают dedup check.
+
+## Полезные команды диагностики
+
+```bash
+# Username в сообщениях
+fly logs -a vibee-mcp | grep -E "username.*neuro_sage|username_empty"
+
+# Forward flow
+fly logs -a vibee-mcp | grep -E "forward_dialog|Dialog forwarded"
+
+# E2E bypass
+fly logs -a vibee-mcp | grep "E2E test detected"
+
+# Полный P2P flow
+fly logs -a vibee-mcp | grep -E "trigger.*5082217642|forward|Lead"
+
+# Проверка что триггер-чат обрабатывается
+fly logs -a vibee-mcp | grep "Aimly.io dev"
+```
+
+## Известные ограничения
+
+1. **ETS не персистентный** - После рестарта Fly.io машины test_run_id теряется
+2. **WebFetch кэш 15 мин** - Использовать `?t=timestamp` для bust cache
+3. **E2E тест может показать failed** - Если @neuro_sage не имеет доступа к Leads группе
+
+## Изменения 22.12.2025
+
+| Файл | Что добавлено |
+|------|---------------|
+| `polling_actor.gleam:798` | vibe_logger для username диагностики |
+| `dialog_forwarder.gleam:114-125` | E2E bypass для deduplication |
+| `dialog_forwarder.gleam:103` | username_empty в структурированных логах |

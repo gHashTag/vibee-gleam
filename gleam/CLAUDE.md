@@ -124,6 +124,146 @@ VIBEE_BRIDGE_URL="https://vibee-telegram-bridge.fly.dev" \
 
 ---
 
+## КРИТИЧЕСКОЕ ПРАВИЛО: ElizaOS Architecture (User-Bots)
+
+**НИКАКИХ КОМАНД!** VIBEE использует user-bots (Digital Twins), а не обычные Telegram боты.
+User-bots работают через понимание контекста разговора, а не через /commands.
+
+### Принцип ElizaOS
+
+Основано на https://docs.elizaos.ai/plugins/architecture
+
+| Компонент | Описание | Пример |
+|-----------|----------|--------|
+| **Action** | Дискретная задача с `validate()` + `handler()` | CREATE_REELS |
+| **Provider** | Агрегация контекста для принятия решений | reels_context_provider |
+| **Evaluator** | Анализ результатов, извлечение insights | reels_evaluator |
+
+### Как это работает
+
+```
+User: "Создай рилс про продуктивность"
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│              ActionRegistry              │
+│  ┌─────────────────────────────────┐    │
+│  │ find_matching_action()          │    │
+│  │ → validate() проверяет контекст │    │
+│  │ → Находит CREATE_REELS action   │    │
+│  └─────────────────────────────────┘    │
+│                    │                     │
+│                    ▼                     │
+│  ┌─────────────────────────────────┐    │
+│  │ Providers собирают контекст     │    │
+│  │ → user preferences              │    │
+│  │ → history                       │    │
+│  │ → available templates           │    │
+│  └─────────────────────────────────┘    │
+│                    │                     │
+│                    ▼                     │
+│  ┌─────────────────────────────────┐    │
+│  │ Action.handler() выполняет      │    │
+│  │ → generate script               │    │
+│  │ → TTS → lipsync → render        │    │
+│  └─────────────────────────────────┘    │
+│                    │                     │
+│                    ▼                     │
+│  ┌─────────────────────────────────┐    │
+│  │ Evaluators анализируют          │    │
+│  │ → extract facts                 │    │
+│  │ → suggest follow-ups            │    │
+│  └─────────────────────────────────┘    │
+└─────────────────────────────────────────┘
+```
+
+### Структура файлов
+
+```
+src/vibee/agent/
+├── eliza.gleam                  # Base types: Action, Provider, Evaluator
+├── reels_plugin.gleam           # Plugin registration
+├── actions/
+│   └── reels_action.gleam       # CREATE_REELS action
+├── providers/
+│   └── reels_context_provider.gleam
+└── evaluators/
+    └── reels_evaluator.gleam
+```
+
+### Пример Action (validate + handler)
+
+```gleam
+pub fn create_reels_action() -> Action {
+  Action(
+    name: "CREATE_REELS",
+    description: "Creates Instagram-style reels video",
+
+    // Similes для NLP matching (НЕ /commands!)
+    similes: [
+      "создай рилс", "сделай рилс", "рилс видео",
+      "видео для инстаграма", "make a reel", "reels creator",
+    ],
+
+    // validate() - когда триггерить action
+    validate: fn(context) {
+      let message = string.lowercase(context.message)
+      // Проверяем наличие ключевых слов
+      has_reels_keyword(message) && has_creation_intent(message)
+    },
+
+    // handler() - выполнение action
+    handler: fn(context) {
+      // 1. Extract idea from message
+      // 2. Detect niche
+      // 3. Generate script
+      // 4. Run AI pipeline
+      // 5. Return ActionResult
+    },
+  )
+}
+```
+
+### Правила для разработчиков
+
+1. **НЕ ИСПОЛЬЗУЙ /commands** - user-bots понимают естественный язык
+2. **validate()** определяет КОГДА триггерить action через NLP
+3. **handler()** выполняет action и возвращает `ActionResult`
+4. **Providers** собирают контекст ДО выполнения action
+5. **Evaluators** анализируют результат ПОСЛЕ выполнения
+
+### Триггер patterns (similes)
+
+| Паттерн | Action |
+|---------|--------|
+| "создай рилс", "сделай рилс", "рилс видео" | CREATE_REELS |
+| "сгенерируй фото", "нарисуй", "neuro photo" | GENERATE_PHOTO |
+| "озвучь", "голос", "voice clone" | VOICE_CLONE |
+| "видео из фото", "анимируй" | IMAGE_TO_VIDEO |
+
+### Интеграция с существующим кодом
+
+Для интеграции с polling_actor.gleam:
+
+```gleam
+import vibee/agent/reels_plugin
+
+// В обработчике сообщений
+fn handle_incoming_message(message: String) {
+  // Проверяем - это для reels?
+  case reels_plugin.should_handle_message(message) {
+    True -> {
+      let registry = reels_plugin.init()
+      let context = build_context(message)
+      reels_plugin.process_message(registry, context)
+    }
+    False -> handle_other_message(message)
+  }
+}
+```
+
+---
+
 ## Project Overview
 
 VIBEE is a fault-tolerant AI agent framework built with Gleam on BEAM (Erlang VM). It provides:
