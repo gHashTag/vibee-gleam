@@ -244,3 +244,97 @@ fly logs -a vibee-mcp | grep "Aimly.io dev"
 | `polling_actor.gleam:798` | vibe_logger для username диагностики |
 | `dialog_forwarder.gleam:114-125` | E2E bypass для deduplication |
 | `dialog_forwarder.gleam:103` | username_empty в структурированных логах |
+| `telegram_agent.gleam:598-613` | `is_message_for_other_user()` - фильтр @mentions |
+| `telegram_agent.gleam:487-502` | Пропуск триггеров для сообщений `@OtherUser ...` |
+| `telegram_agent.gleam:509-524` | Пропуск проактивных ответов для `@OtherUser ...` |
+
+## Fix: @mention Filtering
+
+**Проблема:** Агент отвечал на сообщения вида `@GnothySeaton ты заходишь?` даже если они адресованы другому пользователю.
+
+**Решение:** Добавлена функция `is_message_for_other_user(text)` которая:
+- Проверяет начинается ли сообщение с `@`
+- Если да и это НЕ `@vibee_agent` - пропускаем
+- Применяется и к триггерам, и к проактивному режиму
+
+**Логи при пропуске:**
+```json
+{
+  "logger": "sniper",
+  "message": "TRIGGER FOUND but message is for another user (@mention), skipping",
+  "trigger": true,
+  "skip_reason": "message_for_other_user"
+}
+```
+
+## Fix: Real Users Not Getting Lead Cards (22.12.2025)
+
+**Проблема:** E2E тесты работали, но реальные пользователи НЕ получали Lead Cards.
+
+**Root Cause:** Код использовал `shellout.command("psql")` для DB операций, который:
+1. Падал молча на Fly.io (psql не гарантирован в контейнере)
+2. Ошибки игнорировались → `check_recent_forward()` возвращал `False`
+3. E2E bypass скрывал проблему (сообщения с `[E2E:]` не проходят dedup check)
+
+**Решение:** Заменить `shellout` на `pog` (Gleam PostgreSQL библиотека).
+
+### Изменения в dialog_forwarder.gleam
+
+```diff
+- import shellout
++ import pog
++ import vibee/db/postgres
+```
+
+**check_recent_forward()** - теперь использует pog:
+```gleam
+case postgres.get_global_pool() {
+  None -> False  // Нет пула - пропускаем dedup
+  Some(pool) -> {
+    let sql = "SELECT COUNT(*)::int FROM lead_forwards
+               WHERE user_id = $1
+               AND target_chat_id = $2
+               AND status = 'forwarded'
+               AND forwarded_at > NOW() - INTERVAL '1 hour'"
+
+    case pog.query(sql)
+      |> pog.parameter(pog.int(user_id))
+      |> pog.parameter(pog.int(target_id))
+      |> pog.returning(count_decoder)
+      |> pog.execute(pool)
+    {
+      Ok(pog.Returned(_, [count])) -> count > 0
+      _ -> False
+    }
+  }
+}
+```
+
+**log_forward_to_db()** - тоже переписан на pog.
+
+### Новые логи
+
+```json
+{"logger":"dedup_check","message":"Dedup check complete","is_duplicate":false,"count":0,"user_id":412973735}
+
+{"logger":"forward_send","message":"Lead Card sent successfully","msg_id":625}
+```
+
+### Dedup Window
+
+Изменено с 24 часов на **1 час** - один пользователь может получить максимум 1 Lead Card в час.
+
+### Коммит
+
+```
+4b8195f fix: Use pog instead of shellout for lead_forwards DB operations
+```
+
+### Проверено
+
+- Real user @GnothySeaton → `dedup_check: is_duplicate=false` → Lead Card #625 отправлена
+- E2E тесты продолжают работать (bypass dedup)
+
+### Урок
+
+**Всегда деплоить изменения!** Git diff показал что код был исправлен локально, но не закоммичен и не задеплоен.
