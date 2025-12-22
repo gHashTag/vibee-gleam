@@ -39,6 +39,7 @@ pub type JobType {
   JobAvatarVideo
   JobVoiceClone
   JobLoraTraining
+  JobReelsCreator
 }
 
 /// Scene handler errors
@@ -86,6 +87,8 @@ pub fn get_all_handlers() -> List(SceneHandler) {
     create_avatar_video_handler(),
     // Voice Clone handler
     create_voice_clone_handler(),
+    // Reels Creator handler
+    create_reels_creator_handler(),
   ]
 }
 
@@ -213,6 +216,21 @@ fn create_voice_clone_handler() -> SceneHandler {
   )
 }
 
+fn create_reels_creator_handler() -> SceneHandler {
+  SceneHandler(
+    name: "reels_creator",
+    commands: ["/reels", "/reel"],
+    handles_scene: fn(scene) {
+      case scene {
+        scene.ReelsCreator(_) -> True
+        _ -> False
+      }
+    },
+    handle_message: fn(_session, _message) { Error(NotImplemented) },
+    handle_callback: fn(_session, _data) { Error(NotImplemented) },
+  )
+}
+
 // ============================================================
 // Helper Functions
 // ============================================================
@@ -272,5 +290,6 @@ pub fn job_type_to_string(job_type: JobType) -> String {
     JobAvatarVideo -> "avatar_video"
     JobVoiceClone -> "voice_clone"
     JobLoraTraining -> "lora_training"
+    JobReelsCreator -> "reels_creator"
   }
 }

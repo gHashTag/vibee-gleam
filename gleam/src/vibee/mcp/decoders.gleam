@@ -15,6 +15,7 @@ import vibee/mcp/tool_args.{
   type TelegramSendPhotoArgs, TelegramSendPhotoArgs,
   type TelegramDownloadMediaArgs, TelegramDownloadMediaArgs,
   type TelegramGetMeArgs, TelegramGetMeArgs,
+  type TelegramGetUserPhotoArgs, TelegramGetUserPhotoArgs,
   type TelegramSubscribeUpdatesArgs, TelegramSubscribeUpdatesArgs,
   type ButtonDef, ButtonDef,
   type AuthStatusArgs, AuthStatusArgs,
@@ -206,6 +207,16 @@ fn telegram_get_me_decoder() -> Decoder(TelegramGetMeArgs) {
 
 pub fn decode_telegram_get_me(args: json.Json) -> Result(TelegramGetMeArgs, DecodeError) {
   run_decoder(args, telegram_get_me_decoder(), "telegram_get_me")
+}
+
+fn telegram_get_user_photo_decoder() -> Decoder(TelegramGetUserPhotoArgs) {
+  use session_id <- decode.optional_field("session_id", None, decode.optional(decode.string))
+  use user_id <- decode.field("user_id", decode.int)
+  decode.success(TelegramGetUserPhotoArgs(session_id: session_id, user_id: user_id))
+}
+
+pub fn decode_telegram_get_user_photo(args: json.Json) -> Result(TelegramGetUserPhotoArgs, DecodeError) {
+  run_decoder(args, telegram_get_user_photo_decoder(), "telegram_get_user_photo")
 }
 
 fn telegram_subscribe_updates_decoder() -> Decoder(TelegramSubscribeUpdatesArgs) {

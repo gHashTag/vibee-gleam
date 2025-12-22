@@ -426,6 +426,99 @@ pub fn update_quiz_result(
   }
 }
 
+/// История статусов лида
+pub type LeadStatusChange {
+  LeadStatusChange(
+    id: Int,
+    lead_id: Int,
+    old_status: Option(String),
+    new_status: String,
+    old_funnel_stage: Option(String),
+    new_funnel_stage: Option(String),
+    changed_by: Option(String),
+    change_reason: Option(String),
+    created_at: Option(String),
+  )
+}
+
+/// Получить историю статусов лида
+pub fn get_lead_status_history(
+  pool: pog.Connection,
+  telegram_user_id: Int,
+) -> Result(List(LeadStatusChange), SalesDbError) {
+  let sql =
+    "SELECT id, lead_id, old_status, new_status, old_funnel_stage, new_funnel_stage,
+            changed_by, change_reason, created_at::text
+     FROM lead_status_history
+     WHERE telegram_user_id = $1
+     ORDER BY created_at DESC
+     LIMIT 20"
+
+  case
+    pog.query(sql)
+    |> add_parameters([pog.int(telegram_user_id)])
+    |> pog.returning(decode_status_change())
+    |> pog.execute(pool)
+  {
+    Ok(pog.Returned(_, changes)) -> Ok(changes)
+    Error(e) -> Error(SalesDbQueryError(pog_error_to_string(e)))
+  }
+}
+
+/// Обновить статус лида по telegram_user_id
+pub fn update_lead_status_by_telegram_id(
+  pool: pog.Connection,
+  telegram_user_id: Int,
+  status: LeadStatus,
+) -> Result(Lead, SalesDbError) {
+  let sql =
+    "UPDATE leads SET status = $2
+     WHERE telegram_user_id = $1
+     RETURNING id, telegram_user_id, username, first_name, last_name, phone, email,
+               first_message, intent, priority, status, funnel_stage, source,
+               utm_source, utm_medium, utm_campaign, quiz_score, recommended_product_id,
+               assigned_to, notes, last_contact_at::text, created_at::text"
+
+  case
+    pog.query(sql)
+    |> add_parameters([pog.int(telegram_user_id), pog.text(lead_status_to_string(status))])
+    |> pog.returning(decode_lead())
+    |> pog.execute(pool)
+  {
+    Ok(pog.Returned(_, [lead])) -> Ok(lead)
+    Ok(pog.Returned(_, [])) -> Error(SalesDbNotFound)
+    Ok(_) -> Error(SalesDbNotFound)
+    Error(e) -> Error(SalesDbQueryError(pog_error_to_string(e)))
+  }
+}
+
+/// Обновить этап воронки по telegram_user_id
+pub fn update_funnel_stage_by_telegram_id(
+  pool: pog.Connection,
+  telegram_user_id: Int,
+  stage: FunnelStage,
+) -> Result(Lead, SalesDbError) {
+  let sql =
+    "UPDATE leads SET funnel_stage = $2
+     WHERE telegram_user_id = $1
+     RETURNING id, telegram_user_id, username, first_name, last_name, phone, email,
+               first_message, intent, priority, status, funnel_stage, source,
+               utm_source, utm_medium, utm_campaign, quiz_score, recommended_product_id,
+               assigned_to, notes, last_contact_at::text, created_at::text"
+
+  case
+    pog.query(sql)
+    |> add_parameters([pog.int(telegram_user_id), pog.text(funnel_stage_to_string(stage))])
+    |> pog.returning(decode_lead())
+    |> pog.execute(pool)
+  {
+    Ok(pog.Returned(_, [lead])) -> Ok(lead)
+    Ok(pog.Returned(_, [])) -> Error(SalesDbNotFound)
+    Ok(_) -> Error(SalesDbNotFound)
+    Error(e) -> Error(SalesDbQueryError(pog_error_to_string(e)))
+  }
+}
+
 /// Статистика воронки
 pub fn get_funnel_stats(pool: pog.Connection) -> Result(FunnelStats, SalesDbError) {
   let sql =
@@ -674,5 +767,29 @@ fn decode_funnel_stats() -> Decoder(FunnelStats) {
     intent: intent,
     evaluation: evaluation,
     purchase: purchase,
+  ))
+}
+
+fn decode_status_change() -> Decoder(LeadStatusChange) {
+  use id <- decode.field(0, decode.int)
+  use lead_id <- decode.field(1, decode.int)
+  use old_status <- decode.field(2, decode.optional(decode.string))
+  use new_status <- decode.field(3, decode.string)
+  use old_funnel_stage <- decode.field(4, decode.optional(decode.string))
+  use new_funnel_stage <- decode.field(5, decode.optional(decode.string))
+  use changed_by <- decode.field(6, decode.optional(decode.string))
+  use change_reason <- decode.field(7, decode.optional(decode.string))
+  use created_at <- decode.field(8, decode.optional(decode.string))
+
+  decode.success(LeadStatusChange(
+    id: id,
+    lead_id: lead_id,
+    old_status: old_status,
+    new_status: new_status,
+    old_funnel_stage: old_funnel_stage,
+    new_funnel_stage: new_funnel_stage,
+    changed_by: changed_by,
+    change_reason: change_reason,
+    created_at: created_at,
   ))
 }

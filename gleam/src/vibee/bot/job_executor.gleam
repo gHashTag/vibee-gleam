@@ -6,6 +6,7 @@ import gleam/http
 import gleam/http/request
 import gleam/httpc
 import gleam/int
+import gleam/io
 import gleam/json
 import gleam/option.{type Option, None, Some}
 import gleam/result
@@ -14,9 +15,10 @@ import vibee/ai/fal
 import vibee/ai/replicate
 import vibee/bot/scene_handler.{
   type JobType, JobAvatarVideo, JobBRoll, JobImageToVideo, JobLoraTraining,
-  JobMorphing, JobNeuroPhoto, JobTextToVideo, JobVoiceClone,
+  JobMorphing, JobNeuroPhoto, JobReelsCreator, JobTextToVideo, JobVoiceClone,
 }
 import vibee/mcp/config
+import vibee/video/pipeline
 
 // ============================================================
 // Types
@@ -64,6 +66,7 @@ pub fn execute(
         JobAvatarVideo -> execute_avatar_video(cfg, params)
         JobVoiceClone -> execute_voice_clone(cfg, params)
         JobLoraTraining -> execute_lora_training(cfg, params)
+        JobReelsCreator -> execute_reels_creator(cfg, params)
       }
 
       // Send result to chat
@@ -476,6 +479,183 @@ fn execute_lora_training(
 ) -> Result(ExecutionResult, String) {
   // TODO: Implement LoRA training
   Error("LoRA training not yet implemented in job executor")
+}
+
+fn execute_reels_creator(
+  cfg: ExecutorConfig,
+  params: Dict(String, String),
+) -> Result(ExecutionResult, String) {
+  // Extract parameters from scene
+  let template_id = dict.get(params, "template_id") |> result.unwrap("split-talking-head")
+  let idea = dict.get(params, "idea") |> result.unwrap("")
+  let niche = dict.get(params, "niche") |> result.unwrap("business")
+  let product = dict.get(params, "product") |> result.unwrap("")
+  let _user_id = dict.get(params, "user_id") |> result.unwrap("0")
+
+  // Log start
+  io.println("[REELS] Starting reels generation")
+  io.println("[REELS] Template: " <> template_id)
+  io.println("[REELS] Idea: " <> idea)
+  io.println("[REELS] Niche: " <> niche)
+
+  // Step 1: Generate script from idea using AI
+  let script = generate_reels_script(idea, niche, product)
+  io.println("[REELS] Generated script: " <> string.slice(script, 0, 100) <> "...")
+
+  // Step 2: Get config for pipeline
+  let remotion_url = config.get_env_or("REMOTION_URL", "https://vibee-remotion.fly.dev")
+  let test_assets_url = config.get_env_or("TEST_ASSETS_URL", "https://fly.storage.tigris.dev/vibee-assets")
+
+  let pipeline_config = pipeline.PipelineConfig(
+    elevenlabs_api_key: config.get_env_or("ELEVENLABS_API_KEY", ""),
+    fal_api_key: cfg.fal_api_key,
+    remotion_url: remotion_url,
+    test_assets_url: test_assets_url,
+  )
+
+  // Step 3: Create pipeline request
+  // For now, use test photo. TODO: Get actual user photo from Telegram
+  let test_photo_url = test_assets_url <> "/photos/avatar_test.jpg"
+
+  let pipeline_request = pipeline.PipelineRequest(
+    photo_url: test_photo_url,
+    script_text: script,
+    voice_id: None,
+    webhook_url: None,
+    test_mode: False,  // Use AI pipeline for B-roll generation
+  )
+
+  // Step 4: Run AI pipeline (generates B-roll prompts + renders)
+  case pipeline.start_ai_pipeline(pipeline_config, pipeline_request) {
+    Ok(job) -> {
+      io.println("[REELS] Pipeline started, job_id: " <> job.id)
+      // Poll for completion
+      case poll_render_completion(remotion_url, job) {
+        Ok(video_url) -> {
+          io.println("[REELS] Video ready: " <> video_url)
+          Ok(ExecutionSuccess(url: video_url))
+        }
+        Error(err) -> {
+          io.println("[REELS] Render failed: " <> err)
+          Ok(ExecutionFailed(error: "Render failed: " <> err))
+        }
+      }
+    }
+    Error(err) -> {
+      let err_str = pipeline_error_to_string(err)
+      io.println("[REELS] Pipeline error: " <> err_str)
+      Ok(ExecutionFailed(error: err_str))
+    }
+  }
+}
+
+/// Generate a script for reels from idea, niche, and product
+fn generate_reels_script(idea: String, niche: String, product: String) -> String {
+  // For now, create a simple script template
+  // TODO: Use OpenRouter AI to generate more creative scripts
+  let product_line = case product {
+    "" -> ""
+    p -> "\n\nИ кстати, проверьте " <> p <> " - это именно то, что вам нужно!"
+  }
+
+  let niche_context = case niche {
+    "business" -> "для предпринимателей"
+    "tech" -> "для тех, кто в теме технологий"
+    "lifestyle" -> "для тех, кто хочет жить лучше"
+    "finance" -> "для тех, кто хочет разобраться в финансах"
+    "health" -> "для вашего здоровья"
+    _ -> ""
+  }
+
+  "Привет! Сегодня поговорим о том, " <> idea <> " " <> niche_context <> ".\n\n" <>
+  "Это действительно важно, и я расскажу вам все секреты." <>
+  product_line
+}
+
+/// Poll Remotion render for completion
+fn poll_render_completion(
+  remotion_url: String,
+  job: pipeline.PipelineJob,
+) -> Result(String, String) {
+  case job.render_id {
+    None -> Error("No render_id in pipeline job")
+    Some(render_id) -> poll_render_status(remotion_url, render_id, 0)
+  }
+}
+
+/// Poll render status with retry
+fn poll_render_status(
+  remotion_url: String,
+  render_id: String,
+  attempt: Int,
+) -> Result(String, String) {
+  // Max 60 attempts * 5 seconds = 5 minutes timeout
+  case attempt > 60 {
+    True -> Error("Render timeout after 5 minutes")
+    False -> {
+      // Wait 5 seconds between polls
+      sleep(5000)
+
+      let host = extract_host(remotion_url)
+      let status_req = request.new()
+        |> request.set_method(http.Get)
+        |> request.set_scheme(http.Https)
+        |> request.set_host(host)
+        |> request.set_path("/renders/" <> render_id)
+
+      case httpc.send(status_req) {
+        Ok(resp) -> {
+          case resp.status {
+            200 -> {
+              // Check if done
+              case string.contains(resp.body, "\"status\":\"done\"") {
+                True -> {
+                  // Extract output URL
+                  case extract_output_url(resp.body) {
+                    "" -> Error("No output URL in response")
+                    url -> Ok(url)
+                  }
+                }
+                False -> {
+                  case string.contains(resp.body, "\"status\":\"error\"") {
+                    True -> Error("Render failed: " <> resp.body)
+                    False -> poll_render_status(remotion_url, render_id, attempt + 1)
+                  }
+                }
+              }
+            }
+            _ -> poll_render_status(remotion_url, render_id, attempt + 1)
+          }
+        }
+        Error(_) -> poll_render_status(remotion_url, render_id, attempt + 1)
+      }
+    }
+  }
+}
+
+/// Extract outputUrl from render status JSON
+fn extract_output_url(body: String) -> String {
+  case string.split(body, "\"outputUrl\":\"") {
+    [_, rest, ..] -> {
+      case string.split(rest, "\"") {
+        [url, ..] -> url
+        _ -> ""
+      }
+    }
+    _ -> ""
+  }
+}
+
+/// Convert pipeline error to string
+fn pipeline_error_to_string(err: pipeline.PipelineError) -> String {
+  case err {
+    pipeline.TTSError(msg) -> "TTS Error: " <> msg
+    pipeline.LipsyncError(msg) -> "Lipsync Error: " <> msg
+    pipeline.RenderError(msg) -> "Render Error: " <> msg
+    pipeline.ConfigError(msg) -> "Config Error: " <> msg
+    pipeline.NetworkError(msg) -> "Network Error: " <> msg
+    pipeline.BRollError(msg) -> "B-roll Error: " <> msg
+  }
 }
 
 // ============================================================

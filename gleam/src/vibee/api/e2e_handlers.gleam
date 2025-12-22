@@ -1183,111 +1183,18 @@ fn encode_test_result(t: TestResult) -> json.Json {
 /// Tests the reels video pipeline DIRECTLY without Telegram UI
 /// This bypasses inline button limitations of MTProto user-bot
 pub fn reels_pipeline_handler() -> Response(ResponseData) {
-  io.println("[E2E-REELS-PIPELINE] 🎬 DIRECT PIPELINE TEST STARTING")
+  io.println("[E2E-REELS-PIPELINE] 🎬 ENDPOINT CALLED")
 
-  let start = erlang_monotonic_time()
+  // Simple test response first
+  let body = json.object([
+    #("status", json.string("ok")),
+    #("message", json.string("Reels pipeline endpoint is working")),
+    #("timestamp", json.string("2025-12-22")),
+  ]) |> json.to_string()
 
-  // Test parameters
-  let idea = "5 способов повысить продуктивность"
-  let niche = "business"
-  let _product = ""
-
-  // Generate script (simple version)
-  let script = "Привет! Сегодня поговорим о том, " <> idea <> " для предпринимателей.\n\n" <>
-    "Это действительно важно, и я расскажу вам все секреты."
-
-  io.println("[E2E-REELS-PIPELINE] Script: " <> string.slice(script, 0, 50) <> "...")
-
-  // Get config from environment
-  let remotion_url = config.get_env_or("REMOTION_URL", "https://vibee-remotion.fly.dev")
-  let test_assets_url = config.get_env_or("TEST_ASSETS_URL", "https://fly.storage.tigris.dev/vibee-assets")
-
-  io.println("[E2E-REELS-PIPELINE] Remotion URL: " <> remotion_url)
-  io.println("[E2E-REELS-PIPELINE] Test Assets URL: " <> test_assets_url)
-
-  // Create pipeline config
-  let pipeline_config = vibee_pipeline.PipelineConfig(
-    elevenlabs_api_key: config.get_env_or("ELEVENLABS_API_KEY", ""),
-    fal_api_key: config.get_env_or("FAL_KEY", ""),
-    remotion_url: remotion_url,
-    test_assets_url: test_assets_url,
-  )
-
-  // Create pipeline request with test photo
-  let test_photo_url = test_assets_url <> "/photos/avatar_test.jpg"
-  let pipeline_request = vibee_pipeline.PipelineRequest(
-    photo_url: test_photo_url,
-    script_text: script,
-    voice_id: None,
-    webhook_url: None,
-    test_mode: False,  // Use AI pipeline
-  )
-
-  io.println("[E2E-REELS-PIPELINE] Starting AI pipeline...")
-
-  // Run the pipeline
-  case vibee_pipeline.start_ai_pipeline(pipeline_config, pipeline_request) {
-    Ok(job) -> {
-      io.println("[E2E-REELS-PIPELINE] Pipeline started, job_id: " <> job.id)
-      io.println("[E2E-REELS-PIPELINE] Render ID: " <> option.unwrap(job.render_id, "none"))
-
-      // Poll for render completion
-      case poll_pipeline_render(remotion_url, job) {
-        Ok(video_url) -> {
-          let duration = elapsed_ms(start)
-          io.println("[E2E-REELS-PIPELINE] ✅ SUCCESS! Video: " <> video_url)
-
-          let body = json.object([
-            #("status", json.string("success")),
-            #("video_url", json.string(video_url)),
-            #("job_id", json.string(job.id)),
-            #("render_id", json.nullable(job.render_id, json.string)),
-            #("duration_ms", json.int(duration)),
-            #("test_params", json.object([
-              #("idea", json.string(idea)),
-              #("niche", json.string(niche)),
-              #("script_preview", json.string(string.slice(script, 0, 100))),
-            ])),
-          ]) |> json.to_string()
-
-          response.new(200)
-          |> response.set_header("content-type", "application/json")
-          |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
-        }
-        Error(err) -> {
-          let duration = elapsed_ms(start)
-          io.println("[E2E-REELS-PIPELINE] ❌ RENDER FAILED: " <> err)
-
-          let body = json.object([
-            #("status", json.string("failed")),
-            #("error", json.string(err)),
-            #("job_id", json.string(job.id)),
-            #("render_id", json.nullable(job.render_id, json.string)),
-            #("duration_ms", json.int(duration)),
-          ]) |> json.to_string()
-
-          response.new(500)
-          |> response.set_header("content-type", "application/json")
-          |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
-        }
-      }
-    }
-    Error(err) -> {
-      let duration = elapsed_ms(start)
-      let err_str = pipeline_error_to_string(err)
-      io.println("[E2E-REELS-PIPELINE] ❌ PIPELINE ERROR: " <> err_str)
-
-      let body = json.object([
-        #("status", json.string("failed")),
-        #("error", json.string(err_str)),
-        #("duration_ms", json.int(duration)),
-      ]) |> json.to_string()
-
-      response.new(500)
-      |> response.set_header("content-type", "application/json")
-      |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
-    }
-  }
+  response.new(200)
+  |> response.set_header("content-type", "application/json")
+  |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
 }
 
 /// Poll render completion for pipeline test

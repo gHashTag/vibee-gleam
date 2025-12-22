@@ -73,6 +73,13 @@ pub type TelegramGetMeArgs {
   TelegramGetMeArgs(session_id: Option(String))
 }
 
+pub type TelegramGetUserPhotoArgs {
+  TelegramGetUserPhotoArgs(
+    session_id: Option(String),
+    user_id: Int,
+  )
+}
+
 pub type TelegramSubscribeUpdatesArgs {
   TelegramSubscribeUpdatesArgs(
     session_id: Option(String),

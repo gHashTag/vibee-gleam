@@ -26,6 +26,8 @@ import vibee/mcp/session_manager
 import vibee/telegram/conversation_tracker
 import vibee/telegram/dialog_forwarder
 import vibee/integrations/telegram/bot_api
+import vibee/integrations/telegram/client as tg_client
+import vibee/integrations/telegram/types as tg_types
 
 /// Get VIBEE_API_KEY from environment
 @external(erlang, "vibee_polling_ffi", "get_api_key")
@@ -306,6 +308,10 @@ pub fn handle_incoming_message(
   chat_id: String,
   from_id: Int,
   from_name: String,
+  username: String,
+  phone: String,
+  lang_code: String,
+  is_premium: Bool,
   text: String,
   message_id: Int,
   reply_to_id: Int,
@@ -315,6 +321,10 @@ pub fn handle_incoming_message(
     |> vibe_logger.with_data("chat_id", json.string(chat_id))
     |> vibe_logger.with_data("from_id", json.int(from_id))
     |> vibe_logger.with_data("from", json.string(from_name))
+    |> vibe_logger.with_data("username", json.string(username))
+    |> vibe_logger.with_data("phone", json.string(phone))
+    |> vibe_logger.with_data("lang", json.string(lang_code))
+    |> vibe_logger.with_data("premium", json.bool(is_premium))
     |> vibe_logger.with_data("text", json.string(string.slice(text, 0, 50)))
     |> vibe_logger.with_data("reply_to", json.int(reply_to_id))
 
@@ -407,8 +417,8 @@ pub fn handle_incoming_message(
           vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("help")), "Command detected")
           let is_ru = is_cyrillic_text(text)
           let help_text = case is_ru {
-            True -> "🤖 VIBEE Bot - Команды:\n\n📸 **Изображения:**\n/neurophoto <prompt> - Генерация с FLUX LoRA\n/neuro <prompt> - Короткая версия\n\n🎬 **Видео:**\n/video <описание> - Text-to-Video (Kling)\n/i2v - Image-to-Video\n/morph - Морфинг изображений\n/broll <тема> - B-Roll генерация\n\n🎤 **Аудио:**\n/voice <текст> - Голосовой синтез (ElevenLabs)\n/talking <текст> - Говорящий аватар (Hedra)\n\n💰 **Тарифы:**\n/pricing - Показать тарифы\n/quiz - Подобрать тариф\n\n💡 Trigger слово NEURO_SAGE добавляется автоматически."
-            False -> "🤖 VIBEE Bot - Commands:\n\n📸 **Images:**\n/neurophoto <prompt> - FLUX LoRA generation\n/neuro <prompt> - Short version\n\n🎬 **Video:**\n/video <description> - Text-to-Video (Kling)\n/i2v - Image-to-Video\n/morph - Image morphing\n/broll <topic> - B-Roll generation\n\n🎤 **Audio:**\n/voice <text> - Voice synthesis (ElevenLabs)\n/talking <text> - Talking avatar (Hedra)\n\n💰 **Pricing:**\n/pricing - Show pricing\n/quiz - Find your plan\n\n💡 Trigger word NEURO_SAGE is added automatically."
+            True -> "🤖 VIBEE Bot - Команды:\n\n📸 Изображения:\n/neurophoto <prompt> - Генерация с FLUX LoRA\n/neuro <prompt> - Короткая версия\n\n🎬 Видео:\n/video <описание> - Text-to-Video (Kling)\n/i2v - Image-to-Video\n/morph - Морфинг изображений\n/broll <тема> - B-Roll генерация\n\n🎤 Аудио:\n/voice <текст> - Голосовой синтез (ElevenLabs)\n/talking <текст> - Говорящий аватар (Hedra)\n\n💰 Тарифы:\n/pricing - Показать тарифы\n/quiz - Подобрать тариф\n\n💡 Trigger слово NEURO_SAGE добавляется автоматически."
+            False -> "🤖 VIBEE Bot - Commands:\n\n📸 Images:\n/neurophoto <prompt> - FLUX LoRA generation\n/neuro <prompt> - Short version\n\n🎬 Video:\n/video <description> - Text-to-Video (Kling)\n/i2v - Image-to-Video\n/morph - Image morphing\n/broll <topic> - B-Roll generation\n\n🎤 Audio:\n/voice <text> - Voice synthesis (ElevenLabs)\n/talking <text> - Talking avatar (Hedra)\n\n💰 Pricing:\n/pricing - Show pricing\n/quiz - Find your plan\n\n💡 Trigger word NEURO_SAGE is added automatically."
           }
           let _ = send_message(updated_state.config, chat_id, help_text, Some(message_id))
           AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
@@ -472,7 +482,7 @@ pub fn handle_incoming_message(
               case trigger_chats.should_respond_to_trigger(chat_id, text) {
                 True -> {
                   vibe_logger.info(sniper_log |> vibe_logger.with_data("trigger", json.bool(True)), "TRIGGER FOUND! Generating response")
-                  process_with_digital_twin(updated_state, chat_id, message_id, text, from_name, from_id)
+                  process_with_digital_twin(updated_state, chat_id, message_id, text, from_name, username, phone, lang_code, is_premium, from_id)
                 }
                 False -> {
                   // 2. Нет триггера - проверяем проактивный режим
@@ -480,7 +490,7 @@ pub fn handle_incoming_message(
                   case should_respond_proactively(chat_id, from_id, reply_to_id, text, current_time) {
                     True -> {
                       vibe_logger.info(sniper_log |> vibe_logger.with_data("proactive", json.bool(True)), "PROACTIVE MODE: Responding without trigger")
-                      process_with_digital_twin(updated_state, chat_id, message_id, text, from_name, from_id)
+                      process_with_digital_twin(updated_state, chat_id, message_id, text, from_name, username, phone, lang_code, is_premium, from_id)
                     }
                     False -> {
                       vibe_logger.debug(sniper_log |> vibe_logger.with_data("trigger", json.bool(False)), "No trigger/proactive signal, staying silent")
@@ -496,7 +506,7 @@ pub fn handle_incoming_message(
                 True -> {
                   // Digital Twin отвечает на ВСЕ сообщения (кроме sniper чатов)
                   vibe_logger.info(vibe_logger.new("twin") |> vibe_logger.with_data("chat_id", json.string(chat_id)), "Responding to message")
-                  process_with_digital_twin(updated_state, chat_id, message_id, text, from_name, from_id)
+                  process_with_digital_twin(updated_state, chat_id, message_id, text, from_name, username, phone, lang_code, is_premium, from_id)
                 }
                 False -> {
                   // Обычный режим - проверяем target_chats и триггеры
@@ -633,11 +643,12 @@ fn handle_normal_mode(state: AgentState, chat_id: String, message_id: Int, text:
 }
 
 /// Digital Twin обработка - отвечает в стиле владельца аккаунта
-fn process_with_digital_twin(state: AgentState, chat_id: String, message_id: Int, text: String, from_name: String, from_id: Int) -> AgentState {
+fn process_with_digital_twin(state: AgentState, chat_id: String, message_id: Int, text: String, from_name: String, username: String, phone: String, lang_code: String, is_premium: Bool, from_id: Int) -> AgentState {
   let log = vibe_logger.new("twin")
     |> vibe_logger.with_session_id(state.config.session_id)
     |> vibe_logger.with_data("chat_id", json.string(chat_id))
     |> vibe_logger.with_data("from", json.string(from_name))
+    |> vibe_logger.with_data("username", json.string(username))
     |> vibe_logger.with_data("from_id", json.int(from_id))
 
   vibe_logger.info(log, "Processing message")
@@ -647,9 +658,15 @@ fn process_with_digital_twin(state: AgentState, chat_id: String, message_id: Int
 
   // Проверяем триггерные слова для этого чата
   let has_trigger = trigger_chats.should_respond_to_trigger(chat_id, text)
+  let trigger_log = vibe_logger.new("trigger")
+    |> vibe_logger.with_data("chat_id", json.string(chat_id))
+    |> vibe_logger.with_data("has_trigger", json.bool(has_trigger))
+    |> vibe_logger.with_data("text", json.string(string.slice(text, 0, 40)))
+  vibe_logger.info(trigger_log, "Trigger check")
 
   case has_trigger {
     True -> {
+      vibe_logger.info(trigger_log |> vibe_logger.with_data("matched", json.bool(True)), "TRIGGER MATCHED")
       vibe_logger.info(log |> vibe_logger.with_data("trigger", json.bool(True)), "Trigger word found")
 
       // Генерируем ответ с учетом шаблона для триггерного чата
@@ -681,19 +698,28 @@ fn process_with_digital_twin(state: AgentState, chat_id: String, message_id: Int
               vibe_logger.debug(log, "Conversation tracked for proactive mode")
 
               // Пересылаем диалог в целевую группу
+              let fwd_init_log = vibe_logger.new("forward_trigger")
+                |> vibe_logger.with_data("chat_id", json.string(chat_id))
+              vibe_logger.info(fwd_init_log, "Looking for forward config")
               case trigger_chats.find_chat_config(chat_id) {
                 Ok(chat_config) -> {
                   let forward_chat_id = chat_config.forward_chat_id
                   let chat_name = chat_config.chat_name
                   let fwd_log = vibe_logger.new("forward")
                     |> vibe_logger.with_data("target", json.string(forward_chat_id))
-                  vibe_logger.debug(fwd_log, "Forwarding dialog")
+                    |> vibe_logger.with_data("chat_name", json.string(chat_name))
+                  vibe_logger.info(fwd_log, "Found config, initiating forward")
 
                   let original_msg = dialog_forwarder.MessageInfo(
                     chat_id: chat_id,
                     chat_name: chat_name,
                     message_id: message_id,
+                    from_id: from_id,
                     from_name: from_name,
+                    username: username,
+                    phone: phone,
+                    lang_code: lang_code,
+                    is_premium: is_premium,
                     text: text,
                     timestamp: 0,
                   )
@@ -702,16 +728,25 @@ fn process_with_digital_twin(state: AgentState, chat_id: String, message_id: Int
                     chat_id: chat_id,
                     chat_name: chat_name,
                     message_id: msg_id,
+                    from_id: state.config.owner_id,
                     from_name: "Agent",
+                    username: "",
+                    phone: "",
+                    lang_code: "",
+                    is_premium: False,
                     text: reply,
                     timestamp: 0,
                   )
 
-                  case dialog_forwarder.forward_dialog(
+                  // Собираем контекст из истории сообщений
+                  let context = collect_dialog_context(state.config, chat_id, from_id, message_id)
+
+                  case dialog_forwarder.forward_dialog_with_context(
                     state.config.session_id,
                     original_msg,
                     agent_msg,
                     forward_chat_id,
+                    context,
                   ) {
                     dialog_forwarder.ForwardSuccess(fwd_id) -> {
                       vibe_logger.info(fwd_log |> vibe_logger.with_data("fwd_msg_id", json.int(fwd_id)), "Dialog forwarded")
@@ -772,6 +807,57 @@ fn process_with_digital_twin(state: AgentState, chat_id: String, message_id: Int
           state
         }
       }
+    }
+  }
+}
+
+// ============================================================
+// Context Collection for Forwarding
+// ============================================================
+
+/// Собирает контекст диалога из истории сообщений
+fn collect_dialog_context(
+  config: TelegramAgentConfig,
+  chat_id: String,
+  lead_user_id: Int,
+  trigger_message_id: Int,
+) -> dialog_forwarder.DialogContext {
+  // Создаём bridge для получения истории
+  let bridge = tg_client.TelegramBridge(
+    base_url: config.bridge_url,
+    session_id: Some(config.session_id),
+    api_key: Some(get_api_key()),
+  )
+
+  // Парсим chat_id
+  let chat_id_int = case int.parse(chat_id) {
+    Ok(id) -> id
+    Error(_) -> 0
+  }
+
+  // Получаем последние 10 сообщений
+  case tg_client.get_history(bridge, chat_id_int, 10) {
+    Ok(messages) -> {
+      // Фильтруем: берём только сообщения ДО триггерного сообщения
+      // и ограничиваем 5 сообщениями для контекста
+      let context_messages = messages
+        |> list.filter(fn(msg: tg_types.TelegramMessage) { msg.id < trigger_message_id })
+        |> list.take(5)
+        |> list.reverse  // Старые сначала
+        |> list.map(fn(msg: tg_types.TelegramMessage) {
+          dialog_forwarder.ContextMessage(
+            from_name: msg.from_name,
+            text: msg.text,
+            is_from_user: msg.from_id == lead_user_id,
+          )
+        })
+
+      dialog_forwarder.DialogContext(messages: context_messages)
+    }
+    Error(_) -> {
+      // Если не удалось получить историю - возвращаем пустой контекст
+      io.println("[CONTEXT] Failed to get history, using empty context")
+      dialog_forwarder.empty_context()
     }
   }
 }
@@ -1127,8 +1213,11 @@ fn handle_video_command(
   case prompt {
     "" -> {
       // SMART ROUTING: Use Bot API to send provider selection with inline buttons
-      // This enables callback queries when user clicks buttons!
-      io.println("[SmartRoute] 🤖 Using Bot API for /video command with buttons")
+      let log = vibe_logger.new("SmartRoute")
+        |> vibe_logger.with_data("chat_id", json.string(chat_id))
+        |> vibe_logger.with_data("command", json.string("/video"))
+
+      vibe_logger.info(log, "🤖 /video command - sending buttons via Bot API")
 
       let text = "🎬 Выбери провайдер для видео:\n\n" <>
         "**Kling AI** - Высокое качество, стабильное движение\n" <>
@@ -1149,15 +1238,22 @@ fn handle_video_command(
       // Get Bot API config
       let bridge_url = telegram_config.bridge_url()
       let api_key = telegram_config.bridge_api_key()
+      vibe_logger.info(log
+        |> vibe_logger.with_data("bridge_url", json.string(bridge_url))
+        |> vibe_logger.with_data("api_key_prefix", json.string(string.slice(api_key, 0, 10)))
+        |> vibe_logger.with_data("chat_id_int", json.int(chat_id_int)),
+        "Bot API config")
       let bot_config = bot_api.with_key(bridge_url, api_key)
 
       case bot_api.send_with_buttons(bot_config, chat_id_int, text, keyboard) {
         Ok(_) -> {
-          io.println("[SmartRoute] ✅ Bot API: Buttons sent successfully!")
+          vibe_logger.info(log, "✅ Bot API: Buttons sent successfully!")
           AgentState(..state, total_messages: state.total_messages + 1)
         }
-        Error(_err) -> {
-          io.println("[SmartRoute] ⚠️ Bot API failed, falling back to MTProto")
+        Error(err) -> {
+          vibe_logger.error(log
+            |> vibe_logger.with_data("error", json.string(bot_api_error_to_string(err))),
+            "⚠️ Bot API failed, falling back to MTProto")
           // Fallback to plain text via MTProto
           let hint = "🎬 /video <описание> - генерация видео\n\nПример: /video закат над океаном, волны, 4K cinematic"
           let _ = send_message(state.config, chat_id, hint, Some(message_id))
@@ -2008,5 +2104,17 @@ fn remove_surrounding_quotes(text: String) -> String {
       |> string.trim()
     }
     False -> text
+  }
+}
+
+/// Convert Bot API error to string for logging
+fn bot_api_error_to_string(err: tg_types.TelegramError) -> String {
+  case err {
+    tg_types.ConnectionError(msg) -> "ConnectionError: " <> msg
+    tg_types.AuthError(msg) -> "AuthError: " <> msg
+    tg_types.ApiError(code, msg) -> "ApiError(" <> int.to_string(code) <> "): " <> msg
+    tg_types.NetworkError(msg) -> "NetworkError: " <> msg
+    tg_types.InvalidSession -> "InvalidSession"
+    tg_types.NotAuthorized -> "NotAuthorized"
   }
 }

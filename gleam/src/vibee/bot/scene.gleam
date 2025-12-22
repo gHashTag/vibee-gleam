@@ -88,6 +88,30 @@ pub type VoiceCloneScene {
   VoiceCloneResult(audio_url: String)
 }
 
+/// Reels Creator flow - conversational agent for creating Instagram-style reels
+pub type ReelsCreatorScene {
+  ReelsSelectTemplate
+  ReelsEnterIdea(template_id: String)
+  ReelsEnterNiche(template_id: String, idea: String)
+  ReelsEnterProduct(template_id: String, idea: String, niche: String)
+  ReelsConfirmDetails(
+    template_id: String,
+    idea: String,
+    niche: String,
+    product: Option(String),
+    photo_url: Option(String),
+  )
+  ReelsGenerating(
+    template_id: String,
+    idea: String,
+    niche: String,
+    product: Option(String),
+    photo_url: String,
+    job_id: String,
+  )
+  ReelsResult(video_url: String)
+}
+
 /// Pricing display flow
 pub type PricingScene {
   PricingList
@@ -121,6 +145,7 @@ pub type Scene {
   BRoll(BRollScene)
   AvatarVideo(AvatarVideoScene)
   VoiceClone(VoiceCloneScene)
+  ReelsCreator(ReelsCreatorScene)
   Pricing(PricingScene)
   Quiz(QuizScene)
   Subscription(SubscriptionScene)
@@ -235,6 +260,14 @@ pub fn is_avatar(session: UserSession) -> Bool {
   }
 }
 
+/// Check if in ReelsCreator flow
+pub fn is_reels_creator(session: UserSession) -> Bool {
+  case session.scene {
+    ReelsCreator(_) -> True
+    _ -> False
+  }
+}
+
 /// Check if waiting for user input
 pub fn is_waiting_input(session: UserSession) -> Bool {
   case session.scene {
@@ -261,6 +294,12 @@ pub fn is_waiting_input(session: UserSession) -> Bool {
     AvatarVideo(AvatarVideoSelectVoice(_, _)) -> True
     VoiceClone(VoiceCloneUploadSample) -> True
     VoiceClone(VoiceCloneEnterText(_)) -> True
+    // ReelsCreator scenes
+    ReelsCreator(ReelsSelectTemplate) -> True
+    ReelsCreator(ReelsEnterIdea(_)) -> True
+    ReelsCreator(ReelsEnterNiche(_, _)) -> True
+    ReelsCreator(ReelsEnterProduct(_, _, _)) -> True
+    ReelsCreator(ReelsConfirmDetails(_, _, _, _, _)) -> True
     _ -> False
   }
 }
@@ -278,6 +317,7 @@ pub fn is_processing(session: UserSession) -> Bool {
     BRoll(BRollGenerating(_, _, _)) -> True
     AvatarVideo(AvatarVideoGenerating(_, _, _, _)) -> True
     VoiceClone(VoiceCloneGenerating(_, _, _)) -> True
+    ReelsCreator(ReelsGenerating(_, _, _, _, _, _)) -> True
     _ -> False
   }
 }
@@ -590,6 +630,76 @@ pub fn scene_to_json(scene: Scene) -> String {
         #("audio_url", json.string(audio_url)),
       ]))
 
+    // ReelsCreator scenes
+    ReelsCreator(ReelsSelectTemplate) ->
+      json.to_string(json.object([
+        #("type", json.string("reels_creator")),
+        #("state", json.string("select_template")),
+      ]))
+
+    ReelsCreator(ReelsEnterIdea(template_id)) ->
+      json.to_string(json.object([
+        #("type", json.string("reels_creator")),
+        #("state", json.string("enter_idea")),
+        #("template_id", json.string(template_id)),
+      ]))
+
+    ReelsCreator(ReelsEnterNiche(template_id, idea)) ->
+      json.to_string(json.object([
+        #("type", json.string("reels_creator")),
+        #("state", json.string("enter_niche")),
+        #("template_id", json.string(template_id)),
+        #("idea", json.string(idea)),
+      ]))
+
+    ReelsCreator(ReelsEnterProduct(template_id, idea, niche)) ->
+      json.to_string(json.object([
+        #("type", json.string("reels_creator")),
+        #("state", json.string("enter_product")),
+        #("template_id", json.string(template_id)),
+        #("idea", json.string(idea)),
+        #("niche", json.string(niche)),
+      ]))
+
+    ReelsCreator(ReelsConfirmDetails(template_id, idea, niche, product, photo_url)) ->
+      json.to_string(json.object([
+        #("type", json.string("reels_creator")),
+        #("state", json.string("confirm_details")),
+        #("template_id", json.string(template_id)),
+        #("idea", json.string(idea)),
+        #("niche", json.string(niche)),
+        #("product", case product {
+          Some(p) -> json.string(p)
+          None -> json.null()
+        }),
+        #("photo_url", case photo_url {
+          Some(p) -> json.string(p)
+          None -> json.null()
+        }),
+      ]))
+
+    ReelsCreator(ReelsGenerating(template_id, idea, niche, product, photo_url, job_id)) ->
+      json.to_string(json.object([
+        #("type", json.string("reels_creator")),
+        #("state", json.string("generating")),
+        #("template_id", json.string(template_id)),
+        #("idea", json.string(idea)),
+        #("niche", json.string(niche)),
+        #("product", case product {
+          Some(p) -> json.string(p)
+          None -> json.null()
+        }),
+        #("photo_url", json.string(photo_url)),
+        #("job_id", json.string(job_id)),
+      ]))
+
+    ReelsCreator(ReelsResult(video_url)) ->
+      json.to_string(json.object([
+        #("type", json.string("reels_creator")),
+        #("state", json.string("result")),
+        #("video_url", json.string(video_url)),
+      ]))
+
     // Pricing scenes
     Pricing(PricingList) ->
       json.to_string(json.object([
@@ -695,6 +805,57 @@ pub fn available_neuro_photo_models() -> List(NeuroPhotoModel) {
       name: "FLUX Kontext",
       description: "Image transformation",
     ),
+  ]
+}
+
+// ============================================================
+// Reels Templates
+// ============================================================
+
+pub type ReelsTemplate {
+  ReelsTemplate(
+    id: String,
+    name: String,
+    description: String,
+    composition_id: String,
+  )
+}
+
+pub fn available_reels_templates() -> List(ReelsTemplate) {
+  [
+    ReelsTemplate(
+      id: "split-talking-head",
+      name: "Split Talking Head",
+      description: "Avatar on one side, B-roll on the other",
+      composition_id: "SplitTalkingHead",
+    ),
+    ReelsTemplate(
+      id: "fullscreen-avatar",
+      name: "Fullscreen Avatar",
+      description: "Full screen talking head with text overlays",
+      composition_id: "FullscreenAvatar",
+    ),
+    ReelsTemplate(
+      id: "picture-in-picture",
+      name: "Picture in Picture",
+      description: "B-roll with avatar in corner",
+      composition_id: "PictureInPicture",
+    ),
+  ]
+}
+
+/// Available niches for reels
+pub type ReelsNiche {
+  ReelsNiche(id: String, name: String, emoji: String)
+}
+
+pub fn available_reels_niches() -> List(ReelsNiche) {
+  [
+    ReelsNiche(id: "business", name: "Бизнес", emoji: "💼"),
+    ReelsNiche(id: "tech", name: "Технологии", emoji: "💻"),
+    ReelsNiche(id: "lifestyle", name: "Лайфстайл", emoji: "🌟"),
+    ReelsNiche(id: "education", name: "Образование", emoji: "📚"),
+    ReelsNiche(id: "health", name: "Здоровье", emoji: "💪"),
   ]
 }
 

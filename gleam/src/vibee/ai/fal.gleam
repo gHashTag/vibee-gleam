@@ -379,5 +379,71 @@ pub fn pricing() -> List(#(String, String)) {
     #("nano-banana-pro", "$0.0398 per image (~25 images per $1)"),
     #("flux-kontext-pro", "$0.035 per image"),
     #("flux-kontext-max", "$0.045 per image"),
+    #("veed-fabric-1.0-480p", "$0.08 per second"),
+    #("veed-fabric-1.0-720p", "$0.15 per second"),
   ]
+}
+
+// ============================================================
+// VEED Fabric 1.0 (Lipsync) Types
+// ============================================================
+
+pub type FabricResolution {
+  Resolution480p
+  Resolution720p
+}
+
+pub type FabricLipsyncRequest {
+  FabricLipsyncRequest(
+    image_url: String,
+    audio_url: String,
+    resolution: FabricResolution,
+  )
+}
+
+// ============================================================
+// VEED Fabric 1.0 Lipsync Request Builder
+// ============================================================
+
+/// Create a VEED Fabric 1.0 lipsync request
+/// Turns an image + audio into a talking head video
+pub fn fabric_lipsync_request(config: Config, req: FabricLipsyncRequest) -> Request {
+  let resolution_str = case req.resolution {
+    Resolution480p -> "480p"
+    Resolution720p -> "720p"
+  }
+
+  let body = json.to_string(json.object([
+    #("image_url", json.string(req.image_url)),
+    #("audio_url", json.string(req.audio_url)),
+    #("resolution", json.string(resolution_str)),
+  ]))
+
+  Request(
+    url: "https://queue.fal.run/veed/fabric-1.0",
+    method: "POST",
+    headers: [
+      #("Authorization", "Key " <> config.api_key),
+      #("Content-Type", "application/json"),
+    ],
+    body: body,
+  )
+}
+
+/// Create a simple lipsync request with 720p default
+pub fn simple_fabric_lipsync(image_url: String, audio_url: String) -> FabricLipsyncRequest {
+  FabricLipsyncRequest(
+    image_url: image_url,
+    audio_url: audio_url,
+    resolution: Resolution720p,
+  )
+}
+
+/// Create a lipsync request with 480p for faster/cheaper generation
+pub fn fast_fabric_lipsync(image_url: String, audio_url: String) -> FabricLipsyncRequest {
+  FabricLipsyncRequest(
+    image_url: image_url,
+    audio_url: audio_url,
+    resolution: Resolution480p,
+  )
 }

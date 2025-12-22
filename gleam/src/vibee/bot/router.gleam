@@ -12,7 +12,7 @@ import vibee/bot/scene.{
   AvatarUploadPhotos, AvatarVideo, BRoll, CallbackQuery, Command, Idle,
   ImageToVideo, Main, MainMenu, Morphing, NeuroPhoto, NeuroPhotoEnterPrompt,
   NeuroPhotoGenerating, NeuroPhotoResult, NeuroPhotoSelectModel, PhotoMessage,
-  Pricing, Quiz, Subscription,
+  Pricing, Quiz, ReelsCreator, Subscription,
   TextMessage, TextReply, TextToVideo, TextWithKeyboard, UserSession,
   VoiceClone, button, button_row,
 }
@@ -30,6 +30,7 @@ import vibee/sales/proposal_generator
 import vibee/sales/lead_service
 import vibee/bot/scenes/voice_clone as voice_clone_scene
 import vibee/bot/scenes/neuro_photo as neuro_photo_scene
+import vibee/bot/scenes/reels_creator as reels_creator_scene
 import vibee/bot/session_store
 import vibee/bot/job_executor
 
@@ -191,6 +192,19 @@ fn handle_command(
       }
     }
 
+    "reels" | "reel" -> {
+      case reels_creator_scene.enter(session) {
+        Ok(result) -> {
+          let _ = session_store.save_session(pool, result.session)
+          Ok(RouterResult(
+            session: result.session,
+            response: result.response,
+          ))
+        }
+        Error(_) -> Error(SceneError("Failed to enter ReelsCreator scene"))
+      }
+    }
+
     "pricing" | "tariffs" | "prices" -> {
       let result = pricing_scene.handle_pricing_command(session)
       let _ = session_store.save_session(pool, result.session)
@@ -301,6 +315,7 @@ fn route_to_scene(
     Pricing(_) -> handle_pricing_scene(pool, session, message)
     Quiz(_) -> handle_quiz_scene(pool, session, message)
     Subscription(_) -> handle_subscription_scene(pool, session, message)
+    ReelsCreator(_) -> handle_new_scene(pool, session, message, reels_creator_scene.handle_message, reels_creator_scene.handle_callback)
   }
 }
 

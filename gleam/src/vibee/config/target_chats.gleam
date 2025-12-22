@@ -69,38 +69,45 @@ pub fn get_target_chats() -> List(TargetChat) {
 }
 
 /// Проверяет, является ли chatId целевым чатом
-/// Учитывает разные форматы ID (с и без префикса -100)
+/// Учитывает разные форматы ID (Bridge может вернуть без знака минус и без -100)
 pub fn is_target_chat(chat_id: String) -> Bool {
   io.println("[TARGET_CHECK] Checking chat_id: " <> chat_id)
   let chats = target_chats()
 
-  // Прямое совпадение
-  case list.contains(chats, chat_id) {
-    True -> {
-      io.println("[TARGET_CHECK] ✅ Direct match!")
-      True
-    }
-    False -> {
-      // Нормализация: убираем -100 префикс
-      let normalized = normalize_chat_id(chat_id)
-      io.println("[TARGET_CHECK] Normalized: " <> normalized)
-      let result = list.contains(chats, normalized)
-      case result {
-        True -> io.println("[TARGET_CHECK] ✅ Normalized match!")
-        False -> io.println("[TARGET_CHECK] ❌ Not in target_chats list")
-      }
-      result
-    }
+  // Нормализуем входящий ID
+  let normalized = normalize_chat_id(chat_id)
+  io.println("[TARGET_CHECK] Normalized input: " <> normalized)
+
+  // Проверяем совпадение с нормализованными значениями из конфига
+  let result = list.any(chats, fn(config_id) {
+    let config_normalized = normalize_chat_id(config_id)
+    normalized == config_normalized
+  })
+
+  case result {
+    True -> io.println("[TARGET_CHECK] ✅ Match found!")
+    False -> io.println("[TARGET_CHECK] ❌ Not in target_chats list")
   }
+  result
 }
 
-/// Нормализует chat ID - убирает -100 префикс но СОХРАНЯЕТ минус
-/// "-1005082217642" → "-5082217642" (для групп)
-/// "-5082217642" → "-5082217642" (уже нормализовано)
+/// Нормализует chat_id к абсолютному значению (только цифры)
+/// Bridge может возвращать:
+///   - 5082217642 (обычная группа без знака)
+///   - 2298297094 (supergroup без -100 префикса)
+/// Config содержит:
+///   - -5082217642 (обычная группа)
+///   - -1002298297094 (supergroup с -100 префиксом)
 pub fn normalize_chat_id(chat_id: String) -> String {
-  case string.starts_with(chat_id, "-100") {
-    True -> "-" <> string.drop_start(chat_id, 4)  // Сохраняем минус!
-    False -> chat_id  // Оставляем как есть
+  // Убираем знак минус если есть
+  let without_sign = case string.starts_with(chat_id, "-") {
+    True -> string.drop_start(chat_id, 1)
+    False -> chat_id
+  }
+  // Убираем префикс 100 если есть (для supergroups)
+  case string.starts_with(without_sign, "100") {
+    True -> string.drop_start(without_sign, 3)
+    False -> without_sign
   }
 }
 

@@ -9,15 +9,16 @@ description: MANDATORY Rainbow Bridge E2E Testing - исключает чело�
 
 Исключает человеческий фактор - автоматическая проверка что бот работает правильно.
 
-## Быстрая проверка (для Claude Code)
+> Общий паттерн тестирования: см. `/rainbow-bridge`
 
-После `fly deploy` использовать WebFetch:
+## Quick Test (1 команда)
+
 ```
-WebFetch: https://vibee-mcp.fly.dev/api/e2e/run
-Prompt: "Show test results - passed/failed counts"
+WebFetch: https://vibee-mcp.fly.dev/api/e2e/run-sync
+Prompt: "Show all test results - passed/failed"
 ```
 
-Ожидаемый результат: **ВСЕ тесты PASSED или SKIPPED**
+**Ожидание**: `passed >= 2, failed == 0`
 
 ## Способы запуска
 

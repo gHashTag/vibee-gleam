@@ -491,7 +491,12 @@ pub fn init_registry() -> ToolRegistry {
       telegram_send_photo_tool(),
       telegram_download_media_tool(),
       telegram_get_me_tool(),
+      telegram_get_user_photo_tool(),
       telegram_subscribe_updates_tool(),
+
+      // Reels tools
+      reels_create_tool(),
+      reels_templates_tool(),
 
       // Knowledge tools
       knowledge_search_tool(),
@@ -675,10 +680,14 @@ pub fn init_registry() -> ToolRegistry {
     |> dict.insert("telegram_send_photo", handle_telegram_send_photo)
     |> dict.insert("telegram_download_media", handle_telegram_download_media)
     |> dict.insert("telegram_get_me", handle_telegram_get_me)
+    |> dict.insert("telegram_get_user_photo", handle_telegram_get_user_photo)
     |> dict.insert(
       "telegram_subscribe_updates",
       handle_telegram_subscribe_updates,
     )
+    // Reels handlers
+    |> dict.insert("reels_create", handle_reels_create)
+    |> dict.insert("reels_templates", handle_reels_templates)
     |> dict.insert("knowledge_search", handle_knowledge_search)
     |> dict.insert("knowledge_embed", handle_knowledge_embed)
     |> dict.insert("file_read", handle_file_read)
@@ -953,6 +962,7 @@ fn get_tool_annotations(name: String) -> protocol.ToolAnnotations {
   // Read-only tools (safe, no side effects)
   let read_only_tools = [
     "telegram_get_dialogs", "telegram_get_history", "telegram_get_me",
+    "telegram_get_user_photo",
     "file_read", "file_list", "knowledge_search", "event_list", "debug_build",
     "debug_test", "debug_analyze", "debug_trace", "code_explain",
     "code_find_similar", "code_diff", "test_run", "test_coverage",
@@ -1335,6 +1345,105 @@ fn telegram_get_me_tool() -> Tool {
         ]),
       ),
       #("required", json.array(["session_id"], json.string)),
+    ]),
+  )
+}
+
+fn telegram_get_user_photo_tool() -> Tool {
+  Tool(
+    name: "telegram_get_user_photo",
+    description: "Get and download a user's profile photo from Telegram. Returns the photo file path.",
+    input_schema: json.object([
+      #("type", json.string("object")),
+      #(
+        "properties",
+        json.object([
+          #(
+            "session_id",
+            json.object([
+              #("type", json.string("string")),
+              #("description", json.string("Telegram session ID")),
+            ]),
+          ),
+          #(
+            "user_id",
+            json.object([
+              #("type", json.string("integer")),
+              #("description", json.string("Telegram user ID to get photo for")),
+            ]),
+          ),
+        ]),
+      ),
+      #("required", json.array(["session_id", "user_id"], json.string)),
+    ]),
+  )
+}
+
+fn reels_create_tool() -> Tool {
+  Tool(
+    name: "reels_create",
+    description: "Create an Instagram-style reels video. Generates script, TTS, lipsync, B-roll and renders final video.",
+    input_schema: json.object([
+      #("type", json.string("object")),
+      #(
+        "properties",
+        json.object([
+          #(
+            "telegram_id",
+            json.object([
+              #("type", json.string("integer")),
+              #("description", json.string("Telegram user ID to get avatar photo from")),
+            ]),
+          ),
+          #(
+            "template_id",
+            json.object([
+              #("type", json.string("string")),
+              #("description", json.string("Video template: split-talking-head, fullscreen-avatar, picture-in-picture")),
+            ]),
+          ),
+          #(
+            "idea",
+            json.object([
+              #("type", json.string("string")),
+              #("description", json.string("Main idea/topic for the reels content")),
+            ]),
+          ),
+          #(
+            "niche",
+            json.object([
+              #("type", json.string("string")),
+              #("description", json.string("Content niche: business, tech, lifestyle, education, health")),
+            ]),
+          ),
+          #(
+            "product",
+            json.object([
+              #("type", json.string("string")),
+              #("description", json.string("Optional product/service to promote")),
+            ]),
+          ),
+          #(
+            "test_mode",
+            json.object([
+              #("type", json.string("boolean")),
+              #("description", json.string("Use test assets instead of real APIs (default: false)")),
+            ]),
+          ),
+        ]),
+      ),
+      #("required", json.array(["telegram_id", "template_id", "idea", "niche"], json.string)),
+    ]),
+  )
+}
+
+fn reels_templates_tool() -> Tool {
+  Tool(
+    name: "reels_templates",
+    description: "List available video templates for reels creation.",
+    input_schema: json.object([
+      #("type", json.string("object")),
+      #("properties", json.object([])),
     ]),
   )
 }
@@ -1962,6 +2071,74 @@ fn handle_telegram_get_me(args: json.Json) -> ToolResult {
       }
     }
   }
+}
+
+fn handle_telegram_get_user_photo(args: json.Json) -> ToolResult {
+  case check_telegram_auth() {
+    Error(auth_result) -> auth_result
+    Ok(Nil) -> {
+      case decoders.decode_telegram_get_user_photo(args) {
+        Error(err) -> protocol.error_result(decoders.error_to_string(err))
+        Ok(parsed) -> {
+          case validation.validate_session_id(parsed.session_id) {
+            Error(err) -> protocol.error_result(validation.error_to_string(err))
+            Ok(sid) -> {
+              // Call Bridge API to download user's profile photo
+              let path = "/api/v1/user/photo/download/" <> int.to_string(parsed.user_id)
+              case http_get_with_session(path, sid) {
+                Ok(body) -> protocol.text_result(body)
+                Error(err) -> protocol.error_result(err)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+fn handle_reels_create(_args: json.Json) -> ToolResult {
+  // TODO: Parse args and execute reels pipeline
+  // For now, return a placeholder response
+  protocol.text_result(json.object([
+    #("status", json.string("pending")),
+    #("message", json.string("Reels creation is being implemented. Use the Telegram bot /reels command for now.")),
+  ]) |> json.to_string())
+}
+
+fn handle_reels_templates(_args: json.Json) -> ToolResult {
+  // Return available templates
+  let templates = [
+    json.object([
+      #("id", json.string("split-talking-head")),
+      #("name", json.string("Split Talking Head")),
+      #("description", json.string("Avatar on one side, B-roll on the other")),
+      #("composition_id", json.string("SplitTalkingHead")),
+    ]),
+    json.object([
+      #("id", json.string("fullscreen-avatar")),
+      #("name", json.string("Fullscreen Avatar")),
+      #("description", json.string("Full screen talking head with text overlays")),
+      #("composition_id", json.string("FullscreenAvatar")),
+    ]),
+    json.object([
+      #("id", json.string("picture-in-picture")),
+      #("name", json.string("Picture in Picture")),
+      #("description", json.string("B-roll with avatar in corner")),
+      #("composition_id", json.string("PictureInPicture")),
+    ]),
+  ]
+
+  protocol.text_result(json.object([
+    #("templates", json.array(templates, fn(t) { t })),
+    #("niches", json.array([
+      json.object([#("id", json.string("business")), #("name", json.string("Бизнес")), #("emoji", json.string("💼"))]),
+      json.object([#("id", json.string("tech")), #("name", json.string("Технологии")), #("emoji", json.string("💻"))]),
+      json.object([#("id", json.string("lifestyle")), #("name", json.string("Лайфстайл")), #("emoji", json.string("🌟"))]),
+      json.object([#("id", json.string("education")), #("name", json.string("Образование")), #("emoji", json.string("📚"))]),
+      json.object([#("id", json.string("health")), #("name", json.string("Здоровье")), #("emoji", json.string("💪"))]),
+    ], fn(n) { n })),
+  ]) |> json.to_string())
 }
 
 fn handle_knowledge_search(args: json.Json) -> ToolResult {

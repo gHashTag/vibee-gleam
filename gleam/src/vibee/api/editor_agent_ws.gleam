@@ -5,6 +5,7 @@
 
 import gleam/dynamic/decode
 import gleam/erlang/process
+import gleam/float
 import gleam/http/request.{type Request}
 import gleam/http/response.{type Response}
 import gleam/int
@@ -153,15 +154,21 @@ fn handle_chat_request(
 ) {
   io.println("[Agent WS] 💬 Chat request: " <> string.slice(user_message, 0, 50))
 
+  // Build messages with system prompt for fresh conversations
+  let messages_with_system = case state.conversation_history {
+    [] -> [openrouter.system_message(editor_system_prompt())]
+    existing -> existing
+  }
+
   // Add user message to conversation
   let new_history = list.append(
-    state.conversation_history,
+    messages_with_system,
     [openrouter.user_message(user_message)],
   )
 
   // Call OpenRouter for response
   let chat_request = openrouter.ChatRequest(
-    model: "anthropic/claude-3-5-haiku-latest",
+    model: "google/gemini-3-flash-preview",
     messages: new_history,
     temperature: Some(0.7),
     max_tokens: Some(2000),
@@ -303,7 +310,7 @@ fn handle_apply_action(
 fn encode_chat_response(
   content: String,
   code_block: Option(#(String, String)),
-  actions: List(#(String, String, String)),
+  actions: List(#(String, String, String, String)),
 ) -> String {
   json.to_string(
     json.object([
@@ -324,7 +331,7 @@ fn encode_streaming_response(
   content: String,
   is_complete: Bool,
   code_block: Option(#(String, String)),
-  actions: List(#(String, String, String)),
+  actions: List(#(String, String, String, String)),
 ) -> String {
   json.to_string(
     json.object([
@@ -362,14 +369,16 @@ fn encode_code_block_json(code_block: Option(#(String, String))) -> json.Json {
   }
 }
 
-fn encode_actions_json(actions: List(#(String, String, String))) -> json.Json {
+fn encode_actions_json(actions: List(#(String, String, String, String))) -> json.Json {
   json.array(actions, fn(action) {
-    let #(id, action_type, label) = action
+    let #(id, action_type, label, payload_json) = action
     json.object([
       #("id", json.string(id)),
       #("type", json.string(action_type)),
       #("label", json.string(label)),
-      #("payload", json.object([])),
+      // Pass payload as raw JSON string - frontend will parse it
+      #("payloadJson", json.string(payload_json)),
+      #("status", json.string("pending")),
     ])
   })
 }
@@ -532,10 +541,172 @@ fn extract_code_block(content: String) -> Option(#(String, String)) {
   }
 }
 
-/// Extract action suggestions from content (placeholder for future)
-fn extract_actions(_content: String) -> List(#(String, String, String)) {
-  // Future: parse JSON action objects from content
-  []
+/// Extract action suggestions from content - parses JSON action blocks
+fn extract_actions(content: String) -> List(#(String, String, String, String)) {
+  // Find all ```json blocks and extract actions
+  extract_json_actions(content, [], 0)
+}
+
+/// Recursively extract JSON action blocks from content
+fn extract_json_actions(
+  content: String,
+  acc: List(#(String, String, String, String)),
+  counter: Int,
+) -> List(#(String, String, String, String)) {
+  case string.split_once(content, "```json") {
+    Ok(#(_, rest)) -> {
+      case string.split_once(rest, "```") {
+        Ok(#(json_block, remaining)) -> {
+          // Try to parse the JSON block
+          let trimmed = string.trim(json_block)
+          case parse_action_json(trimmed, counter) {
+            Ok(action) ->
+              extract_json_actions(remaining, list.append(acc, [action]), counter + 1)
+            Error(_) ->
+              extract_json_actions(remaining, acc, counter)
+          }
+        }
+        Error(_) -> acc
+      }
+    }
+    Error(_) -> acc
+  }
+}
+
+/// Parse a JSON action block into action tuple (id, type, label, payload_json)
+fn parse_action_json(json_str: String, counter: Int) -> Result(#(String, String, String, String), String) {
+  // Try to decode the action type
+  let action_decoder = {
+    use action_type <- decode.field("action", decode.string)
+    decode.success(action_type)
+  }
+
+  case json.parse(json_str, action_decoder) {
+    Ok(action_type) -> {
+      let id = "action_" <> int.to_string(counter)
+      let label = action_type_to_label(action_type, json_str)
+      // Convert action JSON to payload format (remove "action" key, use "type" instead)
+      let payload_json = transform_action_to_payload(json_str, action_type)
+      Ok(#(id, action_type, label, payload_json))
+    }
+    Error(_) -> Error("Failed to parse action JSON")
+  }
+}
+
+/// Transform action JSON to payload format expected by frontend
+fn transform_action_to_payload(json_str: String, action_type: String) -> String {
+  // For most actions, we need to extract the relevant fields from the JSON
+  // and create a payload object without the "action" key
+  case action_type {
+    "update_prop" -> {
+      // Extract key and value
+      let decoder = {
+        use key <- decode.field("key", decode.string)
+        use value <- decode.field("value", decode.dynamic)
+        decode.success(#(key, value))
+      }
+      case json.parse(json_str, decoder) {
+        Ok(#(key, value)) -> {
+          "{\"key\":\"" <> key <> "\",\"value\":" <> dynamic_to_json_string(value) <> "}"
+        }
+        Error(_) -> "{}"
+      }
+    }
+    "add_track_item" -> {
+      // Extract trackId and itemData
+      let decoder = {
+        use track_id <- decode.field("trackId", decode.string)
+        decode.success(track_id)
+      }
+      case json.parse(json_str, decoder) {
+        Ok(track_id) -> {
+          // Keep the original JSON structure but rename for frontend
+          string.replace(json_str, "\"action\":", "\"_action\":")
+          |> string.replace("\"trackId\":", "\"trackId\":")
+          |> string.replace("\"itemData\":", "\"itemData\":")
+        }
+        Error(_) -> json_str
+      }
+    }
+    "update_track_item" -> {
+      // Keep as-is, frontend expects itemId and updates
+      string.replace(json_str, "\"action\":", "\"_action\":")
+    }
+    "delete_track_items" -> {
+      // Extract itemIds
+      let decoder = {
+        use ids <- decode.field("itemIds", decode.list(decode.string))
+        decode.success(ids)
+      }
+      case json.parse(json_str, decoder) {
+        Ok(ids) -> {
+          let ids_json = "[" <> string.join(list.map(ids, fn(id) { "\"" <> id <> "\"" }), ",") <> "]"
+          "{\"itemIds\":" <> ids_json <> "}"
+        }
+        Error(_) -> "{\"itemIds\":[]}"
+      }
+    }
+    "select_items" -> {
+      // Extract itemIds
+      let decoder = {
+        use ids <- decode.field("itemIds", decode.list(decode.string))
+        decode.success(ids)
+      }
+      case json.parse(json_str, decoder) {
+        Ok(ids) -> {
+          let ids_json = "[" <> string.join(list.map(ids, fn(id) { "\"" <> id <> "\"" }), ",") <> "]"
+          "{\"itemIds\":" <> ids_json <> "}"
+        }
+        Error(_) -> "{\"itemIds\":[]}"
+      }
+    }
+    _ -> json_str
+  }
+}
+
+/// Convert dynamic value to JSON string (simple implementation)
+fn dynamic_to_json_string(value: decode.Dynamic) -> String {
+  // Try different types
+  case decode.run(value, decode.string) {
+    Ok(s) -> "\"" <> s <> "\""
+    Error(_) ->
+      case decode.run(value, decode.int) {
+        Ok(i) -> int.to_string(i)
+        Error(_) ->
+          case decode.run(value, decode.float) {
+            Ok(f) -> float.to_string(f)
+            Error(_) ->
+              case decode.run(value, decode.bool) {
+                Ok(True) -> "true"
+                Ok(False) -> "false"
+                Error(_) -> "null"
+              }
+          }
+      }
+  }
+}
+
+/// Convert action type to human-readable label
+fn action_type_to_label(action_type: String, json_str: String) -> String {
+  case action_type {
+    "update_prop" -> {
+      // Try to extract key name
+      let key_decoder = {
+        use key <- decode.field("key", decode.string)
+        decode.success(key)
+      }
+      case json.parse(json_str, key_decoder) {
+        Ok(key) -> "Update " <> key
+        Error(_) -> "Update property"
+      }
+    }
+    "add_track_item" -> "Add item to timeline"
+    "update_track_item" -> "Update timeline item"
+    "delete_track_items" -> "Delete items"
+    "select_items" -> "Select items"
+    "apply_style" -> "Apply style changes"
+    _ -> "Apply: " <> action_type
+  }
 }
 
 // =============================================================================
@@ -573,38 +744,58 @@ fn get_env_or(key: String, default: String) -> String
 
 fn editor_system_prompt() -> String {
   "You are VIBEE AI, an expert assistant for creating and editing Remotion video templates.
+Respond in the same language the user uses.
 
 ## Your Capabilities
 - Help users create and modify video compositions (React/Remotion)
-- Generate TypeScript/TSX code for new templates
+- Manage timeline: add, update, delete video/audio items
 - Suggest property changes for existing templates
 - Explain video editing concepts
 
-## Available Templates
-- SplitTalkingHead: Split screen with B-roll and avatar
-- TextOverlay: Animated text compositions
-- VideoIntro: Brand intro animations
+## Available Actions (include as JSON in your response)
 
-## Response Format
-When suggesting code changes, wrap code in triple backticks with language:
-```tsx
-// Your code here
+### Template Property Actions:
+```json
+{\"action\": \"update_prop\", \"key\": \"musicVolume\", \"value\": 0.1}
+```
+Available props: musicVolume (0-1), coverDuration (0-1), vignetteStrength (0-1), colorCorrection (0.5-2.0), circleSizePercent, circleBottomPercent, circleLeftPx, showCaptions (true/false)
+
+### Timeline Actions:
+```json
+{\"action\": \"add_track_item\", \"trackId\": \"video-track\", \"itemData\": {\"type\": \"video\", \"assetId\": \"asset-1\", \"startFrame\": 0, \"durationFrames\": 90, \"mediaStartFrame\": 0}}
 ```
 
-When suggesting property changes, include an action object:
-{
-  \"type\": \"update_prop\",
-  \"key\": \"propertyName\",
-  \"value\": newValue
-}
+```json
+{\"action\": \"update_track_item\", \"itemId\": \"item-1\", \"updates\": {\"startFrame\": 30, \"durationFrames\": 120}}
+```
+
+```json
+{\"action\": \"delete_track_items\", \"itemIds\": [\"item-1\", \"item-2\"]}
+```
+
+```json
+{\"action\": \"select_items\", \"itemIds\": [\"item-1\"]}
+```
+
+## Context You Receive
+- tracks: Array of timeline tracks with items (id, type, startFrame, durationFrames)
+- assets: Array of available media files (id, name, type, src, durationFrames)
+- project: {name, fps, width, height, durationInFrames}
+- props: Current template properties
+- selectedItems: Currently selected item IDs
+
+## Available Track IDs
+- video-track: B-roll videos
+- avatar-track: Avatar/talking head
+- audio-track: Background music
+- text-track: Text overlays
 
 ## Guidelines
 - Keep responses concise and actionable
-- Provide complete, working code snippets
-- Use TypeScript for type safety
-- Follow Remotion best practices
+- Include JSON action blocks when suggesting changes
 - Consider 9:16 vertical video format (1080x1920)
 - Default FPS is 30
+- When adding items, calculate startFrame based on existing items
 
 Be helpful, creative, and precise!"
 }

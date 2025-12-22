@@ -425,7 +425,7 @@ fn populate_seen_ids(
         let messages = extract_messages(history_json)
         // Добавляем ВСЕ сообщения (входящие и исходящие) в seen_ids
         list.fold(messages, acc_seen, fn(acc, msg) {
-          let #(msg_id, _, _, _, _, _) = msg
+          let #(msg_id, _, _, _, _, _, _, _, _, _) = msg
           let unique_id = chat_id <> ":" <> int.to_string(msg_id)
           set.insert(acc, unique_id)
         })
@@ -482,6 +482,10 @@ fn process_dialogs_with_events(
   // Используем ПРИОРИТИЗИРОВАННЫЕ чаты
   let filtered_ids = prioritized_ids
 
+  // DEBUG: Log first 5 chat IDs being processed
+  let preview = list.take(filtered_ids, 5)
+  io.println("[POLL_DEBUG] Processing " <> int.to_string(list.length(filtered_ids)) <> " chats, first 5: " <> string.join(preview, ", "))
+
   case list.length(filtered_ids) {
     0 -> {
       vibe_logger.warn(logger
@@ -534,7 +538,7 @@ fn log_chat_messages_with_events(
 
       // Фильтруем и логируем только новые ВХОДЯЩИЕ сообщения
       list.fold(messages, seen_ids, fn(acc_seen, msg) {
-        let #(msg_id, _from_id, from_name, text, is_outgoing, _reply_to_id) = msg
+        let #(msg_id, _from_id, from_name, _username, text, _phone, _lang_code, _is_premium, is_outgoing, _reply_to_id) = msg
         let unique_id = chat_id <> ":" <> int.to_string(msg_id)
 
         // Пропускаем исходящие сообщения (от нас самих)
@@ -641,8 +645,8 @@ fn process_chat_messages_with_events(
       // ВАЖНО: Сортируем по msg_id от меньшего к большему
       // чтобы старые сообщения обрабатывались первыми
       let sorted_messages = list.sort(messages, fn(a, b) {
-        let #(id_a, _, _, _, _, _) = a
-        let #(id_b, _, _, _, _, _) = b
+        let #(id_a, _, _, _, _, _, _, _, _, _) = a
+        let #(id_b, _, _, _, _, _, _, _, _, _) = b
         int.compare(id_a, id_b)
       })
 
@@ -653,7 +657,7 @@ fn process_chat_messages_with_events(
       // Обрабатываем каждое ВХОДЯЩЕЕ сообщение с дедупликацией
       list.fold(sorted_messages, #(state, seen_ids), fn(acc, msg) {
         let #(acc_state, acc_seen) = acc
-        let #(msg_id, from_id, from_name, text, is_outgoing, reply_to_id) = msg
+        let #(msg_id, from_id, from_name, username, text, phone, lang_code, is_premium, is_outgoing, reply_to_id) = msg
         let unique_id = chat_id <> ":" <> int.to_string(msg_id)
 
         // Пропускаем исходящие сообщения (от нас самих)
@@ -672,6 +676,7 @@ fn process_chat_messages_with_events(
                   |> vibe_logger.with_data("msg_id", json.int(msg_id))
                   |> vibe_logger.with_data("from_id", json.int(from_id))
                   |> vibe_logger.with_data("from_name", json.string(from_name))
+                  |> vibe_logger.with_data("username", json.string(username))
                   |> vibe_logger.with_data("reply_to_id", json.int(reply_to_id))
 
                 // Логируем как REPLY если это ответ на сообщение
@@ -701,6 +706,10 @@ fn process_chat_messages_with_events(
                   chat_id,
                   from_id,
                   from_name,
+                  username,
+                  phone,
+                  lang_code,
+                  is_premium,
                   text,
                   msg_id,
                   reply_to_id,
@@ -745,9 +754,9 @@ fn process_chat_messages_with_events(
 }
 
 /// Извлечь сообщения из JSON ответа
-/// Формат: {"messages":[{"id":123,"text":"...","from_name":"...","from_id":123,"out":true,"reply_to_id":456},...]}
-/// Returns: List(#(msg_id, from_id, from_name, text, is_outgoing, reply_to_id))
-fn extract_messages(json: String) -> List(#(Int, Int, String, String, Bool, Int)) {
+/// Формат: {"messages":[{"id":123,"text":"...","from_name":"...","from_id":123,"username":"...","phone":"...","lang_code":"ru","premium":true,"out":true,"reply_to_id":456},...]}
+/// Returns: List(#(msg_id, from_id, from_name, username, text, phone, lang_code, is_premium, is_outgoing, reply_to_id))
+fn extract_messages(json: String) -> List(#(Int, Int, String, String, String, String, String, Bool, Bool, Int)) {
   // Разбиваем по объектам сообщений
   let message_parts = string.split(json, "{\"id\":")
 
@@ -758,7 +767,7 @@ fn extract_messages(json: String) -> List(#(Int, Int, String, String, Bool, Int)
 }
 
 /// Парсит один объект сообщения из строки
-fn parse_message_object(part: String) -> Result(#(Int, Int, String, String, Bool, Int), Nil) {
+fn parse_message_object(part: String) -> Result(#(Int, Int, String, String, String, String, String, Bool, Bool, Int), Nil) {
   // Извлекаем id (первое число до запятой)
   let id = case string.split(part, ",") {
     [id_str, ..] -> {
@@ -782,6 +791,25 @@ fn parse_message_object(part: String) -> Result(#(Int, Int, String, String, Bool
     name -> name
   }
 
+  // Извлекаем username
+  let username = extract_json_field(part, "username")
+
+  // Log extracted user data
+  let user_log = vibe_logger.new("poll")
+    |> vibe_logger.with_data("username", json.string(username))
+    |> vibe_logger.with_data("from_name", json.string(from_name))
+    |> vibe_logger.with_data("from_id", json.int(from_id))
+  vibe_logger.debug(user_log, "Extracted user data")
+
+  // Извлекаем phone (номер телефона если доступен)
+  let phone = extract_json_field(part, "phone")
+
+  // Извлекаем lang_code (язык пользователя: ru, en, etc)
+  let lang_code = extract_json_field(part, "lang_code")
+
+  // Извлекаем premium (Telegram Premium статус)
+  let is_premium = extract_json_bool_field(part, "premium")
+
   // Извлекаем out (исходящее сообщение)
   let is_outgoing = extract_json_bool_field(part, "out")
 
@@ -791,7 +819,7 @@ fn parse_message_object(part: String) -> Result(#(Int, Int, String, String, Bool
   // Пропускаем только сообщения с пустым текстом (медиа-сообщения)
   case text {
     "" -> Error(Nil)
-    _ -> Ok(#(id, from_id, from_name, text, is_outgoing, reply_to_id))
+    _ -> Ok(#(id, from_id, from_name, username, text, phone, lang_code, is_premium, is_outgoing, reply_to_id))
   }
 }
 

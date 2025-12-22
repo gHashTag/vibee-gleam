@@ -474,6 +474,10 @@ fn process_event(state: WebSocketState, event: TelegramEvent) -> WebSocketState 
                   int.to_string(chat_id),
                   from_id,
                   from_name,
+                  "",  // username not yet supported in WS events
+                  "",  // phone not yet supported in WS events
+                  "",  // lang_code not yet supported in WS events
+                  False,  // is_premium not yet supported in WS events
                   text,
                   msg_id,
                   0,  // reply_to_id not supported in WS yet

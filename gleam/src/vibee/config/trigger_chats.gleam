@@ -144,12 +144,23 @@ pub fn contains_trigger(text: String, triggers: List(String)) -> Bool {
   result
 }
 
-/// Нормализует chat_id - убирает префикс -100 если есть
-/// Bridge отправляет -5082217642, конфиг содержит -1005082217642
+/// Нормализует chat_id к абсолютному значению (только цифры)
+/// Bridge может возвращать:
+///   - 5082217642 (обычная группа без знака)
+///   - 2298297094 (supergroup без -100 префикса)
+/// Config содержит:
+///   - -5082217642 (обычная группа)
+///   - -1002298297094 (supergroup с -100 префиксом)
 fn normalize_chat_id(chat_id: String) -> String {
-  case string.starts_with(chat_id, "-100") {
-    True -> "-" <> string.drop_start(chat_id, 4)
+  // Убираем знак минус если есть
+  let without_sign = case string.starts_with(chat_id, "-") {
+    True -> string.drop_start(chat_id, 1)
     False -> chat_id
+  }
+  // Убираем префикс 100 если есть (для supergroups)
+  case string.starts_with(without_sign, "100") {
+    True -> string.drop_start(without_sign, 3)
+    False -> without_sign
   }
 }
 

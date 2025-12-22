@@ -30,7 +30,7 @@ primary_region = 'ams'
   memory = '512mb'
 
 [mounts]
-  source = 'vibee_sessions'
+  source = 'telegram_sessions'
   destination = '/app/sessions'
 
 [checks]
