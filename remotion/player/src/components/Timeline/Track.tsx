@@ -1,6 +1,6 @@
 import { useState, useCallback, memo } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { selectedItemIdsAtom, addItemAtom, updateItemAtom } from '@/atoms';
+import { selectedItemIdsAtom, addItemAtom, updateItemAtom, lipSyncVideoAtom } from '@/atoms';
 import { TrackItem } from './TrackItem';
 import type { Track as TrackType, Asset } from '@/store/types';
 
@@ -13,6 +13,7 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
   const selectedItemIds = useAtomValue(selectedItemIdsAtom);
   const addItem = useSetAtom(addItemAtom);
   const updateItem = useSetAtom(updateItemAtom);
+  const setLipSyncVideo = useSetAtom(lipSyncVideoAtom);
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -66,6 +67,12 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
         // REPLACE: Update existing item's asset
         console.log(`Replacing ${existingItem.id} with ${asset.name}`);
         updateItem({ itemId: existingItem.id, updates: { assetId: asset.id } });
+
+        // Update lipSyncVideoAtom if this is avatar track
+        if (track.type === 'avatar' && asset.url) {
+          console.log(`[Track] Avatar video changed to: ${asset.url}`);
+          setLipSyncVideo(asset.url);
+        }
         return;
       }
 
@@ -95,11 +102,17 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
         },
       });
 
+      // Update lipSyncVideoAtom if this is avatar track
+      if (track.type === 'avatar' && asset.url) {
+        console.log(`[Track] Avatar video set to: ${asset.url}`);
+        setLipSyncVideo(asset.url);
+      }
+
       console.log(`Added ${asset.name} to ${track.name} at frame ${dropFrame}`);
     } catch (error) {
       console.error('Drop error:', error);
     }
-  }, [track, pxPerFrame, addItem, updateItem]);
+  }, [track, pxPerFrame, addItem, updateItem, setLipSyncVideo]);
 
   return (
     <div

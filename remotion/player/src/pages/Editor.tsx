@@ -1,6 +1,6 @@
-import { useEffect, useState, Suspense } from 'react';
-import { useSetAtom } from 'jotai';
-import { loadCaptionsAtom, updateDurationFromLipSyncAtom, captionsAtom } from '@/atoms';
+import { useEffect, useState, Suspense, useRef } from 'react';
+import { useSetAtom, useAtomValue } from 'jotai';
+import { loadCaptionsAtom, updateDurationFromLipSyncAtom, lipSyncVideoAtom, transcribeVideoAtom } from '@/atoms';
 import { Header } from '@/components/Header';
 import { AssetsPanel } from '@/components/Panels/AssetsPanel';
 import { PropertiesPanel } from '@/components/Panels/PropertiesPanel';
@@ -24,17 +24,47 @@ function EditorContent() {
   // Use atoms directly instead of bridge
   const updateDurationFromLipSync = useSetAtom(updateDurationFromLipSyncAtom);
   const loadCaptions = useSetAtom(loadCaptionsAtom);
-  const setCaptions = useSetAtom(captionsAtom);
+  const lipSyncVideo = useAtomValue(lipSyncVideoAtom);
+  const transcribeVideo = useSetAtom(transcribeVideoAtom);
+  const prevLipSyncRef = useRef<string | null>(null);
 
   // Enable keyboard shortcuts
   useKeyboardShortcuts();
 
-  // Auto-detect duration from lipsync video and force reload captions on mount
+  // Auto-detect duration from lipsync video on mount
   useEffect(() => {
     updateDurationFromLipSync();
-    setCaptions([]);
     loadCaptions();
-  }, [updateDurationFromLipSync, loadCaptions, setCaptions]);
+  }, [updateDurationFromLipSync, loadCaptions]);
+
+  // Auto-transcribe when lipSyncVideo changes (not on mount)
+  useEffect(() => {
+    // Skip on initial mount
+    if (prevLipSyncRef.current === null) {
+      prevLipSyncRef.current = lipSyncVideo;
+      return;
+    }
+
+    // Skip if same video
+    if (prevLipSyncRef.current === lipSyncVideo) {
+      return;
+    }
+
+    prevLipSyncRef.current = lipSyncVideo;
+
+    // For default video - just load existing captions
+    if (lipSyncVideo === '/lipsync/lipsync.mp4') {
+      console.log('[Editor] LipSync reset to default, loading captions');
+      loadCaptions();
+      return;
+    }
+
+    // Auto-transcribe new video
+    if (lipSyncVideo) {
+      console.log('[Editor] LipSync video changed, starting auto-transcribe:', lipSyncVideo);
+      transcribeVideo();
+    }
+  }, [lipSyncVideo, transcribeVideo, loadCaptions]);
 
   // Initialize WebSocket for real-time sync
   const { send, isConnected, clientId } = useWebSocket({

@@ -7,7 +7,7 @@ ENV DISPLAY=:99
 
 WORKDIR /app
 
-# Install Chrome dependencies for headless rendering + fonts for Cyrillic/Russian + Xvfb
+# Install Chrome dependencies for headless rendering + fonts for Cyrillic/Russian + Xvfb + build tools
 RUN apt-get update && apt-get install -y \
     libnss3 \
     libdbus-1-3 \
@@ -32,9 +32,22 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     curl \
     xvfb \
+    git \
+    build-essential \
+    cmake \
     && fc-cache -f -v \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /run/dbus
+
+# Clone and build whisper.cpp for transcription
+RUN git clone https://github.com/ggerganov/whisper.cpp.git /app/whisper.cpp \
+    && cd /app/whisper.cpp \
+    && cmake -B build \
+    && cmake --build build --config Release -j$(nproc)
+
+# Download whisper model (small for multilingual support)
+RUN cd /app/whisper.cpp \
+    && bash models/download-ggml-model.sh small
 
 # Copy package files
 COPY package.json package-lock.json* ./

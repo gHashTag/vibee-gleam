@@ -117,6 +117,65 @@ export const loadCaptionsAtom = atom(
 );
 
 // ===============================
+// Transcribe Video Action
+// ===============================
+
+export const transcribingAtom = atom(false);
+
+export const transcribeVideoAtom = atom(
+  null,
+  async (get, set, options?: { force?: boolean }) => {
+    const lipSyncVideo = get(lipSyncVideoAtom);
+    const project = get(projectAtom);
+
+    // Skip default video
+    if (!lipSyncVideo || lipSyncVideo === '/lipsync/lipsync.mp4') {
+      console.log('[Transcribe] Skipping default video');
+      return;
+    }
+
+    // Check localStorage to prevent re-transcription on page refresh
+    const lastTranscribed = localStorage.getItem('vibee-last-transcribed-video');
+    if (!options?.force && lastTranscribed === lipSyncVideo) {
+      console.log('[Transcribe] Already transcribed this video, loading captions');
+      set(loadCaptionsAtom, lipSyncVideo);
+      return;
+    }
+
+    console.log('[Transcribe] Starting transcription for:', lipSyncVideo);
+    set(transcribingAtom, true);
+    set(captionsAtom, []); // Clear old captions
+
+    try {
+      const response = await fetch(`${RENDER_SERVER_URL}/transcribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoUrl: lipSyncVideo,
+          language: 'ru',
+          fps: project.fps,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.captions) {
+        set(captionsAtom, result.captions);
+        localStorage.setItem('vibee-last-transcribed-video', lipSyncVideo);
+        console.log(`[Transcribe] Loaded ${result.captions.length} captions`);
+      } else {
+        throw new Error(result.error || 'Transcription failed');
+      }
+    } catch (error) {
+      console.error('[Transcribe] Failed:', error);
+      set(captionsErrorAtom, error instanceof Error ? error.message : 'Unknown error');
+    } finally {
+      set(transcribingAtom, false);
+    }
+  }
+);
+
+// ===============================
 // Update Video Duration Action
 // ===============================
 

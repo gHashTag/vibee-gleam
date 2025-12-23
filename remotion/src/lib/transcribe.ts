@@ -10,6 +10,22 @@ import fs from 'fs';
 import path from 'path';
 import https from 'https';
 import http from 'http';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { Readable } from 'stream';
+
+// S3 client for downloading videos
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION || 'auto',
+  endpoint: process.env.AWS_ENDPOINT_URL_S3 || 'https://fly.storage.tigris.dev',
+  credentials: process.env.AWS_ACCESS_KEY_ID
+    ? {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+      }
+    : undefined,
+});
+
+const S3_BUCKET = process.env.BUCKET_NAME || process.env.S3_BUCKET || 'vibee-assets';
 
 // Type definitions
 export interface Caption {
@@ -44,28 +60,45 @@ interface WhisperToken {
  * Download file from URL to local path
  */
 async function downloadFile(url: string, destPath: string): Promise<void> {
+  console.log(`Downloading: ${url} -> ${destPath}`);
+
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith('https') ? https : http;
     const file = fs.createWriteStream(destPath);
 
     protocol
       .get(url, (response) => {
-        if (response.statusCode === 301 || response.statusCode === 302) {
+        console.log(`Download response: ${response.statusCode} ${response.statusMessage}`);
+
+        // Handle redirects
+        if (response.statusCode === 301 || response.statusCode === 302 || response.statusCode === 307) {
           const redirectUrl = response.headers.location;
           if (redirectUrl) {
+            console.log(`Redirecting to: ${redirectUrl}`);
             file.close();
             fs.unlinkSync(destPath);
             return downloadFile(redirectUrl, destPath).then(resolve).catch(reject);
           }
         }
 
+        // Check for errors
+        if (response.statusCode !== 200) {
+          file.close();
+          fs.unlink(destPath, () => {});
+          reject(new Error(`Download failed: HTTP ${response.statusCode} ${response.statusMessage}`));
+          return;
+        }
+
         response.pipe(file);
         file.on('finish', () => {
           file.close();
+          const stats = fs.statSync(destPath);
+          console.log(`Downloaded ${stats.size} bytes to ${destPath}`);
           resolve();
         });
       })
       .on('error', (err) => {
+        console.error(`Download error: ${err.message}`);
         fs.unlink(destPath, () => {});
         reject(err);
       });
@@ -78,11 +111,27 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
 function extractAudio(videoPath: string): string {
   const audioPath = `/tmp/whisper_audio_${Date.now()}.wav`;
 
-  console.log('Extracting audio from video...');
-  execSync(
-    `ffmpeg -i "${videoPath}" -ar 16000 -ac 1 -y "${audioPath}" 2>/dev/null`,
-    { stdio: 'pipe' }
-  );
+  console.log(`Extracting audio from video: ${videoPath}`);
+
+  // Check if video file exists and has size
+  const stats = fs.statSync(videoPath);
+  console.log(`Video file size: ${stats.size} bytes`);
+
+  if (stats.size === 0) {
+    throw new Error(`Video file is empty: ${videoPath}`);
+  }
+
+  try {
+    execSync(
+      `ffmpeg -i "${videoPath}" -ar 16000 -ac 1 -y "${audioPath}"`,
+      { stdio: 'pipe', timeout: 120000 }
+    );
+  } catch (err: unknown) {
+    const error = err as { stderr?: Buffer; message?: string };
+    const stderr = error.stderr?.toString() || error.message || 'Unknown error';
+    console.error('FFmpeg error:', stderr);
+    throw new Error(`FFmpeg failed: ${stderr}`);
+  }
 
   return audioPath;
 }
@@ -210,7 +259,40 @@ export async function transcribeVideo(
   let videoPath = videoPathOrUrl;
   let isTemp = false;
 
-  if (videoPathOrUrl.startsWith('http://') || videoPathOrUrl.startsWith('https://')) {
+  // Handle /s3/ proxy URLs - download from S3
+  if (videoPathOrUrl.startsWith('/s3/')) {
+    const s3Key = videoPathOrUrl.slice(4); // Remove /s3/ prefix
+    const ext = path.extname(s3Key) || '.mp4';
+    videoPath = `/tmp/whisper_video_${Date.now()}${ext}`;
+    isTemp = true;
+
+    console.log(`Downloading from S3: ${s3Key}...`);
+    try {
+      const command = new GetObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: s3Key,
+      });
+      const response = await s3Client.send(command);
+      const body = response.Body as Readable;
+
+      await new Promise<void>((resolve, reject) => {
+        const file = fs.createWriteStream(videoPath);
+        body.pipe(file);
+        file.on('finish', () => {
+          file.close();
+          const stats = fs.statSync(videoPath);
+          console.log(`Downloaded ${stats.size} bytes from S3 to ${videoPath}`);
+          resolve();
+        });
+        file.on('error', reject);
+      });
+    } catch (error) {
+      console.error('S3 download error:', error);
+      throw new Error(`Failed to download from S3: ${s3Key}`);
+    }
+  }
+  // Handle HTTP/HTTPS URLs
+  else if (videoPathOrUrl.startsWith('http://') || videoPathOrUrl.startsWith('https://')) {
     const ext = path.extname(new URL(videoPathOrUrl).pathname) || '.mp4';
     videoPath = `/tmp/whisper_video_${Date.now()}${ext}`;
     isTemp = true;
@@ -237,11 +319,24 @@ export async function transcribeVideo(
 
     console.log(`Transcribing with language: ${language}...`);
 
-    // Run whisper.cpp CLI
-    execSync(
-      `cd "${whisperDir}" && ./main -m "${modelPath}" -f "${audioPath}" -l ${language} -ml 3 -oj --output-file "${jsonOutput}"`,
-      { stdio: 'pipe' }
-    );
+    // Run whisper.cpp CLI (cmake builds to ./build/bin/whisper-cli)
+    const whisperBin = fs.existsSync(path.join(whisperDir, 'build/bin/whisper-cli'))
+      ? './build/bin/whisper-cli'
+      : './main';
+
+    console.log(`Using whisper binary: ${whisperBin}`);
+
+    try {
+      execSync(
+        `cd "${whisperDir}" && ${whisperBin} -m "${modelPath}" -f "${audioPath}" -l ${language} -ml 3 -oj --output-file "${jsonOutput}"`,
+        { stdio: 'pipe', timeout: 300000 }
+      );
+    } catch (err: unknown) {
+      const error = err as { stderr?: Buffer; message?: string };
+      const stderr = error.stderr?.toString() || error.message || 'Unknown error';
+      console.error('Whisper error:', stderr);
+      throw new Error(`Whisper failed: ${stderr}`);
+    }
 
     // Parse output
     const captions = parseWhisperOutput(`${jsonOutput}.json`);

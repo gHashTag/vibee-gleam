@@ -7,6 +7,8 @@ import { atomWithStorage } from 'jotai/utils';
 import { produce } from 'immer';
 import { nanoid } from 'nanoid';
 import type { Track, TrackItem, TrackType, LipSyncMainProps } from '@/store/types';
+import { lipSyncVideoAtom, captionsAtom } from './derived/templateProps';
+import { projectAtom } from './project';
 
 // Default template props for track generation
 const DEFAULT_TEMPLATE: Partial<LipSyncMainProps> = {
@@ -461,7 +463,27 @@ export const reorderItemsAtom = atom(
 export const resetTracksAtom = atom(
   null,
   (get, set, { fps = 30, durationInFrames = 825 }: { fps?: number; durationInFrames?: number }) => {
+    // Reset project (duration, fps, etc.)
+    set(projectAtom, {
+      id: '',
+      name: 'Vibee Reel',
+      fps,
+      width: 1080,
+      height: 1920,
+      durationInFrames,
+    });
+
+    // Reset tracks
     set(tracksAtom, createDefaultTracks(fps, durationInFrames));
+
+    // Reset lipsync video to default
+    set(lipSyncVideoAtom, '/lipsync/lipsync.mp4');
+
+    // Clear captions (will be loaded fresh from default captions.json)
+    set(captionsAtom, []);
+
+    // Clear localStorage transcription cache
+    localStorage.removeItem('vibee-last-transcribed-video');
   }
 );
 

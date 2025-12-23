@@ -7,7 +7,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { randomUUID, createHmac } from "node:crypto";
 import { execSync } from "node:child_process";
-import { S3Client, PutObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
 import { transcribeVideo } from "./src/lib/transcribe";
 import { detectFaceInVideo, detectFaceInImage, calculateCropSettings, loadModels } from "./src/lib/faceDetection";
 
@@ -59,6 +59,88 @@ if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 
+// Temp directory for pre-downloaded render assets (in public so Remotion can serve)
+const RENDER_TEMP_DIR = path.join(process.cwd(), "public", "render-temp");
+if (!fs.existsSync(RENDER_TEMP_DIR)) {
+  fs.mkdirSync(RENDER_TEMP_DIR, { recursive: true });
+}
+
+/**
+ * Pre-download S3 asset to temp directory for faster rendering
+ * Also transcodes to H.264 if needed (iPhone HEVC videos don't work in Chrome)
+ * Returns a file:// URL that Remotion can access directly
+ */
+async function preDownloadS3Asset(url: string): Promise<string> {
+  let s3Key: string | null = null;
+
+  if (url.includes('/s3/')) {
+    const match = url.match(/\/s3\/(.+)$/);
+    if (match) {
+      s3Key = match[1];
+    }
+  }
+
+  if (!s3Key) {
+    return url;
+  }
+
+  const baseName = path.basename(s3Key, path.extname(s3Key));
+  const downloadFilename = `${Date.now()}-${path.basename(s3Key)}`;
+  const downloadPath = path.join(RENDER_TEMP_DIR, downloadFilename);
+
+  // Output will always be .mp4 H.264
+  const outputFilename = `${Date.now()}-${baseName}-h264.mp4`;
+  const outputPath = path.join(RENDER_TEMP_DIR, outputFilename);
+
+  console.log(`📥 Pre-downloading S3 asset: ${s3Key}`);
+
+  try {
+    // Download from S3
+    const command = new GetObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: s3Key,
+    });
+
+    const response = await s3Client.send(command);
+    const body = response.Body as NodeJS.ReadableStream;
+
+    await new Promise<void>((resolve, reject) => {
+      const file = fs.createWriteStream(downloadPath);
+      body.pipe(file);
+      file.on('finish', () => { file.close(); resolve(); });
+      file.on('error', reject);
+    });
+
+    const stats = fs.statSync(downloadPath);
+    console.log(`✅ Downloaded ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+
+    // Transcode to H.264 (Chrome-compatible) using ffmpeg
+    console.log(`🔄 Transcoding to H.264...`);
+    try {
+      execSync(
+        `ffmpeg -i "${downloadPath}" -c:v libx264 -preset fast -crf 23 -c:a aac -movflags +faststart -y "${outputPath}"`,
+        { stdio: 'pipe', timeout: 300000 }
+      );
+
+      // Remove original download
+      fs.unlinkSync(downloadPath);
+
+      const outputStats = fs.statSync(outputPath);
+      console.log(`✅ Transcoded to ${(outputStats.size / 1024 / 1024).toFixed(2)} MB`);
+
+      // Return file:// URL for Remotion to access directly
+      return `file://${outputPath}`;
+    } catch (transcodeError) {
+      console.warn(`⚠️ Transcode failed, using original:`, transcodeError);
+      // If transcode fails, try to use original with file:// URL
+      return `file://${downloadPath}`;
+    }
+  } catch (error) {
+    console.error(`❌ Failed to pre-download:`, error);
+    return url;
+  }
+}
+
 // Bundle once at startup for better performance
 let bundleLocation: string;
 
@@ -96,9 +178,11 @@ async function uploadToS3(
       ContentType: contentType,
     }));
 
-    const url = `${S3_PUBLIC_URL}/${key}`;
-    console.log(`✅ Uploaded to S3: ${url}`);
-    return { success: true, url, key };
+    // Return proxy URL instead of direct S3 URL for browser compatibility (HEVC → H.264)
+    const proxyUrl = `/s3/${key}`;
+    const directUrl = `${S3_PUBLIC_URL}/${key}`;
+    console.log(`✅ Uploaded to S3: ${directUrl} (proxy: ${proxyUrl})`);
+    return { success: true, url: proxyUrl, key, directUrl };
   } catch (error) {
     console.error("❌ S3 upload failed:", error);
     return {
@@ -367,7 +451,15 @@ function startRenderAsync(req: RenderRequest): string {
       }
 
       // Get lipSyncVideo path for analysis
-      const lipSyncVideo = inputProps.lipSyncVideo as string | undefined;
+      let lipSyncVideo = inputProps.lipSyncVideo as string | undefined;
+
+      // Pre-download S3 assets for faster rendering (avoids HTTP timeout in Chrome)
+      if (lipSyncVideo && lipSyncVideo.includes('/s3/')) {
+        console.log(`📥 Pre-downloading lipSyncVideo for render...`);
+        lipSyncVideo = await preDownloadS3Asset(lipSyncVideo);
+        inputProps.lipSyncVideo = lipSyncVideo;
+      }
+
       if (lipSyncVideo) {
         const videoPath = resolveMediaPath(lipSyncVideo);
 
@@ -597,6 +689,8 @@ const server = createServer(async (req, res) => {
         console.log(`🎤 Transcribing: ${videoUrl} (${language})`);
         const result = await transcribeVideo(videoUrl, language, fps);
 
+        console.log(`✅ Transcription complete: ${result.captions.length} captions`);
+
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           success: true,
@@ -604,9 +698,10 @@ const server = createServer(async (req, res) => {
           segments: result.segments,
         }));
       } catch (error) {
-        console.error("Transcription error:", error);
+        console.error("❌ Transcription error:", error);
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
+          success: false,
           error: error instanceof Error ? error.message : "Transcription failed"
         }));
       }
@@ -731,47 +826,6 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // Transcribe video to captions using Whisper
-  if (req.url === "/transcribe" && req.method === "POST") {
-    let body = "";
-    req.on("data", (chunk) => {
-      body += chunk.toString();
-    });
-
-    req.on("end", async () => {
-      try {
-        const { videoUrl, language = "ru", fps = 30 } = JSON.parse(body);
-
-        if (!videoUrl) {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "videoUrl is required" }));
-          return;
-        }
-
-        console.log(`🎤 Starting transcription: ${videoUrl} (${language})`);
-
-        const result = await transcribeVideo(videoUrl, language, fps);
-
-        console.log(`✅ Transcription complete: ${result.captions.length} captions`);
-
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({
-          success: true,
-          language,
-          captions: result.captions,
-          segments: result.segments,
-        }));
-      } catch (error) {
-        console.error("❌ Transcription failed:", error);
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({
-          success: false,
-          error: error instanceof Error ? error.message : "Transcription failed",
-        }));
-      }
-    });
-    return;
-  }
 
   // Serve rendered files
   if (req.url?.startsWith("/renders/") && req.method === "GET") {
@@ -798,7 +852,7 @@ const server = createServer(async (req, res) => {
 
   // Serve public assets (without /public/ prefix - for editor compatibility)
   // Handles: /covers/*, /backgrounds/*, /lipsync/*, /music/*
-  const publicPaths = ["/covers/", "/backgrounds/", "/lipsync/", "/music/", "/audio/"];
+  const publicPaths = ["/covers/", "/backgrounds/", "/lipsync/", "/music/", "/audio/", "/render-temp/"];
   const matchedPath = publicPaths.find(p => req.url?.startsWith(p));
   if (matchedPath && req.method === "GET") {
     // Strip query string from URL before building file path
@@ -807,6 +861,66 @@ const server = createServer(async (req, res) => {
     console.log(`📂 Request for public file (no prefix): ${req.url} -> ${filePath}`);
 
     serveStaticFile(res, filePath);
+    return;
+  }
+
+  // S3 video proxy with HEVC → H.264 conversion for browser compatibility
+  if (req.url?.startsWith("/s3/") && req.method === "GET") {
+    const s3Key = req.url.slice(4).split('?')[0]; // Remove /s3/ and query string
+    const cacheDir = path.join(process.cwd(), "public", "video-cache");
+    const cacheFilename = `${s3Key.replace(/\//g, '-').replace(/[^a-zA-Z0-9.-]/g, '_')}-h264.mp4`;
+    const cachePath = path.join(cacheDir, cacheFilename);
+
+    console.log(`🎬 S3 video proxy request: ${s3Key}`);
+
+    // Check cache first
+    if (fs.existsSync(cachePath)) {
+      console.log(`✅ Serving cached H.264 video: ${cachePath}`);
+      serveStaticFile(res, cachePath);
+      return;
+    }
+
+    // Download and convert
+    try {
+      if (!fs.existsSync(cacheDir)) {
+        fs.mkdirSync(cacheDir, { recursive: true });
+      }
+
+      const tempPath = path.join(cacheDir, `temp-${Date.now()}.mp4`);
+
+      // Download from S3
+      console.log(`📥 Downloading from S3: ${s3Key}`);
+      const command = new GetObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: s3Key,
+      });
+      const response = await s3Client.send(command);
+      const body = response.Body as NodeJS.ReadableStream;
+
+      await new Promise<void>((resolve, reject) => {
+        const file = fs.createWriteStream(tempPath);
+        body.pipe(file);
+        file.on('finish', () => { file.close(); resolve(); });
+        file.on('error', reject);
+      });
+
+      // Convert to H.264
+      console.log(`🔄 Converting to H.264: ${cachePath}`);
+      execSync(
+        `ffmpeg -i "${tempPath}" -c:v libx264 -preset fast -crf 23 -c:a aac -movflags +faststart -y "${cachePath}"`,
+        { stdio: 'pipe', timeout: 300000 }
+      );
+
+      // Remove temp file
+      fs.unlinkSync(tempPath);
+
+      console.log(`✅ Converted and cached: ${cachePath}`);
+      serveStaticFile(res, cachePath);
+    } catch (error) {
+      console.error(`❌ S3 video proxy error:`, error);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Failed to process video" }));
+    }
     return;
   }
 
@@ -1041,10 +1155,18 @@ const server = createServer(async (req, res) => {
             let durationInFrames = 900; // 30 seconds default
 
             // Handle lipSyncVideo if provided (common for talking head templates)
-            if (request.lipSyncVideo) {
-              inputProps.lipSyncVideo = request.lipSyncVideo;
+            let lipSyncVideoPath = request.lipSyncVideo;
 
-              const videoPath = resolveMediaPath(request.lipSyncVideo);
+            // Pre-download S3 assets for faster rendering
+            if (lipSyncVideoPath && lipSyncVideoPath.includes('/s3/')) {
+              console.log(`📥 Pre-downloading lipSyncVideo for template render...`);
+              lipSyncVideoPath = await preDownloadS3Asset(lipSyncVideoPath);
+            }
+
+            if (lipSyncVideoPath) {
+              inputProps.lipSyncVideo = lipSyncVideoPath;
+
+              const videoPath = resolveMediaPath(lipSyncVideoPath);
               if (fs.existsSync(videoPath)) {
                 // Get video duration
                 const duration = getVideoDuration(videoPath);
@@ -1075,7 +1197,7 @@ const server = createServer(async (req, res) => {
             // Handle segments (convert from seconds to frames)
             if (request.segments) {
               inputProps.segments = convertSegmentsToFrames(request.segments, fps);
-            } else if (request.lipSyncVideo && !inputProps.segments) {
+            } else if (lipSyncVideoPath && !inputProps.segments) {
               // Default fullscreen segment for lipsync videos
               inputProps.segments = [{ type: 'fullscreen', startFrame: 0, durationFrames: durationInFrames, caption: '' }];
             }
