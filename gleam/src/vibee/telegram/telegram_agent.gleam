@@ -470,6 +470,10 @@ pub fn handle_incoming_message(
           vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("broll")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
           handle_broll_command(updated_state, chat_id, message_id, prompt)
         }
+        Some(#("reels", prompt)) -> {
+          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("reels")) |> vibe_logger.with_data("prompt", json.string(prompt)), "NLP reels command detected")
+          handle_reels_action(updated_state, chat_id, message_id, prompt, from_name, from_id)
+        }
         _ -> {
           let sniper_log = vibe_logger.new("sniper")
             |> vibe_logger.with_session_id(updated_state.config.session_id)
@@ -1007,8 +1011,8 @@ fn is_cyrillic_text(text: String) -> Bool {
 /// Возвращает Some(#(command, args)) или None
 fn parse_command(text: String) -> Option(#(String, String)) {
   let trimmed = string.trim(text)
+  // First check for / commands
   case string.starts_with(trimmed, "/") {
-    False -> None
     True -> {
       let without_slash = string.drop_start(trimmed, 1)
       case string.split(without_slash, " ") {
@@ -1017,6 +1021,107 @@ fn parse_command(text: String) -> Option(#(String, String)) {
         [cmd, ..rest] -> Some(#(string.lowercase(cmd), string.join(rest, " ")))
       }
     }
+    False -> {
+      // NLP routing: detect natural language commands
+      detect_nlp_command(trimmed)
+    }
+  }
+}
+
+/// Detect natural language commands (NLP routing)
+/// Maps natural language phrases to command equivalents
+fn detect_nlp_command(text: String) -> Option(#(String, String)) {
+  let lower = string.lowercase(text)
+
+  // Help / capabilities patterns
+  let help_patterns = [
+    "что ты умеешь", "что умеешь", "твои возможности", "помощь",
+    "как работаешь", "что можешь", "покажи команды", "список команд",
+    "what can you do", "help me", "your capabilities",
+  ]
+
+  // Pricing patterns
+  let pricing_patterns = [
+    "покажи тарифы", "тарифы", "цены", "прайс", "сколько стоит",
+    "стоимость", "pricing", "prices", "how much", "cost",
+  ]
+
+  // Video creation patterns
+  let video_patterns = [
+    "хочу создать видео", "создай видео", "сделай видео", "генерируй видео",
+    "видео из", "make video", "create video", "generate video",
+  ]
+
+  // Image generation patterns
+  let neuro_patterns = [
+    "сгенерируй фото", "создай фото", "нарисуй", "сгенерируй картинку",
+    "создай картинку", "сделай фото", "generate image", "create image",
+    "generate photo", "draw",
+  ]
+
+  // Reels patterns (already handled by reels_plugin, but add fallback)
+  let reels_patterns = [
+    "создай рилс", "сделай рилс", "рилс про", "хочу рилс",
+    "make reel", "create reel",
+  ]
+
+  // Voice patterns
+  let voice_patterns = [
+    "озвучь", "голос", "voice", "tts", "text to speech",
+  ]
+
+  // Check each pattern group
+  case list.any(help_patterns, fn(p) { string.contains(lower, p) }) {
+    True -> Some(#("help", ""))
+    False ->
+      case list.any(pricing_patterns, fn(p) { string.contains(lower, p) }) {
+        True -> Some(#("pricing", ""))
+        False ->
+          case list.any(video_patterns, fn(p) { string.contains(lower, p) }) {
+            True -> {
+              // Extract prompt after the pattern
+              let prompt = extract_prompt_after_patterns(lower, video_patterns)
+              Some(#("video", prompt))
+            }
+            False ->
+              case list.any(neuro_patterns, fn(p) { string.contains(lower, p) }) {
+                True -> {
+                  let prompt = extract_prompt_after_patterns(lower, neuro_patterns)
+                  Some(#("neuro", prompt))
+                }
+                False ->
+                  case list.any(reels_patterns, fn(p) { string.contains(lower, p) }) {
+                    True -> {
+                      let prompt = extract_prompt_after_patterns(lower, reels_patterns)
+                      Some(#("reels", prompt))
+                    }
+                    False ->
+                      case list.any(voice_patterns, fn(p) { string.contains(lower, p) }) {
+                        True -> {
+                          let prompt = extract_prompt_after_patterns(lower, voice_patterns)
+                          Some(#("voice", prompt))
+                        }
+                        False -> None
+                      }
+                  }
+              }
+          }
+      }
+  }
+}
+
+/// Extract prompt text after matching pattern
+fn extract_prompt_after_patterns(text: String, patterns: List(String)) -> String {
+  // Find which pattern matched and extract text after it
+  let matched = list.find(patterns, fn(p) { string.contains(text, p) })
+  case matched {
+    Ok(pattern) -> {
+      case string.split_once(text, pattern) {
+        Ok(#(_, after)) -> string.trim(after)
+        Error(_) -> ""
+      }
+    }
+    Error(_) -> ""
   }
 }
 
