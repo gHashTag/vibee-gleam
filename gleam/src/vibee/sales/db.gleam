@@ -277,6 +277,57 @@ pub fn create_lead(
   }
 }
 
+/// Получить лида по ID (внутренний идентификатор БД)
+pub fn get_lead_by_id(
+  pool: pog.Connection,
+  lead_id: Int,
+) -> Result(Lead, SalesDbError) {
+  let sql =
+    "SELECT id, telegram_user_id, username, first_name, last_name, phone, email,
+            first_message, intent, priority, status, funnel_stage, source,
+            utm_source, utm_medium, utm_campaign, quiz_score, recommended_product_id,
+            assigned_to, notes, last_contact_at::text, created_at::text
+     FROM leads
+     WHERE id = $1"
+
+  case
+    pog.query(sql)
+    |> add_parameters([pog.int(lead_id)])
+    |> pog.returning(decode_lead())
+    |> pog.execute(pool)
+  {
+    Ok(pog.Returned(_, [lead])) -> Ok(lead)
+    Ok(pog.Returned(_, [])) -> Error(SalesDbNotFound)
+    Ok(_) -> Error(SalesDbNotFound)
+    Error(e) -> Error(SalesDbQueryError(pog_error_to_string(e)))
+  }
+}
+
+/// Получить последние лиды
+pub fn get_recent_leads(
+  pool: pog.Connection,
+  limit: Int,
+) -> Result(List(Lead), SalesDbError) {
+  let sql =
+    "SELECT id, telegram_user_id, username, first_name, last_name, phone, email,
+            first_message, intent, priority, status, funnel_stage, source,
+            utm_source, utm_medium, utm_campaign, quiz_score, recommended_product_id,
+            assigned_to, notes, last_contact_at::text, created_at::text
+     FROM leads
+     ORDER BY created_at DESC
+     LIMIT $1"
+
+  case
+    pog.query(sql)
+    |> add_parameters([pog.int(limit)])
+    |> pog.returning(decode_lead())
+    |> pog.execute(pool)
+  {
+    Ok(pog.Returned(_, leads)) -> Ok(leads)
+    Error(e) -> Error(SalesDbQueryError(pog_error_to_string(e)))
+  }
+}
+
 /// Получить лида по telegram_user_id
 pub fn get_lead_by_telegram_id(
   pool: pog.Connection,
