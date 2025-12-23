@@ -351,8 +351,13 @@ pub fn handle_incoming_message(
   let is_trigger_chat = trigger_chats.is_trigger_chat_active(chat_id)
   io.println("[FILTER] Checking chat " <> chat_id <> " is_trigger_chat=" <> case is_trigger_chat { True -> "YES" False -> "NO" })
 
-  // Проверяем, это команда (начинается с /)
-  let is_command = string.starts_with(text, "/")
+  // Проверяем, это команда (начинается с / ИЛИ NLP-распознанная команда)
+  let is_slash_command = string.starts_with(text, "/")
+  let is_nlp_command = case detect_nlp_command(text) {
+    Some(_) -> True
+    None -> False
+  }
+  let is_command = is_slash_command || is_nlp_command
   // Личный чат = положительный chat_id
   let is_private_chat = case int.parse(chat_id) {
     Ok(cid) -> cid > 0
