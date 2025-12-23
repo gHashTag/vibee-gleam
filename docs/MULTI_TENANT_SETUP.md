@@ -61,9 +61,9 @@ INSERT INTO user_sessions (
     user_id, session_id, api_id, api_hash_encrypted, phone
 ) VALUES (
     '144022504',  -- Telegram user ID
-    'REDACTED_SESSION',  -- From telegram-bridge
+    'sess_df0p27qhvzvv',  -- From telegram-bridge
     94892,
-    pgp_sym_encrypt('REDACTED_API_HASH', 
+    pgp_sym_encrypt('cacf9ad137d228611b49b2ecc6d68d43', 
         (SELECT master_key FROM encryption_keys WHERE id = 1)),
     '+79933420465'
 );
@@ -103,9 +103,9 @@ Content-Type: application/json
 
 {
   "user_id": "144022504",
-  "session_id": "REDACTED_SESSION",
+  "session_id": "sess_df0p27qhvzvv",
   "api_id": 94892,
-  "api_hash": "REDACTED_API_HASH",
+  "api_hash": "cacf9ad137d228611b49b2ecc6d68d43",
   "phone": "+79933420465"
 }
 ```

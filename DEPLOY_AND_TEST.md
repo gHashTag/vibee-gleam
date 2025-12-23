@@ -80,13 +80,13 @@ GitHub Actions автоматически задеплоит!
 fly auth login
 
 fly secrets set \
-  OPENROUTER_API_KEY=REDACTED_OPENROUTER_KEY \
+  OPENROUTER_API_KEY=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 \
   TELEGRAM_API_ID=94892 \
-  TELEGRAM_API_HASH=REDACTED_API_HASH \
-  TELEGRAM_SESSION_ID=REDACTED_SESSION \
+  TELEGRAM_API_HASH=cacf9ad137d228611b49b2ecc6d68d43 \
+  TELEGRAM_SESSION_ID=sess_df0p27qhvzvv \
   TELEGRAM_SESSION_1_PHONE=+79933420465 \
   TELEGRAM_SESSION_1_USERNAME=neuro_sage \
-  DATABASE_URL=postgresql://neondb_owner:REDACTED_DB_PASSWORD@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require \
+  DATABASE_URL=postgresql://neondb_owner:npg_A9z2dErbkfhw@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require \
   --app vibee-mcp
 
 fly deploy --config fly.toml
@@ -392,7 +392,7 @@ fly secrets list --app vibee-mcp | grep OPENROUTER
 
 1. **Создать таблицы в PostgreSQL**
 ```bash
-psql 'postgresql://neondb_owner:REDACTED_DB_PASSWORD@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require' < schema.sql
+psql 'postgresql://neondb_owner:npg_A9z2dErbkfhw@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require' < schema.sql
 ```
 
 2. **Настроить alerts**

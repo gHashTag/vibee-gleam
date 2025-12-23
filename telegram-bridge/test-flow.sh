@@ -1,6 +1,6 @@
 #!/bin/bash
 BRIDGE="https://vibee-telegram-bridge.fly.dev"
-SESSION="REDACTED_SESSION"
+SESSION="sess_dexasn1fjk2d"
 CHAT_ID="-1002737186844"  # VIBEE AGENT group
 
 echo "=== Testing VIBEE Bot Flow ==="

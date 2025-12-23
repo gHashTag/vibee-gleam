@@ -12,7 +12,7 @@ CONNECT_RESPONSE=$(curl -s -X POST http://localhost:8081/api/v1/connect \
   -H "Content-Type: application/json" \
   -d '{
     "app_id": 94892,
-    "app_hash": "REDACTED_API_HASH"
+    "app_hash": "cacf9ad137d228611b49b2ecc6d68d43"
   }')
 
 echo "$CONNECT_RESPONSE" | jq .
@@ -47,7 +47,7 @@ if echo "$PHONE_RESPONSE" | jq -e '.status == "code_sent"' > /dev/null; then
     echo "If 2FA is required:"
     echo "curl -X POST http://localhost:8081/api/v1/auth/2fa \\"
     echo "  -H 'Content-Type: application/json' \\"
-    echo "  -d '{\"session_id\": \"$SESSION_ID\", \"password\": \"REDACTED_2FA_PASSWORD\"}'"
+    echo "  -d '{\"session_id\": \"$SESSION_ID\", \"password\": \"Vishnu8087\"}'"
 else
     echo "❌ Failed to send code"
     echo "Response: $PHONE_RESPONSE"

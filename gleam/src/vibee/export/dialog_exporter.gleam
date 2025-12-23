@@ -1,6 +1,7 @@
 // VIBEE Dialog Exporter - Скачивание ВСЕХ диалогов из Telegram на Gleam
 // Экспортирует полную историю сообщений с пагинацией
 
+import envoy
 import gleam/http
 import gleam/http/request
 import gleam/httpc
@@ -55,10 +56,18 @@ pub type ExportResult {
 
 /// Создать конфиг по умолчанию
 pub fn default_config() -> ExportConfig {
+  let session_id = case envoy.get("TELEGRAM_SESSION_ID") {
+    Ok(id) -> id
+    Error(_) -> panic as "TELEGRAM_SESSION_ID env var required"
+  }
+  let output_dir = case envoy.get("VIBEE_EXPORT_DIR") {
+    Ok(dir) -> dir
+    Error(_) -> "./data/dialogs"
+  }
   ExportConfig(
     bridge_url: "http://localhost:8081",
-    session_id: "REDACTED_SESSION",
-    output_dir: "/Users/playra/vibee-eliza-999/vibee/gleam/data/dialogs",
+    session_id: session_id,
+    output_dir: output_dir,
     batch_size: 100,
   )
 }

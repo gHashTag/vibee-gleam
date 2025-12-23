@@ -154,8 +154,8 @@ pub fn start_async(tests: List(E2ETest)) -> String {
   io.println("[E2E-ASYNC] Generated ID: " <> id)
   let started_at = current_time_ms()
 
-  let tester_session = config.get_env_or("TELEGRAM_SESSION_ID_TESTER", "REDACTED_SESSION")
-  let bot_chat_id = 6579515876  // @vibee_agent
+  let tester_session = config.require_env("TELEGRAM_SESSION_ID_TESTER")
+  let bot_chat_id = config.get_env_int_or("VIBEE_AGENT_USER_ID", 0)
 
   // Create initial run state
   let run = E2ETestRun(
@@ -201,7 +201,7 @@ fn run_tests_background(
   vibe_logger.info(logger, "Starting async E2E tests")
 
   let bridge_url = config.get_env_or("VIBEE_BRIDGE_URL", "https://vibee-telegram-bridge.fly.dev")
-  let api_key = config.get_env_or("VIBEE_API_KEY", "vibee-secret-2024-prod")
+  let api_key = config.require_env("VIBEE_API_KEY")
   let bridge = client.with_session_and_key(bridge_url, tester_session, api_key)
 
   // Run each test sequentially
@@ -311,7 +311,7 @@ fn run_single_test(
 
 /// Find matching bot response
 fn find_matching_response(messages: List(TelegramMessage), expected_pattern: String) -> #(String, Bool) {
-  let vibee_agent_id = 6579515876
+  let vibee_agent_id = config.get_env_int_or("VIBEE_AGENT_USER_ID", 0)
 
   // Get bot responses (not commands)
   let bot_responses = list.filter(messages, fn(m) {
@@ -363,8 +363,8 @@ pub fn start_async_multi(tests: List(MultiStepTest)) -> String {
   io.println("[E2E-MULTI] Generated ID: " <> id)
   let started_at = current_time_ms()
 
-  let tester_session = config.get_env_or("TELEGRAM_SESSION_ID_TESTER", "REDACTED_SESSION")
-  let bot_chat_id = 6579515876  // @vibee_agent
+  let tester_session = config.require_env("TELEGRAM_SESSION_ID_TESTER")
+  let bot_chat_id = config.get_env_int_or("VIBEE_AGENT_USER_ID", 0)
 
   // Create initial run state
   let run = E2ETestRun(
@@ -404,7 +404,7 @@ fn run_multi_tests_background(
   io.println("[E2E-MULTI-BG] Starting for " <> run_id)
 
   let bridge_url = config.get_env_or("VIBEE_BRIDGE_URL", "https://vibee-telegram-bridge.fly.dev")
-  let api_key = config.get_env_or("VIBEE_API_KEY", "vibee-secret-2024-prod")
+  let api_key = config.require_env("VIBEE_API_KEY")
   let bridge = client.with_session_and_key(bridge_url, tester_session, api_key)
 
   // Run each multi-step test
@@ -550,7 +550,7 @@ fn execute_step(
         Error(err) -> Error("Get history failed: " <> telegram_error_to_string(err))
         Ok(messages) -> {
           // Find the latest bot message (has buttons)
-          let vibee_agent_id = 6579515876
+          let vibee_agent_id = config.get_env_int_or("VIBEE_AGENT_USER_ID", 0)
           let bot_msgs = list.filter(messages, fn(m) { m.from_id == vibee_agent_id })
           case list.first(bot_msgs) {
             Error(_) -> Error("No bot message found for button click")

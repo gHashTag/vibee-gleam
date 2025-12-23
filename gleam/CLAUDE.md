@@ -662,7 +662,7 @@ GET https://vibee-mcp.fly.dev/api/e2e/run
 ```json
 {
   "status": "passed|failed",
-  "tester_session": "REDACTED_SESSION",
+  "tester_session": "sess_deyyfxjyao6q",
   "tester_username": "neuro_sage",
   "bot_username": "vibee_agent",
   "bot_chat_id": 6579515876,

@@ -51,7 +51,7 @@ fly auth login
 
 ```bash
 fly auth login
-fly secrets set OPENROUTER_API_KEY=REDACTED_OPENROUTER_KEY --app vibee-mcp
+fly secrets set OPENROUTER_API_KEY=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 --app vibee-mcp
 fly deploy --config fly.toml
 ```
 
@@ -119,7 +119,7 @@ https://fly.io/apps/vibee-mcp/monitoring
 1. **Тестирование** (см. DEPLOY_AND_TEST.md)
 2. **PostgreSQL setup**:
    ```bash
-   psql 'postgresql://neondb_owner:REDACTED_DB_PASSWORD@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require' < schema.sql
+   psql 'postgresql://neondb_owner:npg_A9z2dErbkfhw@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require' < schema.sql
    ```
 3. **Alerts**:
    ```bash

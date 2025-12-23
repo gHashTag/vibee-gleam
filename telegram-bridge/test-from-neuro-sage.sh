@@ -1,6 +1,6 @@
 #!/bin/bash
 BRIDGE="https://vibee-telegram-bridge.fly.dev"
-SESSION="REDACTED_SESSION"  # neuro_sage
+SESSION="sess_dexnakkcozww"  # neuro_sage
 CHAT_ID="-1002737186844"     # VIBEE AGENT group
 
 echo "=== Sending test message from @neuro_sage to trigger bot ==="

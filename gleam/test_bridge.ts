@@ -21,7 +21,7 @@ async function testBridge() {
   }
 
   console.log("\n2. Getting dialogs with session...");
-  const SESSION_ID = "REDACTED_SESSION"; // NEURO_SAGE
+  const SESSION_ID = "sess_deyznjf1vzn6"; // NEURO_SAGE
   try {
     const resp = await fetch(`${BRIDGE_URL}/api/v1/dialogs?limit=5`, {
       headers: {

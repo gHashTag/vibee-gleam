@@ -1,6 +1,6 @@
 import { Client } from 'pg';
 
-const DATABASE_URL = "postgresql://neondb_owner:REDACTED_DB_PASSWORD@ep-bitter-frog-a1bewei7.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
+const DATABASE_URL = "postgresql://neondb_owner:npg_A9z2dErbkfhw@ep-bitter-frog-a1bewei7.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
 
 async function checkSchema() {
   const db = new Client({ connectionString: DATABASE_URL });

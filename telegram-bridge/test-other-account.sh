@@ -6,7 +6,7 @@ CHAT_ID="-1002737186844"  # VIBEE AGENT group
 echo "=== Testing with different sessions ==="
 
 # Try different sessions
-for SESSION in "REDACTED_SESSION" "REDACTED_SESSION" "REDACTED_SESSION"; do
+for SESSION in "sess_dexa0buo6w29" "sess_desrtl4nry3c" "sess_deukljn4q4mo"; do
   echo ""
   echo "Trying session: $SESSION"
   RESP=$(curl --max-time 10 -s -X POST "$BRIDGE/api/v1/send" \

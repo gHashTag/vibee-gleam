@@ -4,8 +4,8 @@
 
 const API_KEY = "vibee-mcp-secret-2024";
 const BRIDGE_URL = "https://vibee-telegram-bridge.fly.dev";
-const SESSION_ID = "REDACTED_SESSION"; // NEURO_SAGE
-const DATABASE_URL = "postgresql://neondb_owner:REDACTED_DB_PASSWORD@ep-bitter-frog-a1bewei7.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
+const SESSION_ID = "sess_deyznjf1vzn6"; // NEURO_SAGE
+const DATABASE_URL = "postgresql://neondb_owner:npg_A9z2dErbkfhw@ep-bitter-frog-a1bewei7.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
 
 import { Client } from 'pg';
 

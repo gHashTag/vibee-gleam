@@ -25,7 +25,7 @@ Prompt: "Show all test results"
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  @neuro_sage (Tester)              @vibee_agent (Bot/Agent)     │
-│  REDACTED_SESSION                 REDACTED_SESSION            │
+│  sess_deyyfxjyao6q                 sess_df30nhu08008            │
 │       │                                   │                      │
 │       │  1. Send command/trigger          │                      │
 │       │──────────────────────────────────►│                      │
@@ -46,8 +46,8 @@ Prompt: "Show all test results"
 
 | Роль | Username | User ID | Session ID |
 |------|----------|---------|------------|
-| **Тестер** | @neuro_sage | 144022504 | REDACTED_SESSION |
-| **Агент** | @vibee_agent | 6579515876 | REDACTED_SESSION |
+| **Тестер** | @neuro_sage | 144022504 | sess_deyyfxjyao6q |
+| **Агент** | @vibee_agent | 6579515876 | sess_df30nhu08008 |
 
 **Bridge**: https://vibee-telegram-bridge.fly.dev (16 сессий)
 

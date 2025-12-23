@@ -7,7 +7,7 @@ const BRIDGE_URL = 'vibee-telegram-bridge.fly.dev';
 const API_KEY = 'vibee-secret-key-2024';
 const PHONE = '+66624014170';
 const APP_ID = 94892;
-const APP_HASH = 'REDACTED_API_HASH';
+const APP_HASH = 'cacf9ad137d228611b49b2ecc6d68d43';
 
 let SESSION_ID = process.env.SESSION_ID || '';
 

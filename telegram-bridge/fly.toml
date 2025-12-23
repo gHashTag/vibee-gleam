@@ -33,3 +33,12 @@ primary_region = 'ams'
 [mounts]
   source = 'telegram_sessions'
   destination = '/app/sessions'
+
+[checks]
+  [checks.health]
+    path = "/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    type = "http"
+    port = 9000

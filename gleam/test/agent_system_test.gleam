@@ -135,7 +135,7 @@ pub fn persistence_integration_test() {
   io.println("\n🧪 Testing persistence integration...")
   
   // Initialize database
-  let db_url = "postgresql://neondb_owner:REDACTED_DB_PASSWORD@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+  let db_url = "postgresql://neondb_owner:npg_A9z2dErbkfhw@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
   
   io.println("1. Connecting to database...")
   let assert Ok(pool) = postgres.connect(db_url)

@@ -34,8 +34,8 @@ Prompt: "Show all test results including lead_forward test"
 |----------|----------|
 | Триггер-чат | Aimly.io dev (`-5082217642`) |
 | Leads-чат | `-1002737186844` |
-| Тестер | @neuro_sage (`REDACTED_SESSION`) |
-| Агент | @vibee_agent (`REDACTED_SESSION`) |
+| Тестер | @neuro_sage (`sess_deyyfxjyao6q`) |
+| Агент | @vibee_agent (`sess_df30nhu08008`) |
 
 ## Trigger Words
 

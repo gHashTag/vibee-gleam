@@ -5,7 +5,7 @@
 BRIDGE_URL="http://localhost:8081"
 PHONE="+66612141269"
 APP_ID="94892"
-APP_HASH="REDACTED_API_HASH"
+APP_HASH="cacf9ad137d228611b49b2ecc6d68d43"
 
 echo "=========================================="
 echo "  VIBEE Telegram Authentication"

@@ -15,7 +15,7 @@ description: Deploy VIBEE with MANDATORY E2E testing
 | **ЮЗЕР-БОТ** | @vibee_agent | Chat: 6579515876 | +66 6-2401-4170 |
 
 **@vibee_agent** = Digital Twin (ЮЗЕР-БОТ с MTProto автоматизацией)
-Session для тестов: `REDACTED_SESSION`
+Session для тестов: `sess_deyyfxjyao6q`
 
 ## Services
 

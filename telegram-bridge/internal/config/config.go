@@ -58,10 +58,13 @@ func Load() (*Config, error) {
 	cfg.GleamURL = getEnv("GLEAM_CALLBACK_URL", "https://vibee-mcp.fly.dev/api/v1/bot/callback")
 
 	// Parse allowed origins
-	// CORS_ALLOWED_ORIGINS can be comma-separated list or "*" for dev mode
-	// Default includes Fly.io domains for production
-	originsStr := getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:8080,http://localhost:3000,https://vibee-mcp.fly.dev,https://vibee-eliza-999-prod-v2.fly.dev,https://vibee-telegram-bridge.fly.dev")
-	if originsStr == "*" {
+	// CORS_ALLOWED_ORIGINS must be set - no hardcoded defaults for security
+	// Can be comma-separated list or "*" for dev mode only
+	originsStr := os.Getenv("CORS_ALLOWED_ORIGINS")
+	if originsStr == "" {
+		// Default to restrictive setting in production
+		cfg.AllowedOrigins = []string{}
+	} else if originsStr == "*" {
 		cfg.AllowedOrigins = []string{"*"}
 	} else {
 		origins := strings.Split(originsStr, ",")

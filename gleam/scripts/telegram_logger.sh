@@ -3,7 +3,7 @@
 # Polls messages from Go bridge and writes to vibee.log
 
 GO_BRIDGE_URL="http://localhost:8081"
-SESSION_ID="REDACTED_SESSION"
+SESSION_ID="sess_desrtl4nry3c"
 LOG_FILE="/Users/playra/vibee-eliza-999/vibee/gleam/logs/vibee.log"
 SEEN_FILE="/tmp/vibee_seen_messages.txt"
 

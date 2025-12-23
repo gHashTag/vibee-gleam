@@ -1,6 +1,6 @@
 #!/bin/bash
 BRIDGE_URL="https://vibee-telegram-bridge.fly.dev"
-SESSION_ID="REDACTED_SESSION"
+SESSION_ID="sess_dexasn1fjk2d"
 CODE_HASH="0e025163fafb6c30bc"
 CODE="$1"
 

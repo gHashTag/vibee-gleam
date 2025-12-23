@@ -7,14 +7,14 @@ const BRIDGE_URL = 'vibee-telegram-bridge.fly.dev';
 const API_KEY = 'vibee-secret-key-2024';
 
 const SESSIONS = [
-  'REDACTED_SESSION',
-  'REDACTED_SESSION',
-  'REDACTED_SESSION',
-  'REDACTED_SESSION',
-  'REDACTED_SESSION',
-  'REDACTED_SESSION',
-  'REDACTED_SESSION',
-  'REDACTED_SESSION',
+  'sess_deysqvuushz9',
+  'sess_deyt2m0f63rq',
+  'sess_deytwy41y4oi',
+  'sess_deyy8tm312z6',
+  'sess_deyyfxjyao6q',
+  'sess_deyyqx1brjkz',
+  'sess_deyyxfssk6o8',
+  'sess_deyz1a1y6ab5',
 ];
 
 function makeRequest(path, method, sessionId) {

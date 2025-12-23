@@ -34,7 +34,7 @@ Prompt: "Show all test results - passed/failed"
 
 | Роль | Username | ID | Телефон | Session |
 |------|----------|----|---------|---------|
-| **ТЕСТЕР** | @neuro_sage | User: 144022504 | +7 (993) 342-04-65 | `REDACTED_SESSION` |
+| **ТЕСТЕР** | @neuro_sage | User: 144022504 | +7 (993) 342-04-65 | `sess_deyyfxjyao6q` |
 | **ЮЗЕР-БОТ** | @vibee_agent | Chat: 6579515876 | +66 6-2401-4170 | - |
 
 **ВАЖНО**: @vibee_agent - это ЮЗЕР-БОТ (Digital Twin)!

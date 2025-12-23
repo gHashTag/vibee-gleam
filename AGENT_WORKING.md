@@ -18,7 +18,7 @@
 ✅ Gleam 1.13.0           - Running
 ✅ telegram-bridge        - Port 8081 (Active)
 ✅ VIBEE MCP Server       - Port 8080 (Active)
-✅ Telegram Session       - REDACTED_SESSION (Connected)
+✅ Telegram Session       - sess_df0p27qhvzvv (Connected)
 ✅ OpenRouter API         - Valid key (Active)
 ✅ Digital Twin           - Responding to messages
 ✅ Polling                - Every 5 seconds
@@ -71,10 +71,10 @@
 ```bash
 VIBEE_MODE=mcp
 TELEGRAM_API_ID=94892
-TELEGRAM_API_HASH=REDACTED_API_HASH
-TELEGRAM_SESSION_ID=REDACTED_SESSION
+TELEGRAM_API_HASH=cacf9ad137d228611b49b2ecc6d68d43
+TELEGRAM_SESSION_ID=sess_df0p27qhvzvv
 TELEGRAM_SESSION_1_USERNAME=neuro_sage
-OPENROUTER_API_KEY=REDACTED_OPENROUTER_KEY
+OPENROUTER_API_KEY=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
 ```
 
 ### Процессы:
@@ -108,7 +108,7 @@ ws://localhost:8080/ws/mcp
 ### Telegram Bridge:
 ```bash
 curl http://localhost:8081/api/v1/me \
-  -H "X-Session-ID: REDACTED_SESSION"
+  -H "X-Session-ID: sess_df0p27qhvzvv"
 ```
 
 ---
@@ -145,7 +145,7 @@ curl http://localhost:8081/api/v1/me \
 
 ### Telegram:
 - **User:** @neuro_sage (Dmitrii NeuroСoder)
-- **Session:** REDACTED_SESSION
+- **Session:** sess_df0p27qhvzvv
 - **Dialogs:** 25+ чатов доступны
 - **Active chats:** 2 (мониторятся)
 
@@ -161,8 +161,8 @@ kill 42065
 ### Перезапустить:
 ```bash
 cd gleam
-export OPENROUTER_API_KEY=REDACTED_OPENROUTER_KEY
-export TELEGRAM_SESSION_ID=REDACTED_SESSION
+export OPENROUTER_API_KEY=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
+export TELEGRAM_SESSION_ID=sess_df0p27qhvzvv
 export VIBEE_MODE=mcp
 gleam run
 ```

@@ -10,10 +10,10 @@
 ```bash
 # 1. Установить переменные окружения
 fly secrets set \
-  TELEGRAM_SESSION_ID=REDACTED_SESSION \
+  TELEGRAM_SESSION_ID=sess_df0p27qhvzvv \
   TELEGRAM_API_ID=94892 \
-  TELEGRAM_API_HASH=REDACTED_API_HASH \
-  DATABASE_URL=postgresql://neondb_owner:REDACTED_DB_PASSWORD@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require \
+  TELEGRAM_API_HASH=cacf9ad137d228611b49b2ecc6d68d43 \
+  DATABASE_URL=postgresql://neondb_owner:npg_A9z2dErbkfhw@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require \
   --app vibee-mcp
 
 # 2. Перезапустить приложение
@@ -27,10 +27,10 @@ fly logs --app vibee-mcp
 
 1. Откройте: https://fly.io/apps/vibee-mcp/secrets
 2. Добавьте секреты:
-   - `TELEGRAM_SESSION_ID` = `REDACTED_SESSION`
+   - `TELEGRAM_SESSION_ID` = `sess_df0p27qhvzvv`
    - `TELEGRAM_API_ID` = `94892`
-   - `TELEGRAM_API_HASH` = `REDACTED_API_HASH`
-   - `DATABASE_URL` = `postgresql://neondb_owner:REDACTED_DB_PASSWORD@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require`
+   - `TELEGRAM_API_HASH` = `cacf9ad137d228611b49b2ecc6d68d43`
+   - `DATABASE_URL` = `postgresql://neondb_owner:npg_A9z2dErbkfhw@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require`
 3. Приложение автоматически перезапустится
 
 ---
@@ -100,7 +100,7 @@ fly logs --app vibee-mcp | grep POLL
 ## Быстрая команда (скопируйте и выполните)
 
 ```bash
-fly secrets set TELEGRAM_SESSION_ID=REDACTED_SESSION TELEGRAM_API_ID=94892 TELEGRAM_API_HASH=REDACTED_API_HASH DATABASE_URL=postgresql://neondb_owner:REDACTED_DB_PASSWORD@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require --app vibee-mcp && fly apps restart vibee-mcp
+fly secrets set TELEGRAM_SESSION_ID=sess_df0p27qhvzvv TELEGRAM_API_ID=94892 TELEGRAM_API_HASH=cacf9ad137d228611b49b2ecc6d68d43 DATABASE_URL=postgresql://neondb_owner:npg_A9z2dErbkfhw@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require --app vibee-mcp && fly apps restart vibee-mcp
 ```
 
 Через 30 секунд откройте: https://vibee-mcp.fly.dev/events

@@ -296,7 +296,7 @@ fly secrets set \
   OPENROUTER_API_KEY=sk-or-v1-xxx \
   TELEGRAM_API_ID=94892 \
   TELEGRAM_API_HASH=xxx \
-  TELEGRAM_SESSION_ID=REDACTED_SESSION
+  TELEGRAM_SESSION_ID=sess_df0p27qhvzvv
 ```
 
 ### Шаг 6: Deploy!

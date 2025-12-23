@@ -16,6 +16,7 @@ import vibee/earning/types as earning_types
 import vibee/earning/arbitrage
 import vibee/p2p/types as p2p_types
 import vibee/events/event_bus
+import vibee/mcp/config
 
 // FFI declarations for real data
 @external(erlang, "vibee_earning_ffi", "get_status")
@@ -174,7 +175,7 @@ fn handle_simple_command(
 ) {
   case string.lowercase(string.trim(text)) {
     "ping" -> {
-      let assert Ok(_) = mist.send_text_frame(conn, "pong")
+      safe_send(conn, "pong")
       mist.continue(state)
     }
     "status" -> {
@@ -217,7 +218,7 @@ fn handle_json_command(
         #("type", json.string("subscribed")),
         #("channels", json.array(channels, json.string)),
       ])
-      let assert Ok(_) = mist.send_text_frame(conn, json.to_string(response))
+      safe_send(conn, json.to_string(response))
 
       // Send initial data for each channel
       case list_contains(channels, "status") {
@@ -268,7 +269,7 @@ fn handle_command(
         #("success", json.bool(True)),
         #("message", json.string("Agent started")),
       ])
-      let assert Ok(_) = mist.send_text_frame(conn, json.to_string(response))
+      safe_send(conn, json.to_string(response))
 
       // Also send updated status
       send_status(state, conn)
@@ -283,7 +284,7 @@ fn handle_command(
             #("success", json.bool(True)),
             #("message", json.string("Agent stopped")),
           ])
-          let assert Ok(_) = mist.send_text_frame(conn, json.to_string(response))
+          safe_send(conn, json.to_string(response))
           send_status(state, conn)
           mist.continue(state)
         }
@@ -298,7 +299,7 @@ fn handle_command(
                 True -> {
                   // Extract strategy from JSON
                   let strategy = extract_strategy(text)
-                  let telegram_id = 144022504  // Default user ID
+                  let telegram_id = config.get_env_int_or("VIBEE_OWNER_ID", 0)
 
                   // Update strategy
                   let success = update_strategy_ffi(telegram_id, strategy)
@@ -313,7 +314,7 @@ fn handle_command(
                       False -> "Failed to update strategy"
                     })),
                   ])
-                  let assert Ok(_) = mist.send_text_frame(conn, json.to_string(response))
+                  safe_send(conn, json.to_string(response))
                   send_status(state, conn)
                   mist.continue(state)
                 }
@@ -340,7 +341,7 @@ fn handle_custom_message(
         #("type", json.string("status")),
         #("data", data),
       ])
-      let assert Ok(_) = mist.send_text_frame(conn, json.to_string(response))
+      safe_send(conn, json.to_string(response))
       mist.continue(state)
     }
     OrderUpdate(data) -> {
@@ -348,7 +349,7 @@ fn handle_custom_message(
         #("type", json.string("order_update")),
         #("data", data),
       ])
-      let assert Ok(_) = mist.send_text_frame(conn, json.to_string(response))
+      safe_send(conn, json.to_string(response))
       mist.continue(state)
     }
     ArbitrageUpdate(data) -> {
@@ -356,7 +357,7 @@ fn handle_custom_message(
         #("type", json.string("arbitrage")),
         #("data", data),
       ])
-      let assert Ok(_) = mist.send_text_frame(conn, json.to_string(response))
+      safe_send(conn, json.to_string(response))
       mist.continue(state)
     }
     LogMessage(data) -> {
@@ -364,7 +365,7 @@ fn handle_custom_message(
         #("type", json.string("log")),
         #("data", data),
       ])
-      let assert Ok(_) = mist.send_text_frame(conn, json.to_string(response))
+      safe_send(conn, json.to_string(response))
       mist.continue(state)
     }
     PriceUpdate(data) -> {
@@ -372,7 +373,7 @@ fn handle_custom_message(
         #("type", json.string("price_update")),
         #("data", data),
       ])
-      let assert Ok(_) = mist.send_text_frame(conn, json.to_string(response))
+      safe_send(conn, json.to_string(response))
       mist.continue(state)
     }
   }
@@ -404,8 +405,7 @@ fn send_status(state: P2PWsState, conn: mist.WebsocketConnection) {
     #("type", json.string("status")),
     #("data", status_json),
   ])
-  let assert Ok(_) = mist.send_text_frame(conn, json.to_string(response))
-  Nil
+  safe_send(conn, json.to_string(response))
 }
 
 fn send_stats(state: P2PWsState, conn: mist.WebsocketConnection) {
@@ -434,8 +434,7 @@ fn send_stats(state: P2PWsState, conn: mist.WebsocketConnection) {
     #("type", json.string("stats")),
     #("data", stats_json),
   ])
-  let assert Ok(_) = mist.send_text_frame(conn, json.to_string(response))
-  Nil
+  safe_send(conn, json.to_string(response))
 }
 
 fn send_orders(_state: P2PWsState, conn: mist.WebsocketConnection) {
@@ -461,8 +460,7 @@ fn send_orders(_state: P2PWsState, conn: mist.WebsocketConnection) {
     #("type", json.string("orders")),
     #("data", json.array(orders_json, fn(x) { x })),
   ])
-  let assert Ok(_) = mist.send_text_frame(conn, json.to_string(response))
-  Nil
+  safe_send(conn, json.to_string(response))
 }
 
 fn send_arbitrage(conn: mist.WebsocketConnection) {
@@ -493,13 +491,23 @@ fn send_arbitrage(conn: mist.WebsocketConnection) {
     #("type", json.string("arbitrage")),
     #("data", opps_json),
   ])
-  let assert Ok(_) = mist.send_text_frame(conn, json.to_string(response))
-  Nil
+  safe_send(conn, json.to_string(response))
 }
 
 // =============================================================================
 // HELPERS
 // =============================================================================
+
+/// Safe WebSocket send - logs errors instead of panicking
+fn safe_send(conn: mist.WebsocketConnection, text: String) -> Nil {
+  case mist.send_text_frame(conn, text) {
+    Ok(_) -> Nil
+    Error(e) -> {
+      io.println("[WS:P2P] Send error: " <> string.inspect(e))
+      Nil
+    }
+  }
+}
 
 fn extract_channels(text: String) -> List(String) {
   // Simple extraction - in production use proper JSON decoder

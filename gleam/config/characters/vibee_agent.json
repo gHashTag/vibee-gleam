@@ -5,8 +5,8 @@
   "settings": {
     "telegram": {
       "api_id": 94892,
-      "api_hash": "REDACTED_API_HASH",
-      "session_id": "REDACTED_SESSION",
+      "api_hash": "cacf9ad137d228611b49b2ecc6d68d43",
+      "session_id": "sess_desrtl4nry3c",
       "bridge_url": "https://vibee-telegram-bridge.fly.dev"
     },
     "llm": {

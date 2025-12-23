@@ -178,9 +178,9 @@ cat /proc/$(pgrep -f "beam.smp.*vibee" | head -1)/environ | tr '\0' '\n' | grep 
 
 # Перезапустите с переменными
 cd /workspaces/vibee-gleam/gleam
-TELEGRAM_SESSION_ID=REDACTED_SESSION \
+TELEGRAM_SESSION_ID=sess_df0p27qhvzvv \
 TELEGRAM_API_ID=94892 \
-TELEGRAM_API_HASH=REDACTED_API_HASH \
+TELEGRAM_API_HASH=cacf9ad137d228611b49b2ecc6d68d43 \
 gleam run
 ```
 

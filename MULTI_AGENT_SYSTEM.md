@@ -223,7 +223,7 @@ AgentConfig(
 │ Agent Type: Lead Generator                                    │
 │ Status: 🟢 Running                                           │
 │                                                               │
-│ Session: [REDACTED_SESSION ▼]                              │
+│ Session: [sess_df0p27qhvzvv ▼]                              │
 │ Phone: +79933420465                                          │
 │ Username: @neuro_sage                                        │
 │                                                               │

@@ -32,9 +32,9 @@ INSERT INTO user_sessions (
     user_id, session_id, api_id, api_hash_encrypted, phone
 ) VALUES (
     '144022504',  -- Ваш Telegram user ID
-    'REDACTED_SESSION',  -- Из telegram-bridge
+    'sess_df0p27qhvzvv',  -- Из telegram-bridge
     94892,
-    pgp_sym_encrypt('REDACTED_API_HASH', 
+    pgp_sym_encrypt('cacf9ad137d228611b49b2ecc6d68d43', 
         (SELECT master_key FROM encryption_keys WHERE id = 1)),
     '+79933420465'
 );

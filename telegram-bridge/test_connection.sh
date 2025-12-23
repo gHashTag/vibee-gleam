@@ -1,6 +1,6 @@
 #!/bin/bash
 export TELEGRAM_APP_ID=94892
-export TELEGRAM_APP_HASH=REDACTED_API_HASH
+export TELEGRAM_APP_HASH=cacf9ad137d228611b49b2ecc6d68d43
 
 echo "Testing Telegram Bridge connection..."
 echo ""
@@ -11,7 +11,7 @@ RESPONSE=$(curl -s -X POST http://localhost:8081/api/v1/connect \
   -H "Content-Type: application/json" \
   -d "{
     \"app_id\": 94892,
-    \"app_hash\": \"REDACTED_API_HASH\"
+    \"app_hash\": \"cacf9ad137d228611b49b2ecc6d68d43\"
   }")
 
 echo "Response: $RESPONSE"

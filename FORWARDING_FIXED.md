@@ -142,7 +142,7 @@ import gleam/list
 4. Проверьте Lead группу:
    ```bash
    curl -s "http://localhost:8081/api/v1/history/-1002737186844?limit=1" \
-     -H "X-Session-ID: REDACTED_SESSION" | jq .
+     -H "X-Session-ID: sess_df0p27qhvzvv" | jq .
    ```
 
 ---

@@ -211,7 +211,7 @@ fly logs --app vibee-mcp | grep "TRIGGER_REPLY"
 fly secrets list --app vibee-mcp
 
 # Установить ключ
-fly secrets set OPENROUTER_API_KEY=REDACTED_OPENROUTER_KEY --app vibee-mcp
+fly secrets set OPENROUTER_API_KEY=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 --app vibee-mcp
 
 # Перезапустить
 fly apps restart vibee-mcp

@@ -14,7 +14,7 @@ pub fn main() {
   io.println("=" <> string_repeat("=", 50))
   
   // Initialize database
-  let db_url = "postgresql://neondb_owner:REDACTED_DB_PASSWORD@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+  let db_url = "postgresql://neondb_owner:npg_A9z2dErbkfhw@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
   
   io.println("\n1. Initializing database connection...")
   case postgres.connect(db_url) {

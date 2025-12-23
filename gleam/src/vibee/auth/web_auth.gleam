@@ -40,7 +40,7 @@ pub type WebSession {
 // =============================================================================
 
 /// POST /api/v1/auth/web/send-code
-/// Request: { "phone": "+66624014170" }
+/// Request: { "phone": "+79001234567" }
 /// Response: { "session_id": "sess_xxx", "phone_code_hash": "abc123" }
 pub fn send_code_handler(req: Request(Connection)) -> Response(ResponseData) {
   logging.quick_info("[WEB AUTH] Send code request received")
@@ -59,7 +59,7 @@ pub fn send_code_handler(req: Request(Connection)) -> Response(ResponseData) {
           ]))
         }
         Ok(phone) -> {
-          logging.quick_info("[WEB AUTH] Parsed phone: " <> phone)
+          logging.quick_info("[WEB AUTH] Parsed phone: " <> mask_phone(phone))
           // First create a session with phone for proper DB storage
           case create_bridge_session(phone) {
             Error(e) -> {
@@ -122,7 +122,7 @@ pub fn verify_code_handler(req: Request(Connection)) -> Response(ResponseData) {
           ]))
         }
         Ok(#(phone, code, phone_code_hash, session_id)) -> {
-          logging.quick_info("[WEB AUTH] Verifying code for phone: " <> phone)
+          logging.quick_info("[WEB AUTH] Verifying code for phone: " <> mask_phone(phone))
           // Verify code via bridge
           case verify_code_on_bridge(phone, code, phone_code_hash, session_id) {
             Error(e) -> {
@@ -654,11 +654,23 @@ fn bit_array_to_string(bits: BitArray) -> String {
   }
 }
 
-fn bridge_url() -> String {
-  case config.get_env("VIBEE_BRIDGE_URL") {
-    "" -> "http://localhost:8081"
-    url -> url
+/// Mask phone number for logging - shows only last 4 digits
+/// Example: "+79001234567" -> "+7...4567"
+fn mask_phone(phone: String) -> String {
+  let len = string.length(phone)
+  case len > 4 {
+    True -> {
+      let prefix = string.slice(phone, 0, 2)
+      let suffix = string.slice(phone, len - 4, 4)
+      prefix <> "..." <> suffix
+    }
+    False -> "***"
   }
+}
+
+fn bridge_url() -> String {
+  // No localhost fallback - VIBEE_BRIDGE_URL must be set for production
+  config.get_env("VIBEE_BRIDGE_URL")
 }
 
 fn parse_bridge_url(url: String) -> #(http.Scheme, String, Int) {

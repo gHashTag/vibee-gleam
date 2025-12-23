@@ -7,7 +7,7 @@ if [ -z "$1" ]; then
 fi
 
 SMS_CODE=$1
-SESSION_ID="REDACTED_SESSION"
+SESSION_ID="sess_df0p27qhvzvv"
 
 echo "========================================="
 echo "  Completing Authentication"
@@ -38,7 +38,7 @@ if echo "$CODE_RESPONSE" | jq -e '.status == "2fa_required"' > /dev/null; then
       -H "Content-Type: application/json" \
       -d "{
         \"session_id\": \"$SESSION_ID\",
-        \"password\": \"REDACTED_2FA_PASSWORD\"
+        \"password\": \"Vishnu8087\"
       }")
     
     echo "$FA_RESPONSE" | jq .

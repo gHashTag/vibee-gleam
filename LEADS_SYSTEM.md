@@ -3,7 +3,7 @@
 ## ✅ Что реализовано
 
 ### 1. База данных PostgreSQL (Neon)
-- **URL**: `postgresql://neondb_owner:REDACTED_DB_PASSWORD@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb`
+- **URL**: `postgresql://neondb_owner:npg_A9z2dErbkfhw@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb`
 - **Schema**: `schema.sql` - полная схема для лидов
 
 ### 2. Таблицы
@@ -144,7 +144,7 @@
 
 ```bash
 # Подключиться к базе
-psql 'postgresql://neondb_owner:REDACTED_DB_PASSWORD@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
+psql 'postgresql://neondb_owner:npg_A9z2dErbkfhw@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
 
 # Выполнить schema.sql
 \i schema.sql
@@ -169,7 +169,7 @@ SELECT * FROM lead_stats;
 ### 3. Добавить в .env
 
 ```bash
-DATABASE_URL=postgresql://neondb_owner:REDACTED_DB_PASSWORD@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+DATABASE_URL=postgresql://neondb_owner:npg_A9z2dErbkfhw@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
 ```
 
 ## 📈 Queries для анализа
@@ -270,7 +270,7 @@ fly logs --app vibee-mcp | grep "НОВЫЙ ЛИД" -A 30
 
 ```bash
 # Подключиться
-psql 'postgresql://neondb_owner:REDACTED_DB_PASSWORD@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
+psql 'postgresql://neondb_owner:npg_A9z2dErbkfhw@ep-bitter-frog-a1bewei7-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
 
 # Посмотреть лиды
 SELECT * FROM active_leads;

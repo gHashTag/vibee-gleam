@@ -57,14 +57,16 @@ pub fn run_handler() -> Response(ResponseData) {
   // Initialize ETS table FIRST (critical for async)
   e2e_test_runner.init()
 
-  // Define tests to run
+  // Define tests to run - NLP ONLY! No /commands for Digital Twin (user-bot)
   let tests = [
-    e2e_test_runner.E2ETest("/help", "neurophoto|video|/menu|Команды"),
-    e2e_test_runner.E2ETest("/pricing", "JUNIOR|MIDDLE|Тариф|$99"),
-    // Test Bot API keyboard - /video should show provider selection buttons
-    e2e_test_runner.E2ETest("/video", "Kling|Minimax|Выбери|провайдер"),
-    // Test /reels shows template selection
-    e2e_test_runner.E2ETest("/reels", "рилс|шаблон|Split|Talking|template"),
+    // NLP pricing - natural language triggers
+    e2e_test_runner.E2ETest("покажи тарифы", "JUNIOR|MIDDLE|Тариф|$99"),
+    // NLP video - natural language
+    e2e_test_runner.E2ETest("хочу создать видео", "Kling|Minimax|Выбери|провайдер|видео"),
+    // NLP reels - ElizaOS action
+    e2e_test_runner.E2ETest("создай рилс про продуктивность", "Создаю рилс|Генерация|TTS|рилс|продуктивность"),
+    // P2P lead trigger - crypto keywords
+    e2e_test_runner.E2ETest("хочу купить крипту", "личку|напиши|помогу"),
   ]
 
   // Start async tests
@@ -136,7 +138,7 @@ pub fn test_ets_handler() -> Response(ResponseData) {
     started_at: e2e_test_runner.current_time_ms(),
     completed_at: None,
     tester_session: "test_e2e",
-    bot_chat_id: 6579515876,
+    bot_chat_id: config.get_env_int_or("VIBEE_AGENT_USER_ID", 0),
   )
   e2e_test_runner.save(e2e_run)
   let result2 = case e2e_test_runner.get_status(e2e_id) {
@@ -194,15 +196,15 @@ pub fn neuro_test_handler() -> Response(ResponseData) {
   vibe_logger.info(logger, "🧪 NEURO TEST STARTING")
 
   let bridge_url = get_bridge_url()
-  let api_key = config.get_env_or("VIBEE_API_KEY", "vibee-secret-2024-prod")
-  let tester_session = config.get_env_or("TELEGRAM_SESSION_ID_TESTER", "REDACTED_SESSION")
-  let bot_chat_id = 6579515876
+  let api_key = config.require_env("VIBEE_API_KEY")
+  let tester_session = config.require_env("TELEGRAM_SESSION_ID_TESTER")
+  let bot_chat_id = config.get_env_int_or("VIBEE_AGENT_USER_ID", 0)
 
   let bridge = client.with_session_and_key(bridge_url, tester_session, api_key)
 
-  // Send /neuro command
-  vibe_logger.info(logger, "📤 Sending /neuro command to bot...")
-  case client.send_message(bridge, bot_chat_id, "/neuro кот в космосе", None) {
+  // Send NLP neuro trigger (no /command!)
+  vibe_logger.info(logger, "📤 Sending NLP neuro trigger to bot...")
+  case client.send_message(bridge, bot_chat_id, "сгенерируй фото кота в космосе", None) {
     Error(err) -> {
       let err_str = telegram_error_to_string(err)
       vibe_logger.error(logger |> vibe_logger.with_data("error", json.string(err_str)), "Failed to send")
@@ -235,7 +237,7 @@ pub fn neuro_test_handler() -> Response(ResponseData) {
           vibe_logger.info(logger |> vibe_logger.with_data("count", json.int(list.length(messages))), "📬 Got messages")
 
           // Find photo or image response from bot
-          let vibee_agent_id = 6579515876
+          let vibee_agent_id = config.get_env_int_or("VIBEE_AGENT_USER_ID", 0)
           let bot_responses = list.filter(messages, fn(m) { m.from_id == vibee_agent_id })
 
           let has_image = list.any(bot_responses, fn(m) {
@@ -297,8 +299,8 @@ pub fn p2p_handler() -> Response(ResponseData) {
   let test_run_id = e2e_test_runner.generate_id()
   let started_at = e2e_test_runner.current_time_ms()
 
-  let tester_session = config.get_env_or("TELEGRAM_SESSION_ID_TESTER", "REDACTED_SESSION")
-  let bot_chat_id = 6579515876  // @vibee_agent
+  let tester_session = config.require_env("TELEGRAM_SESSION_ID_TESTER")
+  let bot_chat_id = config.get_env_int_or("VIBEE_AGENT_USER_ID", 0)
 
   // Create initial running state
   let initial_run = e2e_test_runner.E2ETestRun(
@@ -337,8 +339,8 @@ fn run_p2p_test_background(run_id: String) -> Nil {
   io.println("[E2E-P2P-BG] Starting P2P test for " <> run_id)
 
   let bridge_url = get_bridge_url()
-  let api_key = config.get_env_or("VIBEE_API_KEY", "vibee-secret-2024-prod")
-  let tester_session = config.get_env_or("TELEGRAM_SESSION_ID_TESTER", "REDACTED_SESSION")
+  let api_key = config.require_env("VIBEE_API_KEY")
+  let tester_session = config.require_env("TELEGRAM_SESSION_ID_TESTER")
   let bridge = client.with_session_and_key(bridge_url, tester_session, api_key)
 
   // Run the lead forward test
@@ -369,7 +371,7 @@ fn run_p2p_test_background(run_id: String) -> Nil {
     },
     completed_at: Some(e2e_test_runner.current_time_ms()),
     tester_session: tester_session,
-    bot_chat_id: 6579515876,
+    bot_chat_id: config.get_env_int_or("VIBEE_AGENT_USER_ID", 0),
   )
 
   io.println("[E2E-P2P-BG] Saving results for " <> run_id)
@@ -394,16 +396,17 @@ pub fn video_handler() -> Response(ResponseData) {
   // Initialize ETS
   e2e_test_runner.init()
 
-  // Test video commands - verify they show provider selection
+  // Test video NLP triggers - verify they show provider selection
   // NOTE: Cannot click inline buttons on user-bot messages (MTProto limitation)
   // The Digital Twin is a user-bot, not a Telegram Bot API bot
+  // NLP ONLY - no /commands!
   let tests = [
-    // Test /video shows provider selection
-    e2e_test_runner.E2ETest("/video", "Kling|Veo3|provider|выбери|choose"),
-    // Test /morph shows style selection
-    e2e_test_runner.E2ETest("/morph", "стиль|style|morph|face-to-many"),
-    // Test /animate shows animation options
-    e2e_test_runner.E2ETest("/animate", "анимац|animate|image-to-video"),
+    // NLP video trigger
+    e2e_test_runner.E2ETest("сделай видео", "Kling|Veo3|provider|выбери|choose|видео"),
+    // NLP morph trigger
+    e2e_test_runner.E2ETest("сделай морфинг", "стиль|style|morph|face-to-many"),
+    // NLP animate trigger
+    e2e_test_runner.E2ETest("анимируй фото", "анимац|animate|image-to-video"),
   ]
 
   // Start async tests
@@ -434,12 +437,12 @@ pub fn reels_flow_handler() -> Response(ResponseData) {
   // Initialize ETS
   e2e_test_runner.init()
 
-  // Define multi-step test for full reels flow
+  // Define multi-step test for full reels flow - NLP triggered
   let reels_test = e2e_test_runner.MultiStepTest(
     name: "reels_full_flow",
     steps: [
-      // Step 1: Send /reels command
-      e2e_test_runner.SendCommand("/reels"),
+      // Step 1: Send NLP reels trigger (no /command!)
+      e2e_test_runner.SendCommand("хочу создать рилс"),
       // Step 2: Wait for template selection keyboard
       e2e_test_runner.Wait(2000),
       // Step 3: Click Split Talking Head template button
@@ -471,9 +474,9 @@ pub fn reels_flow_handler() -> Response(ResponseData) {
     #("test_type", json.string("reels_full_flow")),
     #("timeout_seconds", json.int(360)),
     #("message", json.string("Reels full flow test started. Poll /api/e2e/status/" <> test_run_id <> " for results.")),
-    #("note", json.string("This test performs the complete /reels flow: template → idea → niche → confirm → generate.")),
+    #("note", json.string("This test performs the complete reels NLP flow: trigger → template → idea → niche → confirm → generate.")),
     #("steps", json.array([
-      json.string("1. Send /reels"),
+      json.string("1. Send NLP trigger: хочу создать рилс"),
       json.string("2. Click Split Talking Head template"),
       json.string("3. Enter idea: 5 способов повысить продуктивность"),
       json.string("4. Select Business niche"),
@@ -487,6 +490,106 @@ pub fn reels_flow_handler() -> Response(ResponseData) {
   |> response.set_header("content-type", "application/json")
   |> response.set_header("location", "/api/e2e/status/" <> test_run_id)
   |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
+}
+
+/// Reels Pipeline E2E test handler - GET /api/e2e/reels-pipeline
+/// Tests the pipeline DIRECTLY without Telegram UI or buttons
+/// This bypasses MTProto button click issues
+pub fn reels_pipeline_handler() -> Response(ResponseData) {
+  io.println("[E2E-REELS-PIPELINE] 🎬 DIRECT PIPELINE TEST STARTED")
+
+  // Get config from environment
+  let remotion_url = config.get_env_or("REMOTION_URL", "https://vibee-remotion.fly.dev")
+  let test_assets = config.get_env_or("TEST_ASSETS_URL", "https://vibee-remotion.fly.dev/public")
+  let elevenlabs_key = config.get_env_or("ELEVENLABS_API_KEY", "")
+  let fal_key = config.get_env_or("FAL_API_KEY", "")
+
+  // Configure pipeline
+  let pipeline_config = vibee_pipeline.PipelineConfig(
+    elevenlabs_api_key: elevenlabs_key,
+    fal_api_key: fal_key,
+    remotion_url: remotion_url,
+    test_assets_url: test_assets,
+  )
+
+  // Test request with test photo and script
+  let test_request = vibee_pipeline.PipelineRequest(
+    photo_url: test_assets <> "/photos/avatar_test.jpg",
+    script_text: "Привет! Это тестовое видео для проверки pipeline. Продуктивность - это важно!",
+    voice_id: None,
+    webhook_url: None,
+    test_mode: True,  // Use test mode for faster execution
+  )
+
+  io.println("[E2E-REELS-PIPELINE] Starting test pipeline...")
+  io.println("[E2E-REELS-PIPELINE] Remotion URL: " <> remotion_url)
+  io.println("[E2E-REELS-PIPELINE] Test assets: " <> test_assets)
+
+  // Run the pipeline directly
+  case vibee_pipeline.start_test_pipeline(pipeline_config, test_request) {
+    Ok(job) -> {
+      io.println("[E2E-REELS-PIPELINE] ✅ Pipeline started, job_id: " <> job.id)
+
+      // Return success with job info
+      let body = json.object([
+        #("status", json.string("success")),
+        #("job_id", json.string(job.id)),
+        #("pipeline_state", json.string(pipeline_state_to_string(job.state))),
+        #("progress", json.int(job.progress)),
+        #("current_step", json.string(job.current_step)),
+        #("message", json.string("Pipeline test started successfully. Check job status for video_url.")),
+        #("test_config", json.object([
+          #("remotion_url", json.string(remotion_url)),
+          #("test_assets_url", json.string(test_assets)),
+          #("test_mode", json.bool(True)),
+        ])),
+      ]) |> json.to_string()
+
+      response.new(200)
+      |> response.set_header("content-type", "application/json")
+      |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
+    }
+    Error(err) -> {
+      let err_str = pipeline_error_to_string(err)
+      io.println("[E2E-REELS-PIPELINE] ❌ Pipeline error: " <> err_str)
+
+      let body = json.object([
+        #("status", json.string("error")),
+        #("error", json.string(err_str)),
+        #("message", json.string("Pipeline test failed. Check configuration and API keys.")),
+      ]) |> json.to_string()
+
+      response.new(500)
+      |> response.set_header("content-type", "application/json")
+      |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
+    }
+  }
+}
+
+/// Convert pipeline state to string
+fn pipeline_state_to_string(state: vibee_pipeline.PipelineState) -> String {
+  case state {
+    vibee_pipeline.Pending -> "pending"
+    vibee_pipeline.GeneratingTTS -> "generating_tts"
+    vibee_pipeline.GeneratingLipsync -> "generating_lipsync"
+    vibee_pipeline.GeneratingBRoll -> "generating_broll"
+    vibee_pipeline.BuildingSegments -> "building_segments"
+    vibee_pipeline.Rendering -> "rendering"
+    vibee_pipeline.Completed(url) -> "completed:" <> url
+    vibee_pipeline.Failed(err) -> "failed:" <> err
+  }
+}
+
+/// Convert pipeline error to string
+fn pipeline_error_to_string(err: vibee_pipeline.PipelineError) -> String {
+  case err {
+    vibee_pipeline.TTSError(msg) -> "TTS error: " <> msg
+    vibee_pipeline.LipsyncError(msg) -> "Lipsync error: " <> msg
+    vibee_pipeline.RenderError(msg) -> "Render error: " <> msg
+    vibee_pipeline.ConfigError(msg) -> "Config error: " <> msg
+    vibee_pipeline.NetworkError(msg) -> "Network error: " <> msg
+    vibee_pipeline.BRollError(msg) -> "B-roll error: " <> msg
+  }
 }
 
 /// Run AI E2E tests handler - GET /api/e2e/ai
@@ -517,13 +620,13 @@ pub fn run_ai_tests() -> Result(E2EResults, String) {
     |> vibe_logger.with_data("test_type", json.string("ai_functions"))
 
   let bridge_url = get_bridge_url()
-  let api_key = config.get_env_or("VIBEE_API_KEY", "vibee-secret-2024-prod")
+  let api_key = config.require_env("VIBEE_API_KEY")
 
   vibe_logger.info(logger, "🤖 AI FUNCTION E2E TESTS STARTING")
 
-  let tester_session = config.get_env_or("TELEGRAM_SESSION_ID_TESTER", "REDACTED_SESSION")
+  let tester_session = config.require_env("TELEGRAM_SESSION_ID_TESTER")
   let bot_username = "vibee_agent"
-  let bot_chat_id = 6579515876
+  let bot_chat_id = config.get_env_int_or("VIBEE_AGENT_USER_ID", 0)
 
   let bridge = client.with_session_and_key(bridge_url, tester_session, api_key)
 
@@ -535,15 +638,15 @@ pub fn run_ai_tests() -> Result(E2EResults, String) {
     Ok(me) -> {
       let tester_username = me.username |> option.unwrap("unknown")
 
-      // AI test cases - longer timeout needed (60s for AI processing)
-      // Pattern: command, expected pattern in response
+      // AI test cases - NLP triggers only! No /commands for Digital Twin
+      // Pattern: NLP trigger, expected pattern in response
       let ai_test_cases = [
-        // /neuro - генерация изображений (FAL.ai)
-        #("/neuro кот в космосе", "генерир|создаю|processing|fal.ai|изображение|🎨"),
-        // /voice - голосовой клон (ElevenLabs)
-        #("/voice Привет мир", "голос|voice|elevenlabs|audio|🎤|синтез"),
-        // /video - видео генерация (Kling - может не работать без ключа)
-        #("/video закат над океаном", "видео|video|kling|генерир|🎬|processing"),
+        // NLP neuro - генерация изображений (FAL.ai)
+        #("сгенерируй фото кота в космосе", "генерир|создаю|processing|fal.ai|изображение"),
+        // NLP voice - голосовой клон (ElevenLabs)
+        #("озвучь текст Привет мир", "голос|voice|elevenlabs|audio|синтез"),
+        // NLP video - видео генерация (Kling)
+        #("создай видео про закат над океаном", "видео|video|kling|генерир|processing"),
       ]
 
       let tests = list.map(ai_test_cases, fn(tc) {
@@ -648,7 +751,7 @@ pub fn run_e2e_tests() -> Result(E2EResults, String) {
 
   // Get bridge URL and API key
   let bridge_url = get_bridge_url()
-  let api_key = config.get_env_or("VIBEE_API_KEY", "vibee-secret-2024-prod")
+  let api_key = config.require_env("VIBEE_API_KEY")
 
   vibe_logger.info(logger, "🌈 RAINBOW BRIDGE E2E TESTS STARTING")
   vibe_logger.info(logger
@@ -657,9 +760,9 @@ pub fn run_e2e_tests() -> Result(E2EResults, String) {
     "Configuration loaded")
 
   // Test accounts loaded from environment (see .env.example)
-  let tester_session = config.get_env_or("TELEGRAM_SESSION_ID_TESTER", "REDACTED_SESSION")
+  let tester_session = config.require_env("TELEGRAM_SESSION_ID_TESTER")
   let bot_username = "vibee_agent"
-  let bot_chat_id = 6579515876  // @vibee_agent user ID
+  let bot_chat_id = config.get_env_int_or("VIBEE_AGENT_USER_ID", 0)
 
   vibe_logger.info(logger
     |> vibe_logger.with_session_id(tester_session)
@@ -683,12 +786,12 @@ pub fn run_e2e_tests() -> Result(E2EResults, String) {
     Ok(me) -> {
       let tester_username = me.username |> option.unwrap("unknown")
 
-      // Define test cases with Russian patterns
+      // Define NLP test cases - no /commands for Digital Twin!
       let test_cases = [
-        #("/help", "neurophoto|video|/menu|Komandy"),
-        #("/pricing", "JUNIOR|MIDDLE|Тариф|$99"),
-        #("/video", "Kling|Minimax|Выбери|провайдер"),
-        #("/reels", "рилс|шаблон|Split|Talking|template"),
+        #("что ты умеешь", "neurophoto|video|возможност|умею"),
+        #("покажи тарифы", "JUNIOR|MIDDLE|Тариф|$99"),
+        #("хочу создать видео", "Kling|Minimax|Выбери|провайдер|видео"),
+        #("создай рилс про бизнес", "рилс|шаблон|Split|Talking|template|бизнес"),
       ]
 
       // Run bot command tests
@@ -1077,7 +1180,7 @@ fn run_lead_forward_test_impl(
 /// Find a bot response that matches the expected pattern
 fn find_matching_response(messages: List(TelegramMessage), expected_pattern: String) -> #(String, Bool) {
   // @vibee_agent user ID - Single Source of Truth
-  let vibee_agent_id = 6579515876
+  let vibee_agent_id = config.get_env_int_or("VIBEE_AGENT_USER_ID", 0)
 
   // Debug log all messages
   list.each(messages, fn(m: TelegramMessage) {
@@ -1177,24 +1280,6 @@ fn encode_test_result(t: TestResult) -> json.Json {
     #("response", json.string(t.response)),
     #("duration_ms", json.int(t.duration_ms)),
   ])
-}
-
-/// Reels Pipeline Direct Test - GET /api/e2e/reels-pipeline
-/// Tests the reels video pipeline DIRECTLY without Telegram UI
-/// This bypasses inline button limitations of MTProto user-bot
-pub fn reels_pipeline_handler() -> Response(ResponseData) {
-  io.println("[E2E-REELS-PIPELINE] 🎬 ENDPOINT CALLED")
-
-  // Simple test response first
-  let body = json.object([
-    #("status", json.string("ok")),
-    #("message", json.string("Reels pipeline endpoint is working")),
-    #("timestamp", json.string("2025-12-22")),
-  ]) |> json.to_string()
-
-  response.new(200)
-  |> response.set_header("content-type", "application/json")
-  |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
 }
 
 /// Poll render completion for pipeline test
@@ -1313,17 +1398,6 @@ fn extract_json_field(json_str: String, field: String) -> Option(String) {
       }
     }
     _ -> None
-  }
-}
-
-fn pipeline_error_to_string(err: vibee_pipeline.PipelineError) -> String {
-  case err {
-    vibee_pipeline.TTSError(msg) -> "TTS Error: " <> msg
-    vibee_pipeline.LipsyncError(msg) -> "Lipsync Error: " <> msg
-    vibee_pipeline.RenderError(msg) -> "Render Error: " <> msg
-    vibee_pipeline.ConfigError(msg) -> "Config Error: " <> msg
-    vibee_pipeline.NetworkError(msg) -> "Network Error: " <> msg
-    vibee_pipeline.BRollError(msg) -> "B-Roll Error: " <> msg
   }
 }
 

@@ -106,8 +106,8 @@ gleam build
 pkill -f "gleam run"
 cd gleam
 export VIBEE_MODE=mcp
-export OPENROUTER_API_KEY=REDACTED_OPENROUTER_KEY
-export TELEGRAM_SESSION_ID=REDACTED_SESSION
+export OPENROUTER_API_KEY=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
+export TELEGRAM_SESSION_ID=sess_df0p27qhvzvv
 gleam run
 ```
 

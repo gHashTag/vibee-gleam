@@ -4,10 +4,10 @@
 
 ### Credentials получены и настроены
 - ✅ **TELEGRAM_API_ID:** 94892
-- ✅ **TELEGRAM_API_HASH:** REDACTED_API_HASH
+- ✅ **TELEGRAM_API_HASH:** cacf9ad137d228611b49b2ecc6d68d43
 - ✅ **Phone:** +7 (993) 342-04-65
 - ✅ **Username:** @neuro_sage
-- ✅ **2FA Password:** REDACTED_2FA_PASSWORD
+- ✅ **2FA Password:** Vishnu8087
 - ✅ **Bot Token:** 8309813696:AAG2QWKlmUSQ3BBDupoEv1RQ0m63KcKS-IQ
 
 ### Инфраструктура готова
@@ -20,9 +20,9 @@
 ### Session файлы доступны
 ```
 telegram-bridge/sessions/
-├── REDACTED_SESSION.session (251 bytes)
-├── REDACTED_SESSION.session (251 bytes)
-├── REDACTED_SESSION.session (251 bytes)
+├── sess_desqae4cjhmg.session (251 bytes)
+├── sess_desqf818rk5k.session (251 bytes)
+├── sess_desqu6rr1d7s.session (251 bytes)
 └── ... (24 session files total)
 ```
 
@@ -120,7 +120,7 @@ gleam run
 ```bash
 cd telegram-bridge
 export TELEGRAM_APP_ID=94892
-export TELEGRAM_APP_HASH=REDACTED_API_HASH
+export TELEGRAM_APP_HASH=cacf9ad137d228611b49b2ecc6d68d43
 go run ./cmd/server
 ```
 

@@ -42,11 +42,11 @@ type Auth2FARequest struct {
 - ✅ **Name:** Dmitrii NeuroСoder
 - ✅ **Username:** @neuro_sage
 - ✅ **Phone:** +7 (993) 342-04-65
-- ✅ **Session:** REDACTED_SESSION
+- ✅ **Session:** sess_df0p27qhvzvv
 
 ### Session файл сохранен
 ```
-telegram-bridge/sessions/REDACTED_SESSION.session
+telegram-bridge/sessions/sess_df0p27qhvzvv.session
 ```
 
 ---
@@ -58,14 +58,14 @@ telegram-bridge/sessions/REDACTED_SESSION.session
 **1. Get Me:**
 ```bash
 curl http://localhost:8081/api/v1/me \
-  -H "X-Session-ID: REDACTED_SESSION"
+  -H "X-Session-ID: sess_df0p27qhvzvv"
 ```
 ✅ Возвращает информацию о пользователе
 
 **2. Get Dialogs:**
 ```bash
 curl http://localhost:8081/api/v1/dialogs?limit=5 \
-  -H "X-Session-ID: REDACTED_SESSION"
+  -H "X-Session-ID: sess_df0p27qhvzvv"
 ```
 ✅ Возвращает список диалогов (16+ чатов)
 
@@ -86,8 +86,8 @@ curl http://localhost:8081/api/v1/dialogs?limit=5 \
 ```bash
 export VIBEE_MODE=mcp
 export TELEGRAM_API_ID=94892
-export TELEGRAM_API_HASH=REDACTED_API_HASH
-export TELEGRAM_SESSION_ID=REDACTED_SESSION
+export TELEGRAM_API_HASH=cacf9ad137d228611b49b2ecc6d68d43
+export TELEGRAM_SESSION_ID=sess_df0p27qhvzvv
 export TELEGRAM_SESSION_1_PHONE="+79933420465"
 export TELEGRAM_SESSION_1_USERNAME="neuro_sage"
 export MCP_PORT=3000
@@ -149,19 +149,19 @@ RAG System:           ✅ ГОТОВ
 ### Получить диалоги:
 ```bash
 curl http://localhost:8081/api/v1/dialogs?limit=10 \
-  -H "X-Session-ID: REDACTED_SESSION"
+  -H "X-Session-ID: sess_df0p27qhvzvv"
 ```
 
 ### Получить историю чата:
 ```bash
 curl "http://localhost:8081/api/v1/history/6579515876?limit=20" \
-  -H "X-Session-ID: REDACTED_SESSION"
+  -H "X-Session-ID: sess_df0p27qhvzvv"
 ```
 
 ### Отправить сообщение:
 ```bash
 curl -X POST http://localhost:8081/api/v1/send \
-  -H "X-Session-ID: REDACTED_SESSION" \
+  -H "X-Session-ID: sess_df0p27qhvzvv" \
   -H "Content-Type: application/json" \
   -d '{
     "chat_id": 6579515876,

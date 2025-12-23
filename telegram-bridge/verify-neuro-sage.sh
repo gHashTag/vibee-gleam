@@ -1,6 +1,6 @@
 #!/bin/bash
 BRIDGE="https://vibee-telegram-bridge.fly.dev"
-SESSION="REDACTED_SESSION"
+SESSION="sess_dexnakkcozww"
 
 echo "Verifying code..."
 curl --max-time 30 -s -X POST "$BRIDGE/api/v1/auth/code" \

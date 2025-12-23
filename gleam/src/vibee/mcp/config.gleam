@@ -85,6 +85,43 @@ pub fn get_env_or(name: String, default: String) -> String {
   }
 }
 
+/// Get required environment variable - logs error but returns empty string instead of panicking
+/// This allows the application to handle missing config gracefully
+pub fn require_env(name: String) -> String {
+  case get_env_internal(name) {
+    Ok(value) -> value
+    Error(Nil) -> {
+      // Log error to stderr but don't crash - let caller handle empty value
+      log_error("Required env var not set: " <> name)
+      ""
+    }
+  }
+}
+
+/// Get required environment variable as Result for explicit error handling
+pub fn require_env_result(name: String) -> Result(String, String) {
+  case get_env_internal(name) {
+    Ok(value) -> Ok(value)
+    Error(Nil) -> Error("Required env var not set: " <> name)
+  }
+}
+
+@external(erlang, "vibee_config_ffi", "log_error")
+fn log_error(msg: String) -> Nil
+
+/// Get integer environment variable with fallback default
+pub fn get_env_int_or(name: String, default: Int) -> Int {
+  case get_env_internal(name) {
+    Ok(value) -> {
+      case parse_int(value) {
+        Ok(n) -> n
+        Error(Nil) -> default
+      }
+    }
+    Error(Nil) -> default
+  }
+}
+
 // Internal helpers
 
 fn parse_log_level(s: String) -> LogLevel {

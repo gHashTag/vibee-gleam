@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // Generate embeddings for messages without them
 
-const DATABASE_URL = "postgresql://neondb_owner:REDACTED_DB_PASSWORD@ep-bitter-frog-a1bewei7.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
+const DATABASE_URL = "postgresql://neondb_owner:npg_A9z2dErbkfhw@ep-bitter-frog-a1bewei7.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || ""; // Set via env
 
 import { Client } from 'pg';

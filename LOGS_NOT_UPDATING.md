@@ -102,9 +102,9 @@ flyctl logs --app vibee-mcp
 
 ```bash
 # Установить переменные
-export TELEGRAM_SESSION_ID="REDACTED_SESSION"
+export TELEGRAM_SESSION_ID="sess_df0p27qhvzvv"
 export TELEGRAM_API_ID="94892"
-export TELEGRAM_API_HASH="REDACTED_API_HASH"
+export TELEGRAM_API_HASH="cacf9ad137d228611b49b2ecc6d68d43"
 export OPENROUTER_API_KEY="sk-or-xxx"
 export VIBEE_BRIDGE_URL="https://vibee-telegram-bridge.fly.dev"
 
@@ -116,7 +116,7 @@ flyctl restart --app vibee-mcp
 
 ```bash
 # Установить secrets
-flyctl secrets set TELEGRAM_SESSION_ID="REDACTED_SESSION" --app vibee-mcp
+flyctl secrets set TELEGRAM_SESSION_ID="sess_df0p27qhvzvv" --app vibee-mcp
 flyctl secrets set OPENROUTER_API_KEY="sk-or-xxx" --app vibee-mcp
 
 # Автоматически перезапустится

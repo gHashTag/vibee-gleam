@@ -21,9 +21,8 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 		// Content Security Policy (basic - can be adjusted based on needs)
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' wss: ws:;")
 
-		// HTTP Strict Transport Security (HSTS) - only enable in production with HTTPS
-		// Uncomment when running behind TLS
-		// w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		// HTTP Strict Transport Security (HSTS) - enabled for production (Fly.io uses HTTPS)
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 
 		// Permissions Policy (previously Feature-Policy)
 		w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")

@@ -298,7 +298,7 @@
 │  Company: [Aimly.io                    ]    │
 │                                              │
 │  Telegram Connection                         │
-│  Session: REDACTED_SESSION [✓ Active]     │
+│  Session: sess_deysqvuushz9 [✓ Active]     │
 │  Phone: +66 624 014 170                     │
 │  [Reconnect] [Change Account]               │
 │                                              │

@@ -6,7 +6,7 @@ echo "========================================="
 echo ""
 
 export TELEGRAM_API_ID=94892
-export TELEGRAM_API_HASH=REDACTED_API_HASH
+export TELEGRAM_API_HASH=cacf9ad137d228611b49b2ecc6d68d43
 export TELEGRAM_SESSION_1_PHONE="+79933420465"
 export TELEGRAM_SESSION_1_USERNAME="neuro_sage"
 export VIBEE_MODE=telegram
@@ -28,5 +28,5 @@ echo ""
 
 echo "To start VIBEE with Telegram:"
 echo "  export TELEGRAM_API_ID=94892"
-echo "  export TELEGRAM_API_HASH=REDACTED_API_HASH"
+echo "  export TELEGRAM_API_HASH=cacf9ad137d228611b49b2ecc6d68d43"
 echo "  gleam run"

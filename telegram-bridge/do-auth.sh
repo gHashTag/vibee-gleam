@@ -1,7 +1,7 @@
 #!/bin/bash
 BRIDGE_URL="https://vibee-telegram-bridge.fly.dev"
 APP_ID="94892"
-APP_HASH="REDACTED_API_HASH"
+APP_HASH="cacf9ad137d228611b49b2ecc6d68d43"
 PHONE="+66624014170"
 
 echo "Creating session..."

@@ -19,12 +19,10 @@ import gleam/int
 import gleam/result
 import vibee/mcp/config
 
-/// Bridge URL для Go MTProto bridge (из ENV или localhost по умолчанию)
+/// Bridge URL для Go MTProto bridge (из ENV, обязателен для production)
+/// Возвращает пустую строку если не установлен - caller должен обрабатывать
 pub fn bridge_url() -> String {
-  case config.get_env("VIBEE_BRIDGE_URL") {
-    "" -> "http://localhost:8081"
-    url -> url
-  }
+  config.get_env("VIBEE_BRIDGE_URL")
 }
 
 /// API ID from ENV (required for Telegram MTProto)
