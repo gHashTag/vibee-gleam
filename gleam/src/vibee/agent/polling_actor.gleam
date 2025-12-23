@@ -650,9 +650,15 @@ fn process_chat_messages_with_events(
         int.compare(id_a, id_b)
       })
 
-      vibe_logger.trace(chat_log
-        |> vibe_logger.with_data("message_count", json.int(list.length(sorted_messages))),
-        "Got messages (sorted by msg_id)")
+      // For trigger chats - log at INFO level for debugging
+      case is_trigger {
+        True -> vibe_logger.info(chat_log
+          |> vibe_logger.with_data("message_count", json.int(list.length(sorted_messages))),
+          "TRIGGER: Got messages from history")
+        False -> vibe_logger.trace(chat_log
+          |> vibe_logger.with_data("message_count", json.int(list.length(sorted_messages))),
+          "Got messages (sorted by msg_id)")
+      }
 
       // Обрабатываем каждое ВХОДЯЩЕЕ сообщение с дедупликацией
       list.fold(sorted_messages, #(state, seen_ids), fn(acc, msg) {
@@ -664,12 +670,28 @@ fn process_chat_messages_with_events(
         case is_outgoing {
           True -> {
             // Исходящее сообщение - добавляем в seen но не обрабатываем
+            case is_trigger {
+              True -> vibe_logger.info(chat_log
+                |> vibe_logger.with_data("msg_id", json.int(msg_id))
+                |> vibe_logger.with_data("from_name", json.string(from_name)),
+                "TRIGGER: Skipping OUTGOING message")
+              False -> Nil
+            }
             #(acc_state, set.insert(acc_seen, unique_id))
           }
           False -> {
             // Проверяем, видели ли мы это сообщение
             case set.contains(acc_seen, unique_id) {
-              True -> acc  // Уже обработали - пропускаем
+              True -> {
+                // Уже обработали - пропускаем
+                case is_trigger {
+                  True -> vibe_logger.info(chat_log
+                    |> vibe_logger.with_data("msg_id", json.int(msg_id)),
+                    "TRIGGER: Skipping SEEN message")
+                  False -> Nil
+                }
+                acc
+              }
               False -> {
                 // Новое входящее сообщение
                 let msg_log = chat_log
