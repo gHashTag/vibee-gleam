@@ -480,11 +480,51 @@ pub fn handle_incoming_message(
           handle_reels_action(updated_state, chat_id, message_id, prompt, from_name, from_id)
         }
         _ -> {
-          let sniper_log = vibe_logger.new("sniper")
-            |> vibe_logger.with_session_id(updated_state.config.session_id)
-            |> vibe_logger.with_data("chat_id", json.string(chat_id))
+          // Check for NLP commands (natural language without /)
+          case detect_nlp_command(text) {
+            Some(#("help", _)) -> {
+              vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("help")), "NLP help command detected")
+              let is_ru = is_cyrillic_text(text)
+              let help_text = case is_ru {
+                True -> "🤖 Привет! Я VIBEE — твой AI ассистент.\n\nПросто напиши мне что хочешь:\n\n📸 Изображения:\n• \"Сгенерируй фото...\"\n• \"Нарисуй картинку...\"\n\n🎬 Видео:\n• \"Хочу создать видео...\"\n• \"Создай рилс про...\"\n\n🎤 Аудио:\n• \"Озвучь текст...\"\n\n💰 Тарифы:\n• \"Покажи тарифы\"\n• \"Сколько стоит?\"\n\n💬 Просто пиши естественно — я пойму!"
+                False -> "🤖 Hi! I'm VIBEE — your AI assistant.\n\nJust tell me what you want:\n\n📸 Images:\n• \"Generate a photo of...\"\n• \"Draw a picture...\"\n\n🎬 Video:\n• \"I want to create a video...\"\n• \"Make a reel about...\"\n\n🎤 Audio:\n• \"Voice this text...\"\n\n💰 Pricing:\n• \"Show pricing\"\n• \"How much does it cost?\"\n\n💬 Just write naturally — I'll understand!"
+              }
+              let _ = send_message(updated_state.config, chat_id, help_text, Some(message_id))
+              AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
+            }
+            Some(#("pricing", _)) -> {
+              vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("pricing")), "NLP pricing command detected")
+              let is_ru = is_cyrillic_text(text)
+              let pricing_text = case is_ru {
+                True -> "💎 VIBEE Тарифы:\n\n🥉 JUNIOR - $99/мес\n• 100 генераций\n• Telegram бот\n• Email поддержка\n\n🥈 MIDDLE - $299/мес\n• 500 генераций\n• Custom персона\n• CRM + Аналитика\n\n🥇 SENIOR - $999/мес\n• Безлимит генераций\n• Мультиканал\n• API доступ + SLA\n\n💬 Напиши \"хочу подобрать тариф\" для консультации"
+                False -> "💎 VIBEE Pricing:\n\n🥉 JUNIOR - $99/mo\n• 100 generations\n• Telegram bot\n• Email support\n\n🥈 MIDDLE - $299/mo\n• 500 generations\n• Custom persona\n• CRM + Analytics\n\n🥇 SENIOR - $999/mo\n• Unlimited generations\n• Multichannel\n• API access + SLA\n\n💬 Write \"help me choose a plan\" for consultation"
+              }
+              let _ = send_message(updated_state.config, chat_id, pricing_text, Some(message_id))
+              AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
+            }
+            Some(#("video", prompt)) -> {
+              vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("video")) |> vibe_logger.with_data("prompt", json.string(prompt)), "NLP video command detected")
+              handle_video_command(updated_state, chat_id, message_id, prompt)
+            }
+            Some(#("neuro", prompt)) -> {
+              vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("neuro")) |> vibe_logger.with_data("prompt", json.string(prompt)), "NLP neuro command detected")
+              handle_neurophoto_command(updated_state, chat_id, message_id, prompt)
+            }
+            Some(#("reels", prompt)) -> {
+              vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("reels")) |> vibe_logger.with_data("prompt", json.string(prompt)), "NLP reels command detected")
+              handle_reels_action(updated_state, chat_id, message_id, prompt, from_name, from_id)
+            }
+            Some(#("voice", prompt)) -> {
+              vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("voice")) |> vibe_logger.with_data("prompt", json.string(prompt)), "NLP voice command detected")
+              handle_voice_command(updated_state, chat_id, message_id, prompt)
+            }
+            _ -> {
+              // No NLP command - continue with normal flow
+              let sniper_log = vibe_logger.new("sniper")
+                |> vibe_logger.with_session_id(updated_state.config.session_id)
+                |> vibe_logger.with_data("chat_id", json.string(chat_id))
 
-          // Проверяем, является ли это триггерным чатом (Sniper Mode)
+              // Проверяем, является ли это триггерным чатом (Sniper Mode)
           case trigger_chats.is_trigger_chat_active(chat_id) {
             True -> {
               // SNIPER MODE: отвечаем на триггеры ИЛИ проактивно
@@ -537,6 +577,8 @@ pub fn handle_incoming_message(
                   handle_normal_mode(updated_state, chat_id, message_id, text)
                 }
               }
+            }
+          }
             }
           }
         }
