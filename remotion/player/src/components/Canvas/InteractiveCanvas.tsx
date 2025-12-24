@@ -338,13 +338,13 @@ export function InteractiveCanvas() {
         </button>
       </div>
 
-      {/* Transcribing Overlay */}
-      {isTranscribing && (
+      {/* Transcribing/Loading Overlay */}
+      {(isTranscribing || captionsLoading) && (
         <div className="canvas-transcribing-overlay">
           <div className="transcribing-indicator">
             <Mic size={24} className="transcribing-icon" />
             <Loader2 size={20} className="transcribing-spinner" />
-            <span>Transcribing audio...</span>
+            <span>{isTranscribing ? 'Transcribing audio...' : 'Loading captions...'}</span>
           </div>
         </div>
       )}

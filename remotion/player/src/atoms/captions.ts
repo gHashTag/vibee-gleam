@@ -265,10 +265,10 @@ export const updateDurationFromLipSyncAtom = atom(
 
       // Force localStorage update for tracks (atomWithStorage sometimes doesn't sync)
       try {
-        localStorage.setItem('vibee-tracks-v14', JSON.stringify(newTracks));
+        localStorage.setItem('vibee-tracks-v16', JSON.stringify(newTracks));
         console.log('[Duration] Forced tracks localStorage update');
         window.dispatchEvent(new StorageEvent('storage', {
-          key: 'vibee-tracks-v14',
+          key: 'vibee-tracks-v16',
           newValue: JSON.stringify(newTracks),
         }));
       } catch (e) {

@@ -1,6 +1,6 @@
 import { useEffect, useState, Suspense, useRef } from 'react';
 import { useSetAtom, useAtomValue } from 'jotai';
-import { loadCaptionsAtom, updateDurationFromLipSyncAtom, lipSyncVideoAtom, transcribeVideoAtom } from '@/atoms';
+import { loadCaptionsAtom, updateDurationFromLipSyncAtom, lipSyncVideoAtom, transcribeVideoAtom, ensureAudioTrackAtom } from '@/atoms';
 import { useAutoRecordHistory } from '@/atoms/hooks';
 import { Header } from '@/components/Header';
 import { AssetsPanel } from '@/components/Panels/AssetsPanel';
@@ -27,6 +27,7 @@ function EditorContent() {
   const loadCaptions = useSetAtom(loadCaptionsAtom);
   const lipSyncVideo = useAtomValue(lipSyncVideoAtom);
   const transcribeVideo = useSetAtom(transcribeVideoAtom);
+  const ensureAudioTrack = useSetAtom(ensureAudioTrackAtom);
   const prevLipSyncRef = useRef<string | null>(null);
 
   // Enable keyboard shortcuts
@@ -35,11 +36,12 @@ function EditorContent() {
   // Auto-record history on state changes (for undo/redo)
   useAutoRecordHistory();
 
-  // Auto-detect duration from lipsync video on mount
+  // Run migrations and load initial data on mount
   useEffect(() => {
+    ensureAudioTrack(); // Migration: ensure audio track exists for old users
     updateDurationFromLipSync();
     loadCaptions();
-  }, [updateDurationFromLipSync, loadCaptions]);
+  }, [ensureAudioTrack, updateDurationFromLipSync, loadCaptions]);
 
   // Auto-transcribe when lipSyncVideo changes (not on mount)
   useEffect(() => {

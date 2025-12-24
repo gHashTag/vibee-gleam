@@ -162,6 +162,31 @@ export const tracksAtom = atomWithStorage<Track[]>(
 );
 
 // ===============================
+// Track Migration - Ensure Audio Track Exists
+// ===============================
+
+export const ensureAudioTrackAtom = atom(
+  null,
+  (get, set) => {
+    const tracks = get(tracksAtom);
+    const audioTrack = tracks.find(t => t.type === 'audio');
+
+    if (!audioTrack) {
+      console.log('[Migration] Adding missing audio track');
+      const newAudioTrack: Track = {
+        id: 'track-audio',
+        type: 'audio',
+        name: 'Audio',
+        items: [],
+        locked: false,
+        visible: true,
+      };
+      set(tracksAtom, [...tracks, newAudioTrack]);
+    }
+  }
+);
+
+// ===============================
 // Track Selectors
 // ===============================
 

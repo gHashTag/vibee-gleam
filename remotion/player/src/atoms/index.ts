@@ -14,6 +14,8 @@ export {
   textTrackAtom,
   getTrackByIdAtom,
   getItemByIdAtom,
+  // Track Migration
+  ensureAudioTrackAtom,
   // Track Actions
   addTrackAtom,
   removeTrackAtom,
