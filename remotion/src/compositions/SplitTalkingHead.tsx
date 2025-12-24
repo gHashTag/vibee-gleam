@@ -230,7 +230,11 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
 
       {/* ========== BACKGROUND MUSIC ========== */}
       {backgroundMusic && (
-        <Audio src={resolveMediaPath(backgroundMusic)} volume={musicVolume} />
+        <Audio
+          key={backgroundMusic}
+          src={resolveMediaPath(backgroundMusic)}
+          volume={musicVolume}
+        />
       )}
     </AbsoluteFill>
   );
