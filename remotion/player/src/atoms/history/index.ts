@@ -247,7 +247,12 @@ export const undoAtom = atom(
       applyUIStateSnapshot(set, snapshot.uiState);
     }
 
-    set(isApplyingAtom, false);
+    // CRITICAL: Delay resetting isApplyingAtom to prevent useAutoRecordHistory
+    // from immediately recording a new snapshot after undo
+    setTimeout(() => {
+      set(isApplyingAtom, false);
+      console.log('[History] Undo applied - recording unlocked');
+    }, 100);
     console.log('[History] Undo applied');
   }
 );
@@ -301,7 +306,12 @@ export const redoAtom = atom(
       applyUIStateSnapshot(set, snapshot.uiState);
     }
 
-    set(isApplyingAtom, false);
+    // CRITICAL: Delay resetting isApplyingAtom to prevent useAutoRecordHistory
+    // from immediately recording a new snapshot after redo
+    setTimeout(() => {
+      set(isApplyingAtom, false);
+      console.log('[History] Redo applied - recording unlocked');
+    }, 100);
     console.log('[History] Redo applied');
   }
 );
