@@ -7,6 +7,8 @@ import { produce } from 'immer';
 import { tracksAtom } from '../tracks';
 import { assetsAtom } from '../assets';
 import { projectAtom } from '../project';
+import { timelineZoomAtom, canvasZoomAtom } from '../ui';
+import { currentFrameAtom } from '../playback';
 import {
   captionsAtom,
   captionStyleAtom,
@@ -50,11 +52,18 @@ interface TemplatePropsSnapshot {
   faceScale: number | undefined;
 }
 
+interface UIStateSnapshot {
+  timelineZoom: number;
+  canvasZoom: number;
+  currentFrame: number;
+}
+
 interface HistorySnapshot {
   tracks: Track[];
   assets: Asset[];
   project: Project;
   templateProps: TemplatePropsSnapshot;
+  uiState?: UIStateSnapshot;
   timestamp: number;
 }
 
@@ -68,14 +77,10 @@ const pastAtom = atom<HistorySnapshot[]>([]);
 const futureAtom = atom<HistorySnapshot[]>([]);
 const isApplyingAtom = atom(false);
 
-// Debounce timer for recording
-let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-
 // ===============================
-// Record Snapshot
+// Snapshot Helpers
 // ===============================
 
-// Helper to create templateProps snapshot
 function createTemplatePropsSnapshot(get: any): TemplatePropsSnapshot {
   return {
     captions: JSON.parse(JSON.stringify(get(captionsAtom))),
@@ -97,7 +102,14 @@ function createTemplatePropsSnapshot(get: any): TemplatePropsSnapshot {
   };
 }
 
-// Helper to apply templateProps snapshot
+function createUIStateSnapshot(get: any): UIStateSnapshot {
+  return {
+    timelineZoom: get(timelineZoomAtom),
+    canvasZoom: get(canvasZoomAtom),
+    currentFrame: get(currentFrameAtom),
+  };
+}
+
 function applyTemplatePropsSnapshot(set: any, templateProps: TemplatePropsSnapshot) {
   set(captionsAtom, templateProps.captions);
   set(captionStyleAtom, templateProps.captionStyle);
@@ -117,58 +129,64 @@ function applyTemplatePropsSnapshot(set: any, templateProps: TemplatePropsSnapsh
   set(faceScaleAtom, templateProps.faceScale);
 }
 
+function applyUIStateSnapshot(set: any, uiState: UIStateSnapshot) {
+  set(timelineZoomAtom, uiState.timelineZoom);
+  set(canvasZoomAtom, uiState.canvasZoom);
+  set(currentFrameAtom, uiState.currentFrame);
+}
+
+// Check if snapshots are identical (for skip logic)
+function isSnapshotIdentical(a: HistorySnapshot, b: HistorySnapshot): boolean {
+  return JSON.stringify(a.tracks) === JSON.stringify(b.tracks) &&
+         JSON.stringify(a.assets) === JSON.stringify(b.assets) &&
+         JSON.stringify(a.project) === JSON.stringify(b.project) &&
+         JSON.stringify(a.templateProps) === JSON.stringify(b.templateProps);
+}
+
+// ===============================
+// Record Snapshot
+// ===============================
+
 export const recordSnapshotAtom = atom(
   null,
   (get, set) => {
-    if (get(isApplyingAtom)) return;
+    if (get(isApplyingAtom)) {
+      console.log('[History] Skipping record - applying in progress');
+      return;
+    }
 
     const snapshot: HistorySnapshot = {
       tracks: JSON.parse(JSON.stringify(get(tracksAtom))),
       assets: JSON.parse(JSON.stringify(get(assetsAtom))),
       project: JSON.parse(JSON.stringify(get(projectAtom))),
       templateProps: createTemplatePropsSnapshot(get),
+      uiState: createUIStateSnapshot(get),
       timestamp: Date.now(),
     };
 
     const past = get(pastAtom);
     const lastSnapshot = past[past.length - 1];
 
-    // Skip if identical to last snapshot (include templateProps)
-    if (lastSnapshot &&
-        JSON.stringify(lastSnapshot.tracks) === JSON.stringify(snapshot.tracks) &&
-        JSON.stringify(lastSnapshot.assets) === JSON.stringify(snapshot.assets) &&
-        JSON.stringify(lastSnapshot.templateProps) === JSON.stringify(snapshot.templateProps)) {
+    // Skip if COMPLETELY identical to last snapshot
+    if (lastSnapshot && isSnapshotIdentical(lastSnapshot, snapshot)) {
       return;
     }
 
-    // For first snapshot or if enough time passed - save immediately
-    const now = Date.now();
-    const timeSinceLastSnapshot = lastSnapshot ? now - lastSnapshot.timestamp : Infinity;
+    console.log('[History] Recording snapshot', {
+      pastLength: past.length + 1,
+      tracks: snapshot.tracks.length,
+      templateProps: {
+        captionStyle: snapshot.templateProps.captionStyle.fontSize,
+        vignetteStrength: snapshot.templateProps.vignetteStrength,
+      }
+    });
 
-    if (past.length === 0 || timeSinceLastSnapshot > 500) {
-      // Record immediately for first snapshot or after 500ms gap
-      set(pastAtom, produce(past, (draft) => {
-        draft.push(snapshot);
-        if (draft.length > MAX_HISTORY) draft.shift();
-      }));
-      set(futureAtom, []);
-    } else {
-      // Debounce rapid changes (update last snapshot instead of adding new)
-      if (debounceTimer) clearTimeout(debounceTimer);
-
-      debounceTimer = setTimeout(() => {
-        const currentPast = get(pastAtom);
-        set(pastAtom, produce(currentPast, (draft) => {
-          // Update the last snapshot with current state
-          if (draft.length > 0) {
-            draft[draft.length - 1] = snapshot;
-          } else {
-            draft.push(snapshot);
-          }
-        }));
-        set(futureAtom, []);
-      }, 200);
-    }
+    // ALWAYS create new snapshot (no debounce overwrite!)
+    set(pastAtom, produce(past, (draft) => {
+      draft.push(snapshot);
+      if (draft.length > MAX_HISTORY) draft.shift();
+    }));
+    set(futureAtom, []);
   }
 );
 
@@ -180,7 +198,12 @@ export const undoAtom = atom(
   null,
   (get, set) => {
     const past = get(pastAtom);
-    if (past.length === 0) return;
+    console.log('[History] Undo called', { pastLength: past.length });
+
+    if (past.length === 0) {
+      console.log('[History] Nothing to undo');
+      return;
+    }
 
     set(isApplyingAtom, true);
 
@@ -190,6 +213,7 @@ export const undoAtom = atom(
       assets: JSON.parse(JSON.stringify(get(assetsAtom))),
       project: JSON.parse(JSON.stringify(get(projectAtom))),
       templateProps: createTemplatePropsSnapshot(get),
+      uiState: createUIStateSnapshot(get),
       timestamp: Date.now(),
     };
     set(futureAtom, produce(get(futureAtom), (draft) => {
@@ -201,16 +225,30 @@ export const undoAtom = atom(
     const snapshot = newPast.pop()!;
     set(pastAtom, newPast);
 
+    console.log('[History] Applying snapshot', {
+      tracksCount: snapshot.tracks.length,
+      templateProps: {
+        captionStyle: snapshot.templateProps?.captionStyle?.fontSize,
+        vignetteStrength: snapshot.templateProps?.vignetteStrength,
+      }
+    });
+
     set(tracksAtom, snapshot.tracks);
     set(assetsAtom, snapshot.assets);
     set(projectAtom, snapshot.project);
 
-    // Restore template props if available (for backwards compatibility)
+    // Restore template props
     if (snapshot.templateProps) {
       applyTemplatePropsSnapshot(set, snapshot.templateProps);
     }
 
+    // Restore UI state (optional - for backwards compatibility)
+    if (snapshot.uiState) {
+      applyUIStateSnapshot(set, snapshot.uiState);
+    }
+
     set(isApplyingAtom, false);
+    console.log('[History] Undo applied');
   }
 );
 
@@ -222,7 +260,12 @@ export const redoAtom = atom(
   null,
   (get, set) => {
     const future = get(futureAtom);
-    if (future.length === 0) return;
+    console.log('[History] Redo called', { futureLength: future.length });
+
+    if (future.length === 0) {
+      console.log('[History] Nothing to redo');
+      return;
+    }
 
     set(isApplyingAtom, true);
 
@@ -232,6 +275,7 @@ export const redoAtom = atom(
       assets: JSON.parse(JSON.stringify(get(assetsAtom))),
       project: JSON.parse(JSON.stringify(get(projectAtom))),
       templateProps: createTemplatePropsSnapshot(get),
+      uiState: createUIStateSnapshot(get),
       timestamp: Date.now(),
     };
     set(pastAtom, produce(get(pastAtom), (draft) => {
@@ -247,12 +291,18 @@ export const redoAtom = atom(
     set(assetsAtom, snapshot.assets);
     set(projectAtom, snapshot.project);
 
-    // Restore template props if available (for backwards compatibility)
+    // Restore template props
     if (snapshot.templateProps) {
       applyTemplatePropsSnapshot(set, snapshot.templateProps);
     }
 
+    // Restore UI state (optional)
+    if (snapshot.uiState) {
+      applyUIStateSnapshot(set, snapshot.uiState);
+    }
+
     set(isApplyingAtom, false);
+    console.log('[History] Redo applied');
   }
 );
 
@@ -270,6 +320,7 @@ export const canRedoAtom = atom((get) => get(futureAtom).length > 0);
 export const clearHistoryAtom = atom(
   null,
   (get, set) => {
+    console.log('[History] Clearing history');
     set(pastAtom, []);
     set(futureAtom, []);
   }
