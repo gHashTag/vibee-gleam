@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { templatePropsAtom, updateTemplatePropAtom, currentFrameAtom, projectAtom } from '@/atoms';
+import { templatePropsAtom, updateTemplatePropAtom, currentFrameAtom, projectAtom, transcribingAtom } from '@/atoms';
 import type { CaptionItem, CaptionStyle } from '@/store/types';
 import {
   Plus,
@@ -141,7 +141,8 @@ export function CaptionsPanel() {
   const project = useAtomValue(projectAtom);
 
   const [activeTab, setActiveTab] = useState<'captions' | 'style'>('captions');
-  const [isTranscribing, setIsTranscribing] = useState(false);
+  const isTranscribing = useAtomValue(transcribingAtom);
+  const setTranscribing = useSetAtom(transcribingAtom);
   const [fontSearch, setFontSearch] = useState('');
   const [showFontDropdown, setShowFontDropdown] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -172,7 +173,7 @@ export function CaptionsPanel() {
       return;
     }
 
-    setIsTranscribing(true);
+    setTranscribing(true);
     try {
       console.log(`[Captions] Starting transcription for: ${lipSyncVideo}`);
 
@@ -198,7 +199,7 @@ export function CaptionsPanel() {
       console.error('[Captions] Transcription error:', error);
       alert(`Transcription failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      setIsTranscribing(false);
+      setTranscribing(false);
     }
   };
 
