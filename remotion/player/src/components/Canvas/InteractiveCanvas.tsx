@@ -14,9 +14,11 @@ import {
   playerRefAtom,
   clearSelectionAtom,
   templatePropsAtom,
+  transcribingAtom,
+  captionsLoadingAtom,
 } from '@/atoms';
 import { SplitTalkingHead, type SplitTalkingHeadProps, type Segment } from '@compositions/SplitTalkingHead';
-import { ZoomIn, ZoomOut, Maximize, Minimize } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Minimize, Loader2, Mic } from 'lucide-react';
 import { convertPropsToAbsoluteUrls, toAbsoluteUrl } from '@/lib/mediaUrl';
 import type { LipSyncMainProps, TrackItem, Asset } from '@/store/types';
 import './InteractiveCanvas.css';
@@ -125,6 +127,8 @@ export function InteractiveCanvas() {
   const canvasZoom = useAtomValue(canvasZoomAtom);
   const tracks = useAtomValue(tracksAtom);
   const assets = useAtomValue(assetsAtom);
+  const isTranscribing = useAtomValue(transcribingAtom);
+  const captionsLoading = useAtomValue(captionsLoadingAtom);
 
   const setCurrentFrame = useSetAtom(currentFrameAtom);
   const setIsPlaying = useSetAtom(isPlayingAtom);
@@ -333,6 +337,17 @@ export function InteractiveCanvas() {
           {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
         </button>
       </div>
+
+      {/* Transcribing Overlay */}
+      {isTranscribing && (
+        <div className="canvas-transcribing-overlay">
+          <div className="transcribing-indicator">
+            <Mic size={24} className="transcribing-icon" />
+            <Loader2 size={20} className="transcribing-spinner" />
+            <span>Transcribing audio...</span>
+          </div>
+        </div>
+      )}
 
       {/* Player Wrapper */}
       <div
