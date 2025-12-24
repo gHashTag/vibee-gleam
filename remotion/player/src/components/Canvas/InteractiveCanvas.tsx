@@ -7,7 +7,6 @@ import {
   currentFrameAtom,
   isPlayingAtom,
   isMutedAtom,
-  volumeAtom,
   playbackRateAtom,
   canvasZoomAtom,
   tracksAtom,
@@ -122,7 +121,6 @@ export function InteractiveCanvas() {
   const currentFrame = useAtomValue(currentFrameAtom);
   const isPlaying = useAtomValue(isPlayingAtom);
   const isMuted = useAtomValue(isMutedAtom);
-  const volume = useAtomValue(volumeAtom);
   const playbackRate = useAtomValue(playbackRateAtom);
   const canvasZoom = useAtomValue(canvasZoomAtom);
   const tracks = useAtomValue(tracksAtom);
@@ -145,6 +143,20 @@ export function InteractiveCanvas() {
     return videoTrack?.items || [];
   }, [tracks]);
 
+  // Get audio track volume from track item (not templateProps)
+  const audioTrackVolume = useMemo(() => {
+    const audioTrack = tracks.find((t) => t.type === 'audio');
+    const audioItem = audioTrack?.items[0];
+    return (audioItem as any)?.volume ?? 0.06;
+  }, [tracks]);
+
+  // Get avatar track volume from track item
+  const avatarTrackVolume = useMemo(() => {
+    const avatarTrack = tracks.find((t) => t.type === 'avatar');
+    const avatarItem = avatarTrack?.items[0];
+    return (avatarItem as any)?.volume ?? 1;
+  }, [tracks]);
+
   // Get computed props for LipSyncMain (base props from store)
   const lipSyncPropsRaw = useAtomValue(templatePropsAtom);
 
@@ -161,19 +173,19 @@ export function InteractiveCanvas() {
   );
 
   // Apply mute/volume state to music and video
-  // musicVolume uses the stored value (same as render), video uses volume slider
+  // Use track item volumes (controlled by VolumePopup)
   const splitTalkingHeadProps = useMemo(
     () => {
       const props = {
         ...splitTalkingHeadPropsBase,
-        // Background music - use stored musicVolume (synced with render)
-        musicVolume: isMuted ? 0 : splitTalkingHeadPropsBase.musicVolume,
-        // LipSync video volume - controlled by volume slider
-        videoVolume: isMuted ? 0 : volume,
+        // Background music - use audio track item volume
+        musicVolume: isMuted ? 0 : audioTrackVolume,
+        // LipSync video (avatar) volume - use avatar track item volume
+        videoVolume: isMuted ? 0 : avatarTrackVolume,
       };
       return props;
     },
-    [splitTalkingHeadPropsBase, isMuted, volume]
+    [splitTalkingHeadPropsBase, isMuted, audioTrackVolume, avatarTrackVolume]
   );
 
   // Calculate zoom to fit height

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { selectItemsAtom, selectRangeAtom, moveItemAtom, resizeItemAtom, getAssetByIdAtom, volumePopupItemIdAtom, musicVolumeAtom } from '@/atoms';
+import { selectItemsAtom, selectRangeAtom, moveItemAtom, resizeItemAtom, getAssetByIdAtom, volumePopupItemIdAtom } from '@/atoms';
 import { ContextMenu } from './ContextMenu';
 import type { TrackItem as TrackItemType } from '@/store/types';
 
@@ -18,9 +18,6 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
   const moveItem = useSetAtom(moveItemAtom);
   const resizeItem = useSetAtom(resizeItemAtom);
   const getAssetById = useAtomValue(getAssetByIdAtom);
-
-  // Single source of truth for music volume (Jotai)
-  const musicVolume = useAtomValue(musicVolumeAtom);
 
   // Volume popup - only need setter (popup is rendered in Timeline)
   const setVolumePopupItemId = useSetAtom(volumePopupItemIdAtom);

@@ -79,6 +79,7 @@ function createDefaultTracks(fps: number, durationInFrames: number): Track[] {
           height: 1920,
           rotation: 0,
           opacity: 1,
+          volume: 1,
           circleSizePercent: DEFAULT_TEMPLATE.circleSizePercent || 25.2,
           circleBottomPercent: DEFAULT_TEMPLATE.circleBottomPercent || 15,
           circleLeftPx: DEFAULT_TEMPLATE.circleLeftPx || 40,
@@ -138,7 +139,7 @@ const DEFAULT_TRACKS = createDefaultTracks(30, 825);
 // ===============================
 
 export const tracksAtom = atomWithStorage<Track[]>(
-  'vibee-tracks-v14',
+  'vibee-tracks-v16',
   DEFAULT_TRACKS
 );
 
