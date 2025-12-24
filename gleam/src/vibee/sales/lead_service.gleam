@@ -296,6 +296,153 @@ pub fn get_funnel_stats() -> Result(FunnelStats, LeadError) {
   }
 }
 
+/// Обновить приоритет лида
+pub fn update_lead_priority(
+  lead_id: Int,
+  priority: LeadPriority,
+) -> Result(Lead, LeadError) {
+  case postgres.get_global_pool() {
+    Some(pool) -> {
+      case sales_db.update_lead_priority(pool, lead_id, priority) {
+        Ok(lead) -> Ok(lead)
+        Error(sales_db.SalesDbNotFound) ->
+          Error(NotFoundError("Lead not found"))
+        Error(sales_db.SalesDbQueryError(msg)) -> Error(DatabaseError(msg))
+        Error(sales_db.SalesDbConnectionError(msg)) -> Error(DatabaseError(msg))
+      }
+    }
+    None -> {
+      Ok(Lead(
+        id: Some(lead_id),
+        telegram_user_id: 0,
+        username: None,
+        first_name: None,
+        last_name: None,
+        phone: None,
+        email: None,
+        first_message: None,
+        intent: None,
+        priority: priority,
+        status: StatusNew,
+        funnel_stage: StageAwareness,
+        source: None,
+        utm_source: None,
+        utm_medium: None,
+        utm_campaign: None,
+        quiz_score: None,
+        recommended_product_id: None,
+        assigned_to: None,
+        notes: None,
+        last_contact_at: None,
+        created_at: None,
+      ))
+    }
+  }
+}
+
+/// Добавить заметку к лиду
+pub fn add_lead_note(
+  lead_id: Int,
+  note: String,
+) -> Result(Lead, LeadError) {
+  case postgres.get_global_pool() {
+    Some(pool) -> {
+      case sales_db.add_lead_note(pool, lead_id, note) {
+        Ok(lead) -> Ok(lead)
+        Error(sales_db.SalesDbNotFound) ->
+          Error(NotFoundError("Lead not found"))
+        Error(sales_db.SalesDbQueryError(msg)) -> Error(DatabaseError(msg))
+        Error(sales_db.SalesDbConnectionError(msg)) -> Error(DatabaseError(msg))
+      }
+    }
+    None -> {
+      Ok(Lead(
+        id: Some(lead_id),
+        telegram_user_id: 0,
+        username: None,
+        first_name: None,
+        last_name: None,
+        phone: None,
+        email: None,
+        first_message: None,
+        intent: None,
+        priority: PriorityMedium,
+        status: StatusNew,
+        funnel_stage: StageAwareness,
+        source: None,
+        utm_source: None,
+        utm_medium: None,
+        utm_campaign: None,
+        quiz_score: None,
+        recommended_product_id: None,
+        assigned_to: None,
+        notes: Some(note),
+        last_contact_at: None,
+        created_at: None,
+      ))
+    }
+  }
+}
+
+/// Назначить лида на агента
+pub fn assign_lead(
+  lead_id: Int,
+  agent_id: String,
+) -> Result(Lead, LeadError) {
+  case postgres.get_global_pool() {
+    Some(pool) -> {
+      case sales_db.assign_lead(pool, lead_id, agent_id) {
+        Ok(lead) -> Ok(lead)
+        Error(sales_db.SalesDbNotFound) ->
+          Error(NotFoundError("Lead not found"))
+        Error(sales_db.SalesDbQueryError(msg)) -> Error(DatabaseError(msg))
+        Error(sales_db.SalesDbConnectionError(msg)) -> Error(DatabaseError(msg))
+      }
+    }
+    None -> {
+      Ok(Lead(
+        id: Some(lead_id),
+        telegram_user_id: 0,
+        username: None,
+        first_name: None,
+        last_name: None,
+        phone: None,
+        email: None,
+        first_message: None,
+        intent: None,
+        priority: PriorityMedium,
+        status: StatusNew,
+        funnel_stage: StageAwareness,
+        source: None,
+        utm_source: None,
+        utm_medium: None,
+        utm_campaign: None,
+        quiz_score: None,
+        recommended_product_id: None,
+        assigned_to: Some(agent_id),
+        notes: None,
+        last_contact_at: None,
+        created_at: None,
+      ))
+    }
+  }
+}
+
+/// Удалить лида
+pub fn delete_lead(lead_id: Int) -> Result(Bool, LeadError) {
+  case postgres.get_global_pool() {
+    Some(pool) -> {
+      case sales_db.delete_lead(pool, lead_id) {
+        Ok(deleted) -> Ok(deleted)
+        Error(sales_db.SalesDbQueryError(msg)) -> Error(DatabaseError(msg))
+        Error(sales_db.SalesDbConnectionError(msg)) -> Error(DatabaseError(msg))
+        Error(_) -> Error(DatabaseError("Failed to delete lead"))
+      }
+    }
+    None -> Ok(True)
+  }
+}
+
 // =============================================================================
 // JSON Serialization
 // =============================================================================

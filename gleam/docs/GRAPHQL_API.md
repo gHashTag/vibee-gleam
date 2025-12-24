@@ -1,45 +1,75 @@
-# 📚 GraphQL API - Документация для разработчиков
+# GraphQL API - Lead CRM
 
-> **Для начинающих:** Эта документация поможет вам работать с Lead CRM API через GraphQL.
-
----
-
-## 🚀 Быстрый старт
-
-### Что такое GraphQL?
-GraphQL — это язык запросов к API. Вы указываете, какие данные хотите получить, и получаете именно их.
-
-### Где тестировать?
-Откройте в браузере: **https://vibee-mcp.fly.dev/graphql/playground**
-
-Там вы можете:
-- ✍️ Писать запросы в левой панели
-- ▶️ Нажимать кнопку Play для выполнения
-- 📖 Смотреть документацию (вкладка DOCS справа)
+> **Для начинающих:** Пошаговое руководство по работе с API управления лидами.
 
 ---
 
-## 📋 Базовая информация
+## Быстрый старт (5 минут)
+
+### Шаг 1: Откройте Playground
+
+Перейдите в браузере: **https://vibee-mcp.fly.dev/graphql/playground**
+
+### Шаг 2: Выполните первый запрос
+
+Скопируйте в левую панель и нажмите кнопку Play:
+
+```graphql
+query {
+  leads(limit: 5) {
+    id
+    username
+    firstName
+    status
+  }
+}
+```
+
+### Шаг 3: Посмотрите результат
+
+В правой панели появится ответ:
+
+```json
+{
+  "data": {
+    "leads": [
+      {
+        "id": 1,
+        "username": "neuro_sage",
+        "firstName": "Dmitrii",
+        "status": "NEW"
+      },
+      {
+        "id": 2,
+        "username": "crypto_buyer",
+        "firstName": "Alex",
+        "status": "CONTACTED"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Базовая информация
 
 | Параметр | Значение |
 |----------|----------|
-| **URL API** | `https://vibee-mcp.fly.dev/graphql` |
+| **API URL** | `https://vibee-mcp.fly.dev/graphql` |
 | **Playground** | https://vibee-mcp.fly.dev/graphql/playground |
 | **Метод** | POST |
 | **Content-Type** | `application/json` |
-| **Аутентификация** | Не требуется (API открыт) |
+| **Аутентификация** | Не требуется |
 
 ---
 
-## 🔍 QUERIES (Чтение данных)
+## QUERIES (Чтение данных)
 
-> **Query** — это запрос на получение данных. Данные НЕ изменяются.
+### leads - Список лидов
 
-### 1️⃣ leads — Получить список лидов
-
-**Скопируйте в Playground:**
 ```graphql
-query GetAllLeads {
+query GetLeads {
   leads(limit: 10) {
     id
     telegramUserId
@@ -56,17 +86,48 @@ query GetAllLeads {
 ```
 
 **Параметры:**
+
 | Параметр | Тип | Описание |
 |----------|-----|----------|
 | `limit` | Int | Максимум записей (по умолчанию 50) |
-| `offset` | Int | Смещение для пагинации |
-| `status` | String | Фильтр по статусу |
+| `offset` | Int | Пропустить N записей (для пагинации) |
+| `status` | String | Фильтр: new, contacted, qualified, won, lost |
+
+**Пример ответа:**
+
+```json
+{
+  "data": {
+    "leads": [
+      {
+        "id": 1,
+        "telegramUserId": 144022504,
+        "username": "neuro_sage",
+        "firstName": "Dmitrii",
+        "status": "NEW",
+        "funnelStage": "AWARENESS",
+        "priority": "MEDIUM",
+        "qualityScore": 7,
+        "source": "Aimly.io dev",
+        "createdAt": "2024-12-24T10:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+**curl:**
+
+```bash
+curl -X POST https://vibee-mcp.fly.dev/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ leads(limit: 5) { id username firstName status } }"}'
+```
 
 ---
 
-### 2️⃣ lead — Получить одного лида по ID
+### lead - Один лид по ID
 
-**Скопируйте в Playground:**
 ```graphql
 query GetLead {
   lead(id: 1) {
@@ -86,15 +147,23 @@ query GetLead {
 ```
 
 **Параметры:**
+
 | Параметр | Тип | Обязательный | Описание |
 |----------|-----|--------------|----------|
-| `id` | Int | ✅ Да | ID лида в базе |
+| `id` | Int | Да | ID лида в базе |
+
+**curl:**
+
+```bash
+curl -X POST https://vibee-mcp.fly.dev/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ lead(id: 1) { id username status } }"}'
+```
 
 ---
 
-### 3️⃣ funnelStats — Статистика воронки продаж
+### funnelStats - Статистика воронки
 
-**Скопируйте в Playground:**
 ```graphql
 query GetFunnelStats {
   funnelStats {
@@ -109,13 +178,28 @@ query GetFunnelStats {
 }
 ```
 
-**Возвращает:** Количество лидов на каждом этапе воронки.
+**Пример ответа:**
+
+```json
+{
+  "data": {
+    "funnelStats": {
+      "awareness": 15,
+      "interest": 8,
+      "consideration": 5,
+      "intent": 3,
+      "evaluation": 2,
+      "purchase": 1,
+      "total": 34
+    }
+  }
+}
+```
 
 ---
 
-### 4️⃣ triggerConfigs — Конфигурация триггер-чатов
+### triggerConfigs - Конфигурация чатов
 
-**Скопируйте в Playground:**
 ```graphql
 query GetTriggerConfigs {
   triggerConfigs {
@@ -128,16 +212,31 @@ query GetTriggerConfigs {
 }
 ```
 
-**Возвращает:** Список чатов, где бот отслеживает триггерные слова.
+**Пример ответа:**
+
+```json
+{
+  "data": {
+    "triggerConfigs": [
+      {
+        "chatId": "-5082217642",
+        "chatName": "Aimly.io dev",
+        "isActive": true,
+        "triggers": ["купить", "продать", "крипту", "btc", "usdt"],
+        "forwardChatId": "-1002737186844"
+      }
+    ]
+  }
+}
+```
 
 ---
 
-### 5️⃣ leadForwards — История пересылок лидов
+### leadForwards - История пересылок
 
-**Скопируйте в Playground:**
 ```graphql
 query GetLeadForwards {
-  leadForwards(limit: 20) {
+  leadForwards(limit: 10) {
     id
     leadId
     sourceChatId
@@ -154,13 +253,10 @@ query GetLeadForwards {
 
 ---
 
-## ✏️ MUTATIONS (Изменение данных)
+## MUTATIONS (Изменение данных)
 
-> **Mutation** — это запрос на изменение данных (создание, обновление, удаление).
+### 1. createLead - Создать лида
 
-### 1️⃣ createLead — Создать нового лида
-
-**Скопируйте в Playground:**
 ```graphql
 mutation CreateLead {
   createLead(
@@ -180,19 +276,27 @@ mutation CreateLead {
 ```
 
 **Параметры:**
+
 | Параметр | Тип | Обязательный | Описание |
 |----------|-----|--------------|----------|
-| `telegramUserId` | Int | ✅ Да | Telegram User ID |
-| `username` | String | Нет | Username в Telegram |
-| `firstName` | String | Нет | Имя пользователя |
-| `source` | String | Нет | Источник (название чата) |
+| `telegramUserId` | Int | Да | Telegram User ID |
+| `username` | String | Нет | @username |
+| `firstName` | String | Нет | Имя |
+| `source` | String | Нет | Источник |
 | `firstMessage` | String | Нет | Первое сообщение |
+
+**curl:**
+
+```bash
+curl -X POST https://vibee-mcp.fly.dev/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "mutation { createLead(telegramUserId: 123456789, username: \"test_user\") { id status } }"}'
+```
 
 ---
 
-### 2️⃣ updateLeadStatus — Обновить статус лида
+### 2. updateLeadStatus - Обновить статус
 
-**Скопируйте в Playground:**
 ```graphql
 mutation UpdateStatus {
   updateLeadStatus(leadId: 1, status: "contacted") {
@@ -204,21 +308,29 @@ mutation UpdateStatus {
 ```
 
 **Доступные статусы:**
+
 | Значение | Описание |
 |----------|----------|
-| `new` | 🆕 Новый |
-| `contacted` | 📞 Связались |
-| `qualified` | ✅ Квалифицирован |
-| `proposal_sent` | 📧 Отправлено КП |
-| `negotiation` | 🤝 Переговоры |
-| `won` | 🏆 Выиграно |
-| `lost` | ❌ Потеряно |
+| `new` | Новый лид |
+| `contacted` | Связались |
+| `qualified` | Квалифицирован |
+| `proposal_sent` | Отправлено КП |
+| `negotiation` | Переговоры |
+| `won` | Сделка закрыта |
+| `lost` | Потеряно |
+
+**curl:**
+
+```bash
+curl -X POST https://vibee-mcp.fly.dev/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "mutation { updateLeadStatus(leadId: 1, status: \"contacted\") { id status } }"}'
+```
 
 ---
 
-### 3️⃣ updateFunnelStage — Обновить этап воронки
+### 3. updateFunnelStage - Этап воронки
 
-**Скопируйте в Playground:**
 ```graphql
 mutation UpdateFunnel {
   updateFunnelStage(leadId: 1, stage: "interest") {
@@ -230,20 +342,20 @@ mutation UpdateFunnel {
 ```
 
 **Этапы воронки:**
+
 | Значение | Описание |
 |----------|----------|
-| `awareness` | 👀 Осведомленность |
-| `interest` | 💡 Интерес |
-| `consideration` | 🤔 Рассмотрение |
-| `intent` | 🎯 Намерение |
-| `evaluation` | 📊 Оценка |
-| `purchase` | 💰 Покупка |
+| `awareness` | Осведомленность |
+| `interest` | Интерес |
+| `consideration` | Рассмотрение |
+| `intent` | Намерение |
+| `evaluation` | Оценка |
+| `purchase` | Покупка |
 
 ---
 
-### 4️⃣ updateQuizResult — Обновить результат квиза
+### 4. updateQuizResult - Результат квиза
 
-**Скопируйте в Playground:**
 ```graphql
 mutation UpdateQuiz {
   updateQuizResult(leadId: 1, score: 8, productId: 2) {
@@ -254,17 +366,17 @@ mutation UpdateQuiz {
 ```
 
 **Параметры:**
+
 | Параметр | Тип | Описание |
 |----------|-----|----------|
 | `leadId` | Int | ID лида |
-| `score` | Int | Оценка (0-10) |
-| `productId` | Int | ID рекомендуемого продукта |
+| `score` | Int | Оценка 0-10 |
+| `productId` | Int | ID продукта |
 
 ---
 
-### 5️⃣ updateLeadPriority — Изменить приоритет
+### 5. updateLeadPriority - Приоритет
 
-**Скопируйте в Playground:**
 ```graphql
 mutation UpdatePriority {
   updateLeadPriority(leadId: 1, priority: "high") {
@@ -276,21 +388,21 @@ mutation UpdatePriority {
 ```
 
 **Приоритеты:**
+
 | Значение | Описание |
 |----------|----------|
-| `low` | 🟢 Низкий |
-| `medium` | 🟡 Средний |
-| `high` | 🟠 Высокий |
-| `urgent` | 🔴 Срочный |
+| `low` | Низкий |
+| `medium` | Средний |
+| `high` | Высокий |
+| `urgent` | Срочный |
 
 ---
 
-### 6️⃣ addLeadNote — Добавить заметку
+### 6. addLeadNote - Добавить заметку
 
-**Скопируйте в Playground:**
 ```graphql
 mutation AddNote {
-  addLeadNote(leadId: 1, note: "Клиент заинтересован в покупке USDT") {
+  addLeadNote(leadId: 1, note: "Клиент заинтересован в USDT") {
     id
     firstName
     status
@@ -300,9 +412,8 @@ mutation AddNote {
 
 ---
 
-### 7️⃣ assignLead — Назначить менеджера
+### 7. assignLead - Назначить менеджера
 
-**Скопируйте в Playground:**
 ```graphql
 mutation AssignLead {
   assignLead(leadId: 1, agentId: "manager_alex") {
@@ -315,9 +426,8 @@ mutation AssignLead {
 
 ---
 
-### 8️⃣ deleteLead — Удалить лида
+### 8. deleteLead - Удалить лида
 
-**Скопируйте в Playground:**
 ```graphql
 mutation DeleteLead {
   deleteLead(leadId: 1) {
@@ -328,81 +438,70 @@ mutation DeleteLead {
 }
 ```
 
-⚠️ **Внимание:** Удаление необратимо!
+**Пример ответа:**
+
+```json
+{
+  "data": {
+    "deleteLead": {
+      "id": 1,
+      "deleted": true,
+      "message": "Lead deleted successfully"
+    }
+  }
+}
+```
 
 ---
 
-## Шаг 5: Интеграция в JavaScript/TypeScript
+## JavaScript / TypeScript
 
-### 5.1 Базовый fetch клиент
+### Базовый клиент
 
 ```typescript
 const GRAPHQL_URL = 'https://vibee-mcp.fly.dev/graphql';
 
-async function graphqlQuery<T>(query: string, variables?: Record<string, any>): Promise<T> {
+async function graphql<T>(query: string, variables?: Record<string, any>): Promise<T> {
   const response = await fetch(GRAPHQL_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      query,
-      variables,
-    }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, variables }),
   });
 
   const result = await response.json();
-
-  if (result.errors) {
-    throw new Error(result.errors[0].message);
-  }
-
+  if (result.errors) throw new Error(result.errors[0].message);
   return result.data;
 }
 ```
 
-### 5.2 Примеры использования
+### Примеры использования
 
 ```typescript
-// Получить всех лидов
-const leads = await graphqlQuery<{ leads: Lead[] }>(`
-  query GetLeads($limit: Int, $status: String) {
-    leads(limit: $limit, status: $status) {
-      id
-      telegramUserId
-      username
-      firstName
-      status
-      funnelStage
-      qualityScore
-      createdAt
-    }
-  }
-`, { limit: 20, status: 'NEW' });
+// Получить лидов
+const { leads } = await graphql<{ leads: Lead[] }>(`
+  query { leads(limit: 10) { id username status } }
+`);
 
 // Создать лида
-const newLead = await graphqlQuery<{ createLead: Lead }>(`
-  mutation CreateLead($telegramUserId: Int!, $username: String, $source: String) {
-    createLead(telegramUserId: $telegramUserId, username: $username, source: $source) {
-      id
-      status
-      createdAt
+const { createLead } = await graphql<{ createLead: Lead }>(`
+  mutation {
+    createLead(telegramUserId: 123, username: "test") {
+      id status
     }
   }
-`, { telegramUserId: 123456789, username: 'test_user', source: 'Aimly.io' });
+`);
 
 // Обновить статус
-const updated = await graphqlQuery<{ updateLeadStatus: Lead }>(`
-  mutation UpdateStatus($leadId: Int!, $status: String!) {
-    updateLeadStatus(leadId: $leadId, status: $status) {
-      id
-      status
+const { updateLeadStatus } = await graphql<{ updateLeadStatus: Lead }>(`
+  mutation {
+    updateLeadStatus(leadId: 1, status: "contacted") {
+      id status
     }
   }
-`, { leadId: 1, status: 'contacted' });
+`);
 ```
 
-### 5.3 TypeScript типы
+### TypeScript типы
 
 ```typescript
 interface Lead {
@@ -429,104 +528,68 @@ interface FunnelStats {
   total: number;
 }
 
-interface LeadForward {
+interface DeleteResult {
   id: number;
-  leadId?: number;
-  sourceChatId: string;
-  sourceChatName: string;
-  targetChatId: string;
-  qualityScore: number;
-  intent: 'purchase' | 'question' | 'support';
-  urgency: 'low' | 'normal' | 'high' | 'urgent';
-  status: 'PENDING' | 'FORWARDED' | 'FAILED' | 'DEDUPLICATED' | 'RATE_LIMITED';
-  forwardedAt: string;
+  deleted: boolean;
+  message: string;
 }
 ```
 
 ---
 
-## Шаг 6: React Query интеграция
+## React Query
 
 ```typescript
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-// Хук для получения лидов
-export function useLeads(limit = 50, status?: string) {
+// Получить лидов
+export function useLeads(limit = 50) {
   return useQuery({
-    queryKey: ['leads', limit, status],
-    queryFn: () => graphqlQuery<{ leads: Lead[] }>(`
-      query { leads(limit: ${limit}${status ? `, status: "${status}"` : ''}) {
-        id telegramUserId username firstName status funnelStage qualityScore createdAt
-      }}
+    queryKey: ['leads', limit],
+    queryFn: () => graphql<{ leads: Lead[] }>(`
+      query { leads(limit: ${limit}) { id username firstName status funnelStage } }
     `).then(r => r.leads),
   });
 }
 
-// Хук для статистики воронки
+// Статистика воронки
 export function useFunnelStats() {
   return useQuery({
     queryKey: ['funnelStats'],
-    queryFn: () => graphqlQuery<{ funnelStats: FunnelStats }>(`
-      query { funnelStats { awareness interest consideration intent evaluation purchase total }}
+    queryFn: () => graphql<{ funnelStats: FunnelStats }>(`
+      query { funnelStats { awareness interest consideration intent evaluation purchase total } }
     `).then(r => r.funnelStats),
   });
 }
 
-// Мутация для обновления статуса
-export function useUpdateLeadStatus() {
-  const queryClient = useQueryClient();
-
+// Обновить статус
+export function useUpdateStatus() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ leadId, status }: { leadId: number; status: string }) =>
-      graphqlQuery<{ updateLeadStatus: Lead }>(`
-        mutation { updateLeadStatus(leadId: ${leadId}, status: "${status}") { id status }}
-      `),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
-      queryClient.invalidateQueries({ queryKey: ['funnelStats'] });
-    },
+      graphql(`mutation { updateLeadStatus(leadId: ${leadId}, status: "${status}") { id } }`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['leads'] }),
   });
 }
 ```
-
----
-
-## Шаг 7: Получение схемы (Introspection)
-
-```bash
-curl -X POST https://vibee-mcp.fly.dev/graphql \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "{ __schema { queryType { name } mutationType { name } types { name kind description fields { name type { name } } } } }"
-  }'
-```
-
----
-
-## Шаг 8: GraphQL Playground
-
-Для интерактивного тестирования откройте в браузере:
-**https://vibee-mcp.fly.dev/graphql/playground**
-
-Там можно:
-- Писать и выполнять queries/mutations
-- Смотреть документацию схемы (вкладка DOCS)
-- Автодополнение полей
-- История запросов
 
 ---
 
 ## Структура ответов
 
 ### Успешный ответ
+
 ```json
 {
-  "data": { ... },
+  "data": {
+    "leads": [...]
+  },
   "errors": null
 }
 ```
 
-### Ответ с ошибкой
+### Ошибка
+
 ```json
 {
   "data": null,
@@ -540,50 +603,57 @@ curl -X POST https://vibee-mcp.fly.dev/graphql \
 
 ---
 
-## ✅ Статус реализации
+## Статус API
 
-> Обновлено: 24.12.2024 — Все методы работают с реальной БД!
+> Обновлено: 24.12.2024
 
-### Queries (Чтение)
-| Операция | Статус | Примечание |
-|----------|--------|------------|
-| `leads` | ✅ Работает | PostgreSQL |
-| `lead` | ✅ Работает | PostgreSQL |
-| `funnelStats` | ✅ Работает | PostgreSQL |
-| `triggerConfigs` | ✅ Работает | Статическая конфигурация |
-| `leadForwards` | ✅ Работает | PostgreSQL (fallback на mock) |
+### Queries
 
-### Mutations (Изменение)
-| Операция | Статус | Примечание |
-|----------|--------|------------|
-| `createLead` | ✅ Работает | Сохраняет в PostgreSQL |
-| `updateLeadStatus` | ✅ Работает | Обновляет в PostgreSQL |
-| `updateFunnelStage` | ✅ Работает | Обновляет в PostgreSQL |
-| `updateQuizResult` | ✅ Работает | Обновляет в PostgreSQL |
-| `updateLeadPriority` | ✅ Работает | Обновляет в PostgreSQL |
-| `addLeadNote` | ✅ Работает | Добавляет к существующим |
-| `assignLead` | ✅ Работает | Назначает менеджера |
-| `deleteLead` | ✅ Работает | Удаляет из PostgreSQL |
+| Операция | Статус |
+|----------|--------|
+| `leads` | Работает |
+| `lead` | Работает |
+| `funnelStats` | Работает |
+| `triggerConfigs` | Работает |
+| `leadForwards` | Работает |
+
+### Mutations
+
+| Операция | Статус |
+|----------|--------|
+| `createLead` | Работает |
+| `updateLeadStatus` | Работает |
+| `updateFunnelStage` | Работает |
+| `updateQuizResult` | Работает |
+| `updateLeadPriority` | Работает |
+| `addLeadNote` | Работает |
+| `assignLead` | Работает |
+| `deleteLead` | Работает |
 
 ---
 
-## 🔗 Полезные ссылки
+## FAQ
+
+**Почему пустой ответ?**
+Данных нет в БД. Сначала создайте лида через `createLead`.
+
+**Как узнать ID лида?**
+```graphql
+query { leads { id username } }
+```
+
+**Ошибка "Missing required argument"?**
+Не передан обязательный параметр. Проверьте таблицу параметров.
+
+**Как тестировать без Playground?**
+Используйте curl команды из примеров выше.
+
+---
+
+## Ссылки
 
 | Ресурс | URL |
 |--------|-----|
-| **API Endpoint** | https://vibee-mcp.fly.dev/graphql |
-| **Playground** | https://vibee-mcp.fly.dev/graphql/playground |
-| **Логи** | `fly logs -a vibee-mcp` |
-
----
-
-## ❓ FAQ
-
-### Почему запрос возвращает пустой объект?
-Проверьте, что данные существуют в БД. Используйте `leads` query для просмотра всех лидов.
-
-### Как узнать ID лида?
-Выполните `query { leads { id username } }` чтобы увидеть все ID.
-
-### Что означает ошибка "Missing required argument"?
-Вы забыли передать обязательный параметр. Проверьте таблицу параметров для этого метода.
+| API | https://vibee-mcp.fly.dev/graphql |
+| Playground | https://vibee-mcp.fly.dev/graphql/playground |
+| Логи | `fly logs -a vibee-mcp` |

@@ -2,7 +2,6 @@
 // Подключается к реальной БД и trigger_chats
 
 import gleam/dict.{type Dict}
-import gleam/int
 import gleam/json.{type Json}
 import gleam/list
 import gleam/option.{type Option, None, Some}

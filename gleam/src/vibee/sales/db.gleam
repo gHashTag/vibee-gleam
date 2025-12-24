@@ -593,6 +593,104 @@ pub fn get_funnel_stats(pool: pog.Connection) -> Result(FunnelStats, SalesDbErro
   }
 }
 
+/// Обновить приоритет лида
+pub fn update_lead_priority(
+  pool: pog.Connection,
+  lead_id: Int,
+  priority: LeadPriority,
+) -> Result(Lead, SalesDbError) {
+  let sql =
+    "UPDATE leads SET priority = $2
+     WHERE id = $1
+     RETURNING id, telegram_user_id, username, first_name, last_name, phone, email,
+               first_message, intent, priority, status, funnel_stage, source,
+               utm_source, utm_medium, utm_campaign, quiz_score, recommended_product_id,
+               assigned_to, notes, last_contact_at::text, created_at::text"
+
+  case
+    pog.query(sql)
+    |> add_parameters([pog.int(lead_id), pog.text(lead_priority_to_string(priority))])
+    |> pog.returning(decode_lead())
+    |> pog.execute(pool)
+  {
+    Ok(pog.Returned(_, [lead])) -> Ok(lead)
+    Ok(pog.Returned(_, [])) -> Error(SalesDbNotFound)
+    Ok(_) -> Error(SalesDbNotFound)
+    Error(e) -> Error(SalesDbQueryError(pog_error_to_string(e)))
+  }
+}
+
+/// Добавить заметку к лиду
+pub fn add_lead_note(
+  pool: pog.Connection,
+  lead_id: Int,
+  note: String,
+) -> Result(Lead, SalesDbError) {
+  let sql =
+    "UPDATE leads SET notes = COALESCE(notes, '') || E'\\n' || $2
+     WHERE id = $1
+     RETURNING id, telegram_user_id, username, first_name, last_name, phone, email,
+               first_message, intent, priority, status, funnel_stage, source,
+               utm_source, utm_medium, utm_campaign, quiz_score, recommended_product_id,
+               assigned_to, notes, last_contact_at::text, created_at::text"
+
+  case
+    pog.query(sql)
+    |> add_parameters([pog.int(lead_id), pog.text(note)])
+    |> pog.returning(decode_lead())
+    |> pog.execute(pool)
+  {
+    Ok(pog.Returned(_, [lead])) -> Ok(lead)
+    Ok(pog.Returned(_, [])) -> Error(SalesDbNotFound)
+    Ok(_) -> Error(SalesDbNotFound)
+    Error(e) -> Error(SalesDbQueryError(pog_error_to_string(e)))
+  }
+}
+
+/// Назначить лида на агента
+pub fn assign_lead(
+  pool: pog.Connection,
+  lead_id: Int,
+  agent_id: String,
+) -> Result(Lead, SalesDbError) {
+  let sql =
+    "UPDATE leads SET assigned_to = $2
+     WHERE id = $1
+     RETURNING id, telegram_user_id, username, first_name, last_name, phone, email,
+               first_message, intent, priority, status, funnel_stage, source,
+               utm_source, utm_medium, utm_campaign, quiz_score, recommended_product_id,
+               assigned_to, notes, last_contact_at::text, created_at::text"
+
+  case
+    pog.query(sql)
+    |> add_parameters([pog.int(lead_id), pog.text(agent_id)])
+    |> pog.returning(decode_lead())
+    |> pog.execute(pool)
+  {
+    Ok(pog.Returned(_, [lead])) -> Ok(lead)
+    Ok(pog.Returned(_, [])) -> Error(SalesDbNotFound)
+    Ok(_) -> Error(SalesDbNotFound)
+    Error(e) -> Error(SalesDbQueryError(pog_error_to_string(e)))
+  }
+}
+
+/// Удалить лида
+pub fn delete_lead(
+  pool: pog.Connection,
+  lead_id: Int,
+) -> Result(Bool, SalesDbError) {
+  let sql = "DELETE FROM leads WHERE id = $1"
+
+  case
+    pog.query(sql)
+    |> add_parameters([pog.int(lead_id)])
+    |> pog.execute(pool)
+  {
+    Ok(pog.Returned(count, _)) -> Ok(count > 0)
+    Error(e) -> Error(SalesDbQueryError(pog_error_to_string(e)))
+  }
+}
+
 // =============================================================================
 // Usage Logging
 // =============================================================================

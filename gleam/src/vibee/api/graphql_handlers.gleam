@@ -7,7 +7,9 @@ import gleam/dict
 import gleam/dynamic/decode
 import gleam/http/request.{type Request}
 import gleam/http/response.{type Response}
+import gleam/io
 import gleam/json
+import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
@@ -21,6 +23,7 @@ import vibee/graphql/types
 
 /// Handle GraphQL HTTP POST requests (queries and mutations)
 pub fn query_handler(req: Request(Connection)) -> Response(ResponseData) {
+  let _ = io.println("[GraphQL Handler] Received POST request")
   case mist.read_body(req, 1024 * 1024) {
     Error(_) -> error_response(400, "Failed to read request body")
 
@@ -29,21 +32,29 @@ pub fn query_handler(req: Request(Connection)) -> Response(ResponseData) {
         Error(_) -> error_response(400, "Invalid UTF-8 in request body")
 
         Ok(body_str) -> {
+          let _ = io.println("[GraphQL Handler] Body: " <> string.slice(body_str, 0, 200))
           case parse_graphql_request(body_str) {
-            Error(msg) -> error_response(400, msg)
+            Error(msg) -> {
+              let _ = io.println("[GraphQL Handler] Parse request error: " <> msg)
+              error_response(400, msg)
+            }
 
             Ok(gql_request) -> {
+              let _ = io.println("[GraphQL Handler] Query: " <> gql_request.query)
               // Check for introspection query
               case string.contains(gql_request.query, "__schema") || string.contains(gql_request.query, "__type") {
                 True -> introspection_response()
                 False -> {
                   case parser.parse(gql_request.query) {
-                    Error(parse_error) ->
+                    Error(parse_error) -> {
+                      let _ = io.println("[GraphQL Handler] Parse error: " <> parser.error_to_string(parse_error))
                       graphql_error_response(
                         "Parse error: " <> parser.error_to_string(parse_error),
                       )
+                    }
 
                     Ok(document) -> {
+                      let _ = io.println("[GraphQL Handler] Parsed document with " <> string.inspect(list.length(document.operations)) <> " operations")
                       let registry = lead_resolvers.build_registry()
                       let variables =
                         dict.map_values(gql_request.variables, fn(_k, _v) {
@@ -56,6 +67,7 @@ pub fn query_handler(req: Request(Connection)) -> Response(ResponseData) {
                           gql_request.operation_name,
                           registry,
                         )
+                      let _ = io.println("[GraphQL Handler] Execution complete")
                       graphql_response(response)
                     }
                   }
@@ -254,10 +266,47 @@ fn introspection_response() -> Response(ResponseData) {
         ]),
         // Mutation type
         object_type_desc("Mutation", "Корневой тип для изменения данных", [
-          field_def_desc("updateLeadStatus", "Lead!", "Обновить статус лида в воронке продаж", [
-            arg_def_desc("leadId", "Int", "ID лида для обновления", True),
-            arg_def_desc("status", "LeadStatus", "Новый статус лида", True),
+          field_def_desc("createLead", "Lead!", "Создать нового лида", [
+            arg_def_desc("telegramUserId", "Int", "Telegram User ID", True),
+            arg_def_desc("username", "String", "Username в Telegram", False),
+            arg_def_desc("firstName", "String", "Имя пользователя", False),
+            arg_def_desc("source", "String", "Источник лида", False),
+            arg_def_desc("firstMessage", "String", "Первое сообщение", False),
           ]),
+          field_def_desc("updateLeadStatus", "Lead!", "Обновить статус лида", [
+            arg_def_desc("leadId", "Int", "ID лида", True),
+            arg_def_desc("status", "LeadStatus", "Новый статус", True),
+          ]),
+          field_def_desc("updateFunnelStage", "Lead!", "Обновить этап воронки", [
+            arg_def_desc("leadId", "Int", "ID лида", True),
+            arg_def_desc("stage", "FunnelStage", "Новый этап воронки", True),
+          ]),
+          field_def_desc("updateQuizResult", "Lead!", "Обновить результат квиза", [
+            arg_def_desc("leadId", "Int", "ID лида", True),
+            arg_def_desc("score", "Int", "Оценка (0-10)", True),
+            arg_def_desc("productId", "Int", "ID рекомендуемого продукта", True),
+          ]),
+          field_def_desc("updateLeadPriority", "Lead!", "Изменить приоритет лида", [
+            arg_def_desc("leadId", "Int", "ID лида", True),
+            arg_def_desc("priority", "LeadPriority", "Новый приоритет", True),
+          ]),
+          field_def_desc("addLeadNote", "Lead!", "Добавить заметку к лиду", [
+            arg_def_desc("leadId", "Int", "ID лида", True),
+            arg_def_desc("note", "String", "Текст заметки", True),
+          ]),
+          field_def_desc("assignLead", "Lead!", "Назначить лида на менеджера", [
+            arg_def_desc("leadId", "Int", "ID лида", True),
+            arg_def_desc("agentId", "String", "ID менеджера", True),
+          ]),
+          field_def_desc("deleteLead", "DeleteResult!", "Удалить лида", [
+            arg_def_desc("leadId", "Int", "ID лида", True),
+          ]),
+        ]),
+        // DeleteResult type
+        object_type_desc("DeleteResult", "Результат удаления", [
+          field_desc("id", "Int!", "ID удалённого лида"),
+          field_desc("deleted", "Boolean!", "Успешно ли удалён"),
+          field_desc("message", "String!", "Сообщение о результате"),
         ]),
         // Subscription type
         object_type_desc("Subscription", "Подписки на события в реальном времени (WebSocket/SSE)", [
