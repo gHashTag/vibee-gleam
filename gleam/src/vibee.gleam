@@ -24,6 +24,7 @@ import vibee/mcp/session_manager
 import vibee/onboarding/state as onboarding_state
 import vibee/log_aggregator
 import vibee/db/postgres
+import vibee/db/session_db
 import vibee/api/e2e_test_runner
 import gleam/int
 import gleam/list
@@ -68,61 +69,71 @@ fn run_telegram_agent() {
     Ok(event_bus_subject) -> {
       io.println("[EVENTS] ✓ Event bus started")
 
-      // Конфигурация агента с OpenRouter API (используем централизованный конфиг)
       // Initialize session manager ETS table
       session_manager.init()
       io.println("[SESSION] Session manager initialized")
 
-      // Register sessions from ENV
-      // SECURITY: Phone numbers and usernames come from ENV, not hardcoded
-      let session_1 = config.get_env("TELEGRAM_SESSION_ID")
-      let session_1_phone = config.get_env("TELEGRAM_SESSION_1_PHONE")
-      let session_1_username = config.get_env("TELEGRAM_SESSION_1_USERNAME")
-
-      let session_2 = config.get_env("TELEGRAM_SESSION_ID_2")
-      let session_2_phone = config.get_env("TELEGRAM_SESSION_2_PHONE")
-      let session_2_username = config.get_env("TELEGRAM_SESSION_2_USERNAME")
-
-      // Register session 1
-      case session_1 {
-        "" -> Nil
-        sid -> {
-          session_manager.upsert(session_manager.SessionInfo(
-            session_id: sid,
-            phone: case session_1_phone { "" -> None _ -> Some(session_1_phone) },
-            username: case session_1_username { "" -> None _ -> Some(session_1_username) },
-            authorized: True,
-            created_at: 0,
-          ))
-          io.println("[SESSION] Registered session 1: " <> mask_sensitive(sid))
+      // Initialize database pool EARLY (needed for session loading)
+      let db_pool = case config.get_env("DATABASE_URL") {
+        "" -> {
+          io.println("[DB] DATABASE_URL not set")
+          None
         }
-      }
-
-      // Register session 2
-      case session_2 {
-        "" -> Nil
-        sid -> {
-          session_manager.upsert(session_manager.SessionInfo(
-            session_id: sid,
-            phone: case session_2_phone { "" -> None _ -> Some(session_2_phone) },
-            username: case session_2_username { "" -> None _ -> Some(session_2_username) },
-            authorized: True,
-            created_at: 0,
-          ))
-          io.println("[SESSION] Registered session 2: " <> mask_sensitive(sid))
-        }
-      }
-
-      // Set active session (prefer session_1)
-      let session_id = case session_1 {
-        "" -> case session_2 {
-          "" -> case session_manager.get_active() {
-            Some(sid) -> sid
-            None -> ""
+        db_url -> {
+          case postgres.connect(db_url) {
+            Ok(pool) -> {
+              postgres.set_global_pool(pool)
+              io.println("[DB] PostgreSQL pool initialized")
+              Some(pool)
+            }
+            Error(_) -> {
+              io.println("[DB] Failed to connect to PostgreSQL")
+              None
+            }
           }
-          sid -> { session_manager.set_active(sid) sid }
         }
-        sid -> { session_manager.set_active(sid) sid }
+      }
+
+      // Load sessions from DATABASE (primary) or ENV (fallback)
+      let registered_sessions = case db_pool {
+        Some(pool) -> {
+          case session_db.get_active_sessions(pool) {
+            Ok(sessions) -> {
+              io.println("[SESSION] Loading " <> int_to_string(list.length(sessions)) <> " sessions from database")
+              list.each(sessions, fn(s) {
+                session_manager.upsert(session_manager.SessionInfo(
+                  session_id: s.session_id,
+                  phone: s.phone,
+                  username: s.username,
+                  authorized: True,
+                  created_at: 0,
+                ))
+                io.println("[SESSION] DB: " <> mask_sensitive(s.session_id) <> case s.username { Some(u) -> " (@" <> u <> ")" None -> "" })
+              })
+              list.map(sessions, fn(s) { s.session_id })
+            }
+            Error(_) -> {
+              io.println("[SESSION] DB query failed, falling back to ENV")
+              load_sessions_from_env()
+            }
+          }
+        }
+        None -> {
+          io.println("[SESSION] No DB pool, loading from ENV")
+          load_sessions_from_env()
+        }
+      }
+
+      // Set active session (first session in list)
+      let session_id = case list.first(registered_sessions) {
+        Ok(first_sid) -> {
+          session_manager.set_active(first_sid)
+          first_sid
+        }
+        Error(_) -> case session_manager.get_active() {
+          Some(sid) -> sid
+          None -> ""
+        }
       }
       io.println("[CONFIG] Active Session ID: " <> session_id)
       io.println("[CONFIG] Bridge URL: " <> telegram_config.bridge_url())
@@ -145,17 +156,8 @@ fn run_telegram_agent() {
       io.println("[AGENT] Starting VIBEE Telegram Agents...")
       io.println("[AGENT] Mode: " <> case use_websocket { True -> "WebSocket (real-time)" False -> "HTTP Polling" })
 
-      // Build list of sessions from ENV
-      let sessions_to_poll = case session_1 {
-        "" -> case session_2 {
-          "" -> []
-          _ -> [session_2]
-        }
-        _ -> case session_2 {
-          "" -> [session_1]
-          _ -> [session_1, session_2]
-        }
-      }
+      // Use sessions loaded from DB or ENV
+      let sessions_to_poll = registered_sessions
       io.println("[AGENT] Will connect " <> int_to_string(list.length(sessions_to_poll)) <> " configured sessions")
 
       // Track first polling agent for shutdown handler and count successful agents
@@ -228,19 +230,7 @@ fn run_telegram_agent() {
           init_earning_store()
           io.println("[STORES] ✓ Payment, P2P, Earning stores initialized")
 
-          // Initialize database pool (for RAG parsing)
-          case config.get_env("DATABASE_URL") {
-            "" -> io.println("[DB] DATABASE_URL not set - RAG parsing disabled")
-            db_url -> {
-              case postgres.connect(db_url) {
-                Ok(pool) -> {
-                  postgres.set_global_pool(pool)
-                  io.println("[DB] ✓ PostgreSQL pool initialized and cached")
-                }
-                Error(_) -> io.println("[DB] ! Failed to connect to PostgreSQL")
-              }
-            }
-          }
+          // Note: Database pool already initialized early for session loading
 
           // Start global log aggregator (for WebSocket log streaming)
           case log_aggregator.start_global() {
@@ -294,6 +284,37 @@ fn run_telegram_agent() {
       Nil
     }
   }
+}
+
+/// Load sessions from ENV variables (fallback when DB not available)
+fn load_sessions_from_env() -> List(String) {
+  let session_env_keys = [
+    #("TELEGRAM_SESSION_ID", "TELEGRAM_SESSION_1_PHONE", "TELEGRAM_SESSION_1_USERNAME"),
+    #("TELEGRAM_SESSION_ID_2", "TELEGRAM_SESSION_2_PHONE", "TELEGRAM_SESSION_2_USERNAME"),
+    #("TELEGRAM_SESSION_ID_3", "TELEGRAM_SESSION_3_PHONE", "TELEGRAM_SESSION_3_USERNAME"),
+    #("TELEGRAM_SESSION_ID_4", "TELEGRAM_SESSION_4_PHONE", "TELEGRAM_SESSION_4_USERNAME"),
+    #("TELEGRAM_SESSION_ID_5", "TELEGRAM_SESSION_5_PHONE", "TELEGRAM_SESSION_5_USERNAME"),
+  ]
+  list.filter_map(session_env_keys, fn(keys) {
+    let #(id_key, phone_key, username_key) = keys
+    let sid = config.get_env(id_key)
+    case sid {
+      "" -> Error(Nil)
+      _ -> {
+        let phone = config.get_env(phone_key)
+        let username = config.get_env(username_key)
+        session_manager.upsert(session_manager.SessionInfo(
+          session_id: sid,
+          phone: case phone { "" -> None _ -> Some(phone) },
+          username: case username { "" -> None _ -> Some(username) },
+          authorized: True,
+          created_at: 0,
+        ))
+        io.println("[SESSION] ENV: " <> mask_sensitive(sid) <> case username { "" -> "" u -> " (@" <> u <> ")" })
+        Ok(sid)
+      }
+    }
+  })
 }
 
 fn int_to_string(n: Int) -> String {

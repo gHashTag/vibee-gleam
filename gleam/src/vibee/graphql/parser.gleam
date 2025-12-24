@@ -180,7 +180,7 @@ fn tokenize_chars(
   chars: List(String),
   current: String,
   tokens: List(String),
-  brace_depth: Int,
+  depth: Int,
 ) -> List(String) {
   case chars {
     [] -> {
@@ -189,27 +189,37 @@ fn tokenize_chars(
         c -> list.reverse([c, ..tokens])
       }
     }
+    // Track both braces and parentheses for grouping
     ["{", ..rest] -> {
-      tokenize_chars(rest, current <> "{", tokens, brace_depth + 1)
+      tokenize_chars(rest, current <> "{", tokens, depth + 1)
+    }
+    ["(", ..rest] -> {
+      tokenize_chars(rest, current <> "(", tokens, depth + 1)
     }
     ["}", ..rest] -> {
-      case brace_depth {
+      case depth {
         0 -> tokenize_chars(rest, current <> "}", tokens, 0)
-        _ -> tokenize_chars(rest, current <> "}", tokens, brace_depth - 1)
+        _ -> tokenize_chars(rest, current <> "}", tokens, depth - 1)
+      }
+    }
+    [")", ..rest] -> {
+      case depth {
+        0 -> tokenize_chars(rest, current <> ")", tokens, 0)
+        _ -> tokenize_chars(rest, current <> ")", tokens, depth - 1)
       }
     }
     [c, ..rest] -> {
-      case brace_depth > 0 {
-        True -> tokenize_chars(rest, current <> c, tokens, brace_depth)
+      case depth > 0 {
+        True -> tokenize_chars(rest, current <> c, tokens, depth)
         False -> {
           case is_whitespace(c) {
             True -> {
               case string.trim(current) {
-                "" -> tokenize_chars(rest, "", tokens, brace_depth)
-                cur -> tokenize_chars(rest, "", [cur, ..tokens], brace_depth)
+                "" -> tokenize_chars(rest, "", tokens, depth)
+                cur -> tokenize_chars(rest, "", [cur, ..tokens], depth)
               }
             }
-            False -> tokenize_chars(rest, current <> c, tokens, brace_depth)
+            False -> tokenize_chars(rest, current <> c, tokens, depth)
           }
         }
       }

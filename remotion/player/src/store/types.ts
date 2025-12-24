@@ -89,6 +89,7 @@ export interface AudioItemProps {
 
 export interface AvatarItemProps {
   type: 'avatar';
+  volume: number;
   // Avatar-specific props (lipsync video)
   circleSizePercent: number;
   circleBottomPercent: number;

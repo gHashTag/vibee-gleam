@@ -38,8 +38,10 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
 
   // Get item-specific props for badges
   const playbackRate = item.type === 'video' ? (item as any).playbackRate : null;
-  // Use musicVolumeAtom as single source of truth for audio tracks
-  const volume = (item.type === 'audio') ? musicVolume : null;
+  // Show volume for video, avatar, and audio tracks (use item's own volume)
+  const volume = (item.type === 'audio' || item.type === 'video' || item.type === 'avatar')
+    ? (item as any).volume
+    : null;
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();

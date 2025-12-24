@@ -166,14 +166,14 @@ export function ChatPanel({ wsConnected, wsSend }: ChatPanelProps) {
   return (
     <div className="chat-panel">
       {/* Header with tabs */}
-      <div className="chat-header">
-        <div className="chat-header-left">
-          <div className="chat-avatar">
+      <div className="agent-header">
+        <div className="agent-header-left">
+          <div className="agent-avatar">
             <Sparkles size={18} />
           </div>
-          <div className="chat-header-info">
-            <span className="chat-title">VIBEE Agent</span>
-            <span className={`chat-status ${isConnected ? 'connected' : 'disconnected'}`}>
+          <div className="agent-header-info">
+            <span className="agent-title">VIBEE Agent</span>
+            <span className={`agent-status ${isConnected ? 'connected' : 'disconnected'}`}>
               {isConnected ? (
                 <>
                   <Wifi size={10} /> Connected
@@ -186,7 +186,7 @@ export function ChatPanel({ wsConnected, wsSend }: ChatPanelProps) {
             </span>
           </div>
         </div>
-        <button className="chat-clear-btn" onClick={clearMessages} title="Clear chat">
+        <button className="agent-clear-btn" onClick={clearMessages} title="Clear chat">
           <Trash2 size={14} />
         </button>
       </div>

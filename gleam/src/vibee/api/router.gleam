@@ -29,6 +29,7 @@ import vibee/web/p2p_panel
 import vibee/web/factory_panel
 import vibee/web/leads_panel
 import vibee/api/leads_handlers
+import vibee/api/graphql_handlers
 import vibee/mcp/websocket as mcp_ws
 import vibee/mcp/tools.{type ToolRegistry}
 import vibee/mcp/session_manager
@@ -51,6 +52,7 @@ import vibee/api/agent_handlers
 import vibee/api/e2e_handlers
 import vibee/api/editor_agent_ws
 import vibee/api/video_api
+import vibee/api/render_quota_handlers
 
 /// WebSocket message types
 pub type WsMessage {
@@ -314,6 +316,12 @@ fn route_request(
     // POST /api/video/ai-reels/template1 - AI Reels Template 1 (full emulation in test mode)
     http.Post, ["api", "video", "ai-reels", "template1"] -> video_api.template1_handler(req)
 
+    // Render Quota API (Freemium: 3 free renders, then subscription)
+    // GET /api/render-quota?telegram_id=123 - Check render quota
+    http.Get, ["api", "render-quota"] -> render_quota_handlers.check_quota_handler(req)
+    // POST /api/render-log - Log a render (increment counter)
+    http.Post, ["api", "render-log"] -> render_quota_handlers.log_render_handler(req)
+
     // Logs page - real-time log viewer
     http.Get, ["logs"] -> logs_page_handler()
     http.Get, ["api", "v1", "logs", "tail"] -> logs_tail_handler()
@@ -368,6 +376,16 @@ fn route_request(
     http.Put, ["api", "v1", "leads", lead_id, "status"] -> leads_handlers.update_lead_status(req, lead_id)
     http.Post, ["api", "v1", "leads", lead_id, "notes"] -> leads_handlers.add_lead_note(lead_id, "")
     http.Post, ["api", "v1", "leads", lead_id, "message"] -> leads_handlers.send_message_to_lead(lead_id, "")
+
+    // ==========================================================================
+    // GraphQL API - Leads CRM
+    // ==========================================================================
+    http.Post, ["graphql"] -> graphql_handlers.query_handler(req)
+    http.Get, ["graphql"] -> graphql_handlers.get_handler(req)
+    http.Get, ["graphql", "playground"] -> graphql_handlers.playground_handler(req)
+    http.Get, ["graphql", "sse"] -> graphql_handlers.sse_handler(req)
+    // CORS preflight for GraphQL
+    http.Options, ["graphql"] -> cors_preflight_handler()
 
     // ==========================================================================
     // Template Factory UI - Vibe Reels Variants Gallery
@@ -1831,6 +1849,16 @@ fn json_response_with_cors(status: Int, body: json.Json, request_origin: String)
       |> response.set_header("access-control-allow-origin", origin)
       |> response.set_header("access-control-allow-credentials", "true")
   }
+}
+
+/// CORS preflight handler for OPTIONS requests
+fn cors_preflight_handler() -> Response(ResponseData) {
+  response.new(204)
+  |> response.set_header("access-control-allow-origin", "*")
+  |> response.set_header("access-control-allow-methods", "GET, POST, OPTIONS")
+  |> response.set_header("access-control-allow-headers", "content-type, authorization")
+  |> response.set_header("access-control-max-age", "86400")
+  |> response.set_body(mist.Bytes(bytes_tree.new()))
 }
 
 fn html_response(status: Int, body: String) -> Response(ResponseData) {

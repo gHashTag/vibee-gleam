@@ -265,10 +265,22 @@ fn do_poll(state: PollingState) -> PollingState {
             state.agent_id,
             log,
           )
-          vibe_logger.info(log
-            |> vibe_logger.with_data("seen_count", json.int(set.size(new_seen_ids))),
-            "Initial poll complete, ready for new messages")
-          PollingState(..state, poll_count: poll_num, seen_ids: new_seen_ids, initial_poll_done: True)
+          let seen_count = set.size(new_seen_ids)
+
+          // ВАЖНО: Если seen_ids пустой, НЕ помечаем initial_poll завершённым
+          // Это предотвращает повторную обработку сообщений после сбоя populate_seen_ids
+          case seen_count > 0 {
+            True -> {
+              vibe_logger.info(log
+                |> vibe_logger.with_data("seen_count", json.int(seen_count)),
+                "Initial poll complete, ready for new messages")
+              PollingState(..state, poll_count: poll_num, seen_ids: new_seen_ids, initial_poll_done: True)
+            }
+            False -> {
+              vibe_logger.warn(log, "Initial poll FAILED: seen_ids is empty, will retry next poll")
+              PollingState(..state, poll_count: poll_num, initial_poll_done: False)
+            }
+          }
         }
         True -> {
           // Обычный poll - обрабатываем новые сообщения

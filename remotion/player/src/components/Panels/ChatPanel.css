@@ -10,45 +10,46 @@
 }
 
 /* Header */
-.chat-header {
+.agent-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
+  background: #0a0a0a;
   border-bottom: 1px solid #1a1a1a;
-  min-height: 56px;
+  min-height: 48px;
 }
 
-.chat-header-left {
+.agent-header-left {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.chat-avatar {
+.agent-avatar {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
-  border-radius: 8px;
-  color: #000;
+  width: 28px;
+  height: 28px;
+  background: #1a1a1a;
+  border-radius: 6px;
+  color: #f59e0b;
 }
 
-.chat-header-info {
+.agent-header-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.chat-title {
+.agent-title {
   font-size: 13px;
   font-weight: 600;
   color: #fff;
 }
 
-.chat-status {
+.agent-status {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -56,15 +57,15 @@
   color: #666;
 }
 
-.chat-status.connected {
+.agent-status.connected {
   color: #22c55e;
 }
 
-.chat-status.disconnected {
+.agent-status.disconnected {
   color: #666;
 }
 
-.chat-clear-btn {
+.agent-clear-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -78,7 +79,7 @@
   transition: all 0.15s;
 }
 
-.chat-clear-btn:hover {
+.agent-clear-btn:hover {
   background: #1a1a1a;
   color: #888;
 }
@@ -139,9 +140,9 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  background: #f59e0b;
+  background: #1a1a1a;
   border-radius: 6px;
-  color: #000;
+  color: #f59e0b;
   flex-shrink: 0;
 }
 

@@ -123,6 +123,52 @@ pub fn get_active(pool: pog.Connection) -> Result(TwinConfig, TwinConfigError) {
   }
 }
 
+/// Получить конфигурацию Digital Twin по session_id
+/// Fallback на активный конфиг если не найден по session_id
+pub fn get_by_session_id(pool: pog.Connection, session_id: String) -> Result(TwinConfig, TwinConfigError) {
+  // Проверяем кеш по session_id
+  let cache_key = "twin:session:" <> session_id
+  case cache_get(cache_key) {
+    Ok(cached_json) -> {
+      case decode_twin_from_json(cached_json) {
+        Ok(config) -> Ok(config)
+        Error(_) -> fetch_twin_by_session(pool, session_id)
+      }
+    }
+    Error(_) -> fetch_twin_by_session(pool, session_id)
+  }
+}
+
+fn fetch_twin_by_session(pool: pog.Connection, session_id: String) -> Result(TwinConfig, TwinConfigError) {
+  let sql =
+    "SELECT id::text, name, username, bio, adjectives, topics,
+            style, message_examples, post_examples, knowledge,
+            settings, system_prompt, plugins, is_active
+     FROM digital_twin_config
+     WHERE session_id = $1
+     LIMIT 1"
+
+  case
+    pog.query(sql)
+    |> pog.parameter(pog.text(session_id))
+    |> pog.returning(decode_twin_row())
+    |> pog.execute(pool)
+  {
+    Ok(pog.Returned(_, [config])) -> {
+      // Кешируем по session_id
+      let cache_key = "twin:session:" <> session_id
+      cache_set(cache_key, encode_twin_to_json(config), cache_ttl_seconds)
+      Ok(config)
+    }
+    Ok(pog.Returned(_, [])) -> {
+      // Fallback на активный конфиг
+      fetch_active_twin(pool)
+    }
+    Ok(_) -> fetch_active_twin(pool)
+    Error(e) -> Error(TwinQueryError(pog_error_to_string(e)))
+  }
+}
+
 fn fetch_active_twin(pool: pog.Connection) -> Result(TwinConfig, TwinConfigError) {
   let sql =
     "SELECT id::text, name, username, bio, adjectives, topics,

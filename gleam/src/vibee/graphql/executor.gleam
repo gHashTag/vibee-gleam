@@ -2,6 +2,7 @@
 // Executes GraphQL documents against resolver registry
 
 import gleam/dict.{type Dict}
+import gleam/io
 import gleam/json.{type Json}
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -119,9 +120,15 @@ fn execute_selections(
   resolvers: Dict(String, Resolver),
   ctx: Context,
 ) -> types.GraphQLResponse {
+  // Log available resolvers for debugging
+  let resolver_names = dict.keys(resolvers)
+  let _ = io.println("[GraphQL] Available resolvers: " <> string.join(resolver_names, ", "))
+  let _ = io.println("[GraphQL] Selections count: " <> string.inspect(list.length(selections)))
+
   let results = list.filter_map(selections, fn(sel) {
     case sel {
       FieldSelection(field) -> {
+        let _ = io.println("[GraphQL] Executing field: " <> field.name)
         let result = execute_field(field, resolvers, ctx)
         case result {
           Ok(json_value) -> {
@@ -129,12 +136,19 @@ fn execute_selections(
               Some(alias) -> alias
               None -> field.name
             }
+            let _ = io.println("[GraphQL] Field success: " <> key)
             Ok(#(key, json_value))
           }
-          Error(_) -> Error(Nil)
+          Error(err) -> {
+            let _ = io.println("[GraphQL] Field error: " <> field.name <> " - " <> err)
+            Error(Nil)
+          }
         }
       }
-      _ -> Error(Nil)  // FragmentSpread and InlineFragment not yet implemented
+      _ -> {
+        let _ = io.println("[GraphQL] Skipping non-field selection")
+        Error(Nil)
+      }
     }
   })
 

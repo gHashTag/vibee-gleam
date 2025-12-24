@@ -1779,7 +1779,7 @@ fn generate_digital_twin_reply(
   vibe_logger.debug(twin_log |> vibe_logger.with_data("context_len", json.int(string.length(conversation_context))), "Context received")
 
   // Строим улучшенный промпт с примерами и контекстом
-  let system_prompt = build_digital_twin_prompt(from_name, conversation_context)
+  let system_prompt = build_digital_twin_prompt(from_name, conversation_context, config.session_id)
   vibe_logger.debug(twin_log |> vibe_logger.with_data("prompt_len", json.int(string.length(system_prompt))), "Prompt built")
 
   let api_key = case config.llm_api_key {
@@ -1859,11 +1859,11 @@ fn format_context(raw: String) -> String {
 }
 
 /// Строит улучшенный Digital Twin промпт из базы данных
-fn build_digital_twin_prompt(from_name: String, context: String) -> String {
-  // Получаем промпт из БД через twin_config
+fn build_digital_twin_prompt(from_name: String, context: String, session_id: String) -> String {
+  // Получаем промпт из БД через twin_config по session_id
   let base_prompt = case postgres.get_global_pool() {
     Some(pool) ->
-      case twin_config.get_active(pool) {
+      case twin_config.get_by_session_id(pool, session_id) {
         Ok(cfg) -> twin_config.build_system_prompt(cfg)
         Error(_) -> fallback_prompt()
       }

@@ -148,3 +148,19 @@ export {
   selectTemplateAtom,
   type Template,
 } from './templates';
+
+// User & Auth Atoms (Freemium)
+export {
+  userAtom,
+  renderQuotaAtom,
+  quotaLoadingAtom,
+  showPaywallAtom,
+  showLoginModalAtom,
+  fetchQuotaAtom,
+  logRenderAtom,
+  canRenderAtom,
+  logoutAtom,
+  type TelegramUser,
+  type RenderQuota,
+  type SubscriptionInfo,
+} from './user';

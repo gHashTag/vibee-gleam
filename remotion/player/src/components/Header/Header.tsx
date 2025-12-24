@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import {
   projectAtom,
@@ -18,9 +18,19 @@ import {
   resetTracksAtom,
   segmentsAtom,
   updateTemplatePropAtom,
+  // User & Quota atoms
+  userAtom,
+  renderQuotaAtom,
+  showPaywallAtom,
+  showLoginModalAtom,
+  fetchQuotaAtom,
+  logRenderAtom,
+  canRenderAtom,
+  logoutAtom,
 } from '@/atoms';
 import { editorStore } from '@/atoms/Provider';
-import { Download, Play, Pause, Settings, Wifi, WifiOff, Loader2, AlertTriangle, Undo2, Redo2, X, Keyboard, Upload, Save, RotateCcw } from 'lucide-react';
+import { Download, Play, Pause, Settings, Wifi, WifiOff, Loader2, AlertTriangle, Undo2, Redo2, X, Keyboard, Upload, Save, RotateCcw, Zap } from 'lucide-react';
+import { TelegramLoginButton, UserAvatar, PaywallModal } from '@/components/Auth';
 import { RENDER_SERVER_URL, toAbsoluteUrl } from '@/lib/mediaUrl';
 import { DEFAULT_COMPOSITION_ID } from '@/shared/compositions';
 import { logExport } from '@/lib/logger';
@@ -101,6 +111,13 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
   const canRedoValue = useAtomValue(canRedoAtom);
   const segments = useAtomValue(segmentsAtom);
 
+  // User & Quota state
+  const user = useAtomValue(userAtom);
+  const quota = useAtomValue(renderQuotaAtom);
+  const showPaywall = useAtomValue(showPaywallAtom);
+  const showLoginModal = useAtomValue(showLoginModalAtom);
+  const canRender = useAtomValue(canRenderAtom);
+
   const play = useSetAtom(playAtom);
   const pause = useSetAtom(pauseAtom);
   const setExportingAction = useSetAtom(setExportingAtom);
@@ -109,6 +126,20 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
   const resetTracks = useSetAtom(resetTracksAtom);
   const updateTemplateProp = useSetAtom(updateTemplatePropAtom);
   const setProject = useSetAtom(projectAtom);
+
+  // User actions
+  const fetchQuota = useSetAtom(fetchQuotaAtom);
+  const logRender = useSetAtom(logRenderAtom);
+  const logout = useSetAtom(logoutAtom);
+  const setShowPaywall = useSetAtom(showPaywallAtom);
+  const setShowLoginModal = useSetAtom(showLoginModalAtom);
+
+  // Fetch quota on mount if user is logged in
+  useEffect(() => {
+    if (user) {
+      fetchQuota();
+    }
+  }, [user, fetchQuota]);
 
   // Обертки для совместимости
   const setExporting = (exporting: boolean, progress?: number) => setExportingAction({ exporting, progress });
@@ -218,6 +249,18 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
   };
 
   const handleExportClick = () => {
+    // Check if user is logged in
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    // Check if user has quota
+    if (!canRender) {
+      setShowPaywall(true);
+      return;
+    }
+
     const blobs = checkForBlobUrls();
     if (blobs.length > 0) {
       setBlobAssets(blobs);
@@ -336,6 +379,9 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
             if (data.status === 'completed' && data.outputUrl) {
               console.log('[Export] Render completed!');
               eventSource.close();
+
+              // Log render to quota system
+              logRender();
 
               // Download the file
               const downloadUrl = data.outputUrl.startsWith('http')
@@ -491,6 +537,39 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
         >
           <Settings size={18} />
         </button>
+
+        {/* User login / Quota display */}
+        {user ? (
+          <div className="user-section">
+            {/* Quota display */}
+            {quota && (
+              <div
+                className={`quota-display ${
+                  quota.free_remaining === 0 && !quota.subscription
+                    ? 'exhausted'
+                    : quota.free_remaining <= 1
+                    ? 'warning'
+                    : ''
+                }`}
+                title={`${quota.total_renders} renders used`}
+              >
+                <Zap size={14} />
+                <span>
+                  {quota.subscription
+                    ? quota.subscription.remaining === null
+                      ? 'Unlimited'
+                      : `${quota.subscription.remaining} left`
+                    : `${quota.free_remaining}/3 free`}
+                </span>
+              </div>
+            )}
+            <UserAvatar user={user} onLogout={logout} />
+          </div>
+        ) : (
+          <TelegramLoginButton
+            onSuccess={() => setShowLoginModal(false)}
+          />
+        )}
 
         <button
           className={`header-button export-button ${isExporting ? 'exporting' : ''}`}
@@ -702,6 +781,22 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Paywall Modal */}
+      <PaywallModal />
+
+      {/* Login Modal */}
+      {showLoginModal && (
+        <div className="login-modal-overlay" onClick={() => setShowLoginModal(false)}>
+          <div className="login-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Login to Export</h2>
+            <p>Sign in with Telegram to get 3 free video renders!</p>
+            <TelegramLoginButton
+              onSuccess={() => setShowLoginModal(false)}
+            />
           </div>
         </div>
       )}
