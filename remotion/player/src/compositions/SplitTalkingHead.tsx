@@ -13,7 +13,7 @@
  * Montserrat Bold font, and smooth animations.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
   AbsoluteFill,
   Video,
@@ -161,72 +161,7 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
 }) => {
   console.log('[SplitTalkingHead] backgroundMusic:', backgroundMusic, 'musicVolume:', musicVolume);
   const frame = useCurrentFrame();
-  const { height, fps, durationInFrames } = useVideoConfig();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const lastFrameRef = useRef(0);
-
-  // 🎵 HTML5 Audio for background music (bypasses Remotion Audio issues)
-  useEffect(() => {
-    if (!backgroundMusic) return;
-
-    const audioSrc = resolveMediaPath(backgroundMusic);
-    console.log('[SplitTalkingHead] Creating HTML5 Audio:', audioSrc);
-
-    const audio = new window.Audio(audioSrc);
-    audio.loop = true;
-    audio.volume = musicVolume;
-    audio.crossOrigin = 'anonymous';
-    audioRef.current = audio;
-
-    return () => {
-      audio.pause();
-      audio.src = '';
-      audioRef.current = null;
-    };
-  }, [backgroundMusic]);
-
-  // Sync audio with player - use interval to detect play/pause
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    audio.volume = musicVolume;
-
-    // Stop audio at video end
-    if (frame >= durationInFrames - 1) {
-      if (!audio.paused) {
-        console.log('[Audio] Stopping - video ended');
-        audio.pause();
-      }
-      return;
-    }
-
-    // Update frame ref and check if playing
-    const wasPlaying = lastFrameRef.current !== frame;
-    lastFrameRef.current = frame;
-
-    if (wasPlaying && audio.paused) {
-      const currentTime = frame / fps;
-      audio.currentTime = currentTime % (audio.duration || 1000);
-      audio.play().catch(e => console.warn('[Audio] Play failed:', e));
-    }
-  }, [frame, fps, musicVolume, durationInFrames]);
-
-  // Detect pause - simplified, less CPU intensive
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    let lastCheck = lastFrameRef.current;
-    const checkPause = setInterval(() => {
-      if (lastFrameRef.current === lastCheck && !audio.paused) {
-        audio.pause();
-      }
-      lastCheck = lastFrameRef.current;
-    }, 300); // Check every 300ms instead of 150ms
-
-    return () => clearInterval(checkPause);
-  }, []);
+  const { height } = useVideoConfig();
 
   // 🎬 Prefetch all b-roll videos for smooth playback
   useEffect(() => {
@@ -317,7 +252,14 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
       )}
 
       {/* ========== BACKGROUND MUSIC ========== */}
-      {/* Audio is handled via HTML5 Audio in useEffect above */}
+      {backgroundMusic && (
+        <Audio
+          key={backgroundMusic}
+          src={resolveMediaPath(backgroundMusic)}
+          volume={musicVolume}
+          pauseWhenBuffering
+        />
+      )}
     </AbsoluteFill>
   );
 };
