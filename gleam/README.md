@@ -4,15 +4,13 @@ Model Context Protocol (MCP) сервер для AI-агентов с интег
 
 ## Быстрый старт
 
-### Подключение к Claude Code
+### Claude Code
 
 ```bash
 claude mcp add vibee --transport sse --url https://vibee-mcp.fly.dev/sse
 ```
 
-После выполнения команды перезапустите Claude Code.
-
-### Подключение к Cursor
+### Cursor
 
 Добавьте в `.cursor/mcp.json`:
 
@@ -26,101 +24,80 @@ claude mcp add vibee --transport sse --url https://vibee-mcp.fly.dev/sse
 }
 ```
 
-### Подключение к другим MCP-клиентам
+После подключения **перезапустите** редактор.
 
-URL для SSE транспорта:
-```
-https://vibee-mcp.fly.dev/sse
-```
+---
 
-## Доступные инструменты
+## Первоначальная настройка
 
-### Управление сессиями
-
-| Инструмент | Описание |
-|------------|----------|
-| `session_list` | Показать все Telegram сессии |
-| `session_set_active` | Установить активную сессию |
-| `session_create` | Создать новую сессию |
-
-### Telegram
-
-| Инструмент | Описание |
-|------------|----------|
-| `telegram_get_me` | Информация о текущем аккаунте |
-| `telegram_get_dialogs` | Список диалогов |
-| `telegram_get_history` | История сообщений чата |
-| `telegram_send_message` | Отправить сообщение |
-| `telegram_send_photo` | Отправить фото |
-| `telegram_send_buttons` | Отправить сообщение с кнопками |
-
-### Авторизация
-
-| Инструмент | Описание |
-|------------|----------|
-| `auth_status` | Статус авторизации |
-| `auth_send_code` | Отправить код авторизации |
-| `auth_verify_code` | Подтвердить код |
-
-### RAG (Retrieval-Augmented Generation)
-
-| Инструмент | Описание |
-|------------|----------|
-| `telegram_parse_chat` | Парсинг чата в базу данных |
-| `telegram_parse_all_dialogs` | Парсинг всех диалогов |
-| `conversation_search` | Поиск по истории сообщений |
-| `conversation_get_context` | Получить контекст для AI Digital Clone |
-
-### Файлы и система
-
-| Инструмент | Описание |
-|------------|----------|
-| `file_read` | Читать файл |
-| `file_write` | Записать файл |
-| `file_list` | Список файлов |
-
-## Примеры использования
-
-### Работа с несколькими аккаунтами
+### 1. Проверка подключения
 
 ```
+session_list
+```
+
+### 2. Создание сессии
+
+```
+session_create phone="+79001234567"
+```
+
+### 3. Авторизация
+
+```
+auth_send_code phone="+79001234567"
+auth_verify_code code="12345" phone="+79001234567"
+```
+
+### 4. Проверка
+
+```
+telegram_get_me
+```
+
+---
+
+## Основные инструменты
+
+| Категория | Инструменты |
+|-----------|-------------|
+| **Сессии** | `session_list`, `session_create`, `session_set_active` |
+| **Telegram** | `telegram_get_dialogs`, `telegram_get_history`, `telegram_send_message` |
+| **Авторизация** | `auth_status`, `auth_send_code`, `auth_verify_code` |
+| **RAG** | `conversation_search`, `telegram_parse_chat` |
+
+Полный список: см. `CLAUDE.md`
+
+---
+
+## Работа с несколькими аккаунтами
+
+```bash
 # Посмотреть все сессии
-> session_list
+session_list
 
 # Создать новую сессию
-> session_create phone="+79001234567"
+session_create phone="+79009876543" set_active=false
 
-# Авторизовать
-> auth_send_code phone="+79001234567"
-> auth_verify_code code="12345" phone="+79001234567"
+# Переключиться на сессию
+session_set_active session_id="sess_abc123"
 
-# Переключить активную сессию
-> session_set_active session_id="sess_xyz789"
-
-# Использовать активную сессию (по умолчанию)
-> telegram_get_dialogs limit=10
-
-# Или явно указать сессию
-> telegram_send_message session_id="sess_abc123" chat_id="123" text="Hello"
+# Отправить от конкретной сессии
+telegram_send_message session_id="sess_xyz789" chat_id="123" text="Hello"
 ```
 
-### Получение диалогов
+---
 
-```
-> telegram_get_dialogs limit=20
-```
+## Устранение неполадок
 
-### Отправка сообщения
+| Проблема | Решение |
+|----------|---------|
+| MCP не подключается | Проверьте URL: `https://vibee-mcp.fly.dev/sse` |
+| "No active session" | Создайте сессию: `session_create phone="..."` |
+| Код не приходит | Подождите 1-2 мин, повторите `auth_send_code` |
+| "Session not found" | Создайте новую сессию |
 
-```
-> telegram_send_message chat_id="-1001234567890" text="Привет!"
-```
-
-### Поиск по истории
-
-```
-> conversation_search query="важная тема" limit=10
-```
+---
 
 ## Локальная разработка
 
@@ -128,70 +105,62 @@ https://vibee-mcp.fly.dev/sse
 
 - [Gleam](https://gleam.run/) >= 1.0
 - Erlang/OTP >= 26
-- Go >= 1.21 (для Telegram Bridge)
+- Go >= 1.21
 
-### Сборка
+### Запуск
 
 ```bash
+# MCP сервер
 cd vibee/gleam
-gleam build
-```
-
-### Запуск MCP сервера
-
-```bash
 gleam run -m mcp_server
+
+# Telegram Bridge
+cd vibee/telegram-bridge
+go run ./cmd/server
 ```
 
-### Запуск Telegram Bridge
-
-```bash
-cd vibee/go-bridge
-go run .
-```
+---
 
 ## Архитектура
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Claude Code / Cursor                  │
-│                      (MCP Client)                        │
-└─────────────────────┬───────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│              Claude Code / Cursor                    │
+└─────────────────────┬───────────────────────────────┘
                       │ SSE
                       ▼
-┌─────────────────────────────────────────────────────────┐
-│                  VIBEE MCP Server                        │
-│                    (Gleam/BEAM)                          │
-│  ┌───────────────┐  ┌───────────────┐  ┌─────────────┐  │
-│  │ Session Mgr   │  │  Tool Router  │  │  RAG Tools  │  │
-│  │    (ETS)      │  │               │  │             │  │
-│  └───────────────┘  └───────────────┘  └─────────────┘  │
-└─────────────────────┬───────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                VIBEE MCP Server                      │
+│                  (Gleam/BEAM)                        │
+│  ┌─────────────┐  ┌────────────┐  ┌─────────────┐   │
+│  │ Session Mgr │  │ Tool Router│  │  RAG Tools  │   │
+│  │    (ETS)    │  │            │  │             │   │
+│  └─────────────┘  └────────────┘  └─────────────┘   │
+└─────────────────────┬───────────────────────────────┘
                       │ HTTP
                       ▼
-┌─────────────────────────────────────────────────────────┐
-│                  Go Telegram Bridge                      │
-│                    (MTProto)                             │
-│  ┌───────────────────────────────────────────────────┐  │
-│  │  map[session_id]*telegram.Client                  │  │
-│  │  (Multi-account support)                          │  │
-│  └───────────────────────────────────────────────────┘  │
-└─────────────────────┬───────────────────────────────────┘
-                      │ MTProto
+┌─────────────────────────────────────────────────────┐
+│               Go Telegram Bridge                     │
+│                  (MTProto)                           │
+└─────────────────────┬───────────────────────────────┘
+                      │
                       ▼
-┌─────────────────────────────────────────────────────────┐
-│                   Telegram API                           │
-└─────────────────────────────────────────────────────────┘
+                [ Telegram API ]
 ```
+
+---
 
 ## Деплой
 
-Сервер развёрнут на Fly.io:
-
 ```bash
-cd vibee/gleam
-fly deploy
+fly deploy -a vibee-mcp
 ```
+
+## Документация
+
+- `CLAUDE.md` — подробный гайд для Claude Code
+- `docs/GRAPHQL_API.md` — GraphQL API для Lead CRM
+- `docs/ARCHITECTURE.md` — архитектура ElizaOS
 
 ## Лицензия
 
