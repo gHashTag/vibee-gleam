@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { templatePropsAtom, updateTemplatePropAtom, currentFrameAtom, projectAtom } from '@/atoms';
 import type { CaptionItem, CaptionStyle } from '@/store/types';
@@ -228,6 +228,26 @@ export function CaptionsPanel() {
       (f: CyrillicFont) => f.name.toLowerCase().includes(query) || f.id.toLowerCase().includes(query)
     );
   }, [fontSearch]);
+
+  // Preload Google Fonts when dropdown opens
+  useEffect(() => {
+    if (!showFontDropdown) return;
+
+    // Build Google Fonts URL with all fonts for preview
+    const fontFamilies = POPULAR_FONTS.map((f) => f.name.replace(/\s+/g, '+')).join('&family=');
+    const googleFontsUrl = `https://fonts.googleapis.com/css2?family=${fontFamilies}&display=swap&subset=cyrillic`;
+
+    // Check if already loaded
+    const existingLink = document.querySelector(`link[href*="fonts.googleapis.com"][data-font-preview]`);
+    if (existingLink) return;
+
+    // Load fonts
+    const link = document.createElement('link');
+    link.href = googleFontsUrl;
+    link.rel = 'stylesheet';
+    link.dataset.fontPreview = 'true';
+    document.head.appendChild(link);
+  }, [showFontDropdown]);
 
   // Get current font name
   const currentFontId = captionStyle.fontId || 'Montserrat';
@@ -485,8 +505,8 @@ export function CaptionsPanel() {
                               className={`font-option ${currentFontId === font.id ? 'selected' : ''}`}
                               onClick={() => handleFontSelect(font.id)}
                             >
-                              <span className="font-option-name">{font.name}</span>
-                              <span className="font-option-preview">Привет</span>
+                              <span className="font-option-name" style={{ fontFamily: `"${font.name}", sans-serif` }}>{font.name}</span>
+                              <span className="font-option-preview" style={{ fontFamily: `"${font.name}", sans-serif` }}>Привет</span>
                             </button>
                           ))}
                           <div className="font-category">All Fonts</div>
@@ -500,7 +520,7 @@ export function CaptionsPanel() {
                             className={`font-option ${currentFontId === font.id ? 'selected' : ''}`}
                             onClick={() => handleFontSelect(font.id)}
                           >
-                            <span className="font-option-name">{font.name}</span>
+                            <span className="font-option-name" style={{ fontFamily: `"${font.name}", sans-serif` }}>{font.name}</span>
                             <span className="font-option-category">{font.category}</span>
                           </button>
                         ))}

@@ -19,6 +19,7 @@ pub type TriggerChatConfig {
     forward_chat_id: String,
     allow_images: Bool,
     response_template: String,  // Шаблон ответа для этого чата
+    observe_only: Bool,  // Режим молчания: только сохранять лид, не отвечать (forward_only в БД)
     // E2E Test patterns (Single Source of Truth)
     expected_response_pattern: String,  // Паттерн для проверки ответа бота
     expected_forward_pattern: String,   // Паттерн для проверки пересылки
@@ -87,8 +88,7 @@ fn crypto_triggers() -> List(String) {
 /// Все чаты с триггерами
 pub fn get_trigger_chats() -> List(TriggerChatConfig) {
   [
-    // Крипто Группа 1 (Aimly.io dev) - SNIPER MODE
-    // Агент молчит ВСЕГДА, кроме случаев с триггерными словами
+    // Крипто Группа 1 (Aimly.io dev) - OBSERVE ONLY
     // ВАЖНО: Это обычная группа (Chat), НЕ Channel! Формат: -chatID (без -100)
     TriggerChatConfig(
       chat_id: "-5082217642",
@@ -96,29 +96,45 @@ pub fn get_trigger_chats() -> List(TriggerChatConfig) {
       chat_type: "group",
       is_active: True,
       can_write: True,
-      response_probability: 0.0,  // SNIPER MODE: 0% случайных ответов
+      response_probability: 0.0,
       custom_triggers: crypto_triggers(),
-      forward_chat_id: "-1002737186844",  // Lead группа для пересылки диалогов (FULL ID с -100 префиксом!)
+      forward_chat_id: "-1002737186844",
       allow_images: False,
       response_template: "Напиши мне в личку, помогу разобраться",
-      // E2E Test patterns
-      expected_response_pattern: "личку|напиши|помогу|разобраться",
+      observe_only: True,  // Только сохранять лид, НЕ отвечать
+      expected_response_pattern: "",
       expected_forward_pattern: "ЛИД|Клиент|крипт",
     ),
-    // Крипто Группа 2 - SNIPER MODE
+    // Крипто Группа 2 - SNIPER MODE (отвечает)
     TriggerChatConfig(
       chat_id: "-1002298297094",
       chat_name: "Crypto Group 2",
       chat_type: "group",
       is_active: True,
       can_write: True,
-      response_probability: 0.0,  // SNIPER MODE: 0% случайных ответов
+      response_probability: 0.0,
       custom_triggers: crypto_triggers(),
-      forward_chat_id: "-1002737186844",  // Lead группа для пересылки диалогов (FULL ID с -100 префиксом!)
+      forward_chat_id: "-1002737186844",
       allow_images: False,
       response_template: "Напиши мне в личку, помогу разобраться",
-      // E2E Test patterns
+      observe_only: False,  // Отвечает на триггеры
       expected_response_pattern: "личку|напиши|помогу|разобраться",
+      expected_forward_pattern: "ЛИД|Клиент|крипт",
+    ),
+    // Крипто Группа 3 - OBSERVE ONLY (из БД: t.me/c/2643951085)
+    TriggerChatConfig(
+      chat_id: "-1002643951085",
+      chat_name: "Crypto Group 3",
+      chat_type: "supergroup",
+      is_active: True,
+      can_write: True,
+      response_probability: 0.0,
+      custom_triggers: crypto_triggers(),
+      forward_chat_id: "-1002737186844",
+      allow_images: False,
+      response_template: "Напиши мне в личку, помогу разобраться",
+      observe_only: True,  // Только сохранять лид, НЕ отвечать
+      expected_response_pattern: "",
       expected_forward_pattern: "ЛИД|Клиент|крипт",
     ),
   ]

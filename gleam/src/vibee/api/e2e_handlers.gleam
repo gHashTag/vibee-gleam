@@ -519,6 +519,7 @@ pub fn reels_pipeline_handler() -> Response(ResponseData) {
     voice_id: None,
     webhook_url: None,
     test_mode: True,  // Use test mode for faster execution
+    quick_test: True,  // Skip slow steps for E2E
   )
 
   io.println("[E2E-REELS-PIPELINE] Starting test pipeline...")

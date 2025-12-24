@@ -523,6 +523,7 @@ fn execute_reels_creator(
     voice_id: None,
     webhook_url: None,
     test_mode: False,  // Use AI pipeline for B-roll generation
+    quick_test: False,  // Full pipeline
   )
 
   // Step 4: Run AI pipeline (generates B-roll prompts + renders)

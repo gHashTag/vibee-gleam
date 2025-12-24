@@ -30,7 +30,14 @@ pub fn build_registry() -> ResolverRegistry {
   |> with_query("triggerConfigs", resolve_trigger_configs)
   |> with_query("funnelStats", resolve_funnel_stats)
   // Mutations
+  |> with_mutation("createLead", resolve_create_lead)
   |> with_mutation("updateLeadStatus", resolve_update_status)
+  |> with_mutation("updateFunnelStage", resolve_update_funnel_stage)
+  |> with_mutation("updateQuizResult", resolve_update_quiz_result)
+  |> with_mutation("updateLeadPriority", resolve_update_priority)
+  |> with_mutation("addLeadNote", resolve_add_note)
+  |> with_mutation("assignLead", resolve_assign_lead)
+  |> with_mutation("deleteLead", resolve_delete_lead)
 }
 
 // =============================================================================
@@ -101,6 +108,24 @@ fn resolve_funnel_stats(_args: Dict(String, Value), _ctx: Context) -> Result(Jso
 // Mutation Resolvers
 // =============================================================================
 
+/// Create new lead
+fn resolve_create_lead(args: Dict(String, Value), _ctx: Context) -> Result(Json, String) {
+  case get_int_arg(args, "telegramUserId") {
+    Some(telegram_user_id) -> {
+      let username = get_string_arg(args, "username")
+      let first_name = get_string_arg(args, "firstName")
+      let source = get_string_arg(args, "source")
+      let first_message = get_string_arg(args, "firstMessage")
+
+      case lead_service.create_lead(telegram_user_id, username, first_name, first_message, source) {
+        Ok(lead) -> Ok(lead_to_graphql_json(lead))
+        Error(err) -> Error(lead_service.error_to_string(err))
+      }
+    }
+    None -> Error("Missing required argument: telegramUserId")
+  }
+}
+
 /// Update lead status
 fn resolve_update_status(args: Dict(String, Value), _ctx: Context) -> Result(Json, String) {
   case get_int_arg(args, "leadId"), get_string_arg(args, "status") {
@@ -117,6 +142,107 @@ fn resolve_update_status(args: Dict(String, Value), _ctx: Context) -> Result(Jso
     }
     None, _ -> Error("Missing required argument: leadId")
     _, None -> Error("Missing required argument: status")
+  }
+}
+
+/// Update funnel stage
+fn resolve_update_funnel_stage(args: Dict(String, Value), _ctx: Context) -> Result(Json, String) {
+  case get_int_arg(args, "leadId"), get_string_arg(args, "stage") {
+    Some(lead_id), Some(stage_str) -> {
+      case sales_types.funnel_stage_from_string(stage_str) {
+        Ok(stage) -> {
+          case lead_service.update_funnel_stage(lead_id, stage) {
+            Ok(lead) -> Ok(lead_to_graphql_json(lead))
+            Error(err) -> Error(lead_service.error_to_string(err))
+          }
+        }
+        Error(_) -> Error("Invalid funnel stage: " <> stage_str)
+      }
+    }
+    None, _ -> Error("Missing required argument: leadId")
+    _, None -> Error("Missing required argument: stage")
+  }
+}
+
+/// Update quiz result
+fn resolve_update_quiz_result(args: Dict(String, Value), _ctx: Context) -> Result(Json, String) {
+  case get_int_arg(args, "leadId"), get_int_arg(args, "score"), get_int_arg(args, "productId") {
+    Some(lead_id), Some(score), Some(product_id) -> {
+      case lead_service.update_quiz_result(lead_id, score, product_id) {
+        Ok(lead) -> Ok(lead_to_graphql_json(lead))
+        Error(err) -> Error(lead_service.error_to_string(err))
+      }
+    }
+    None, _, _ -> Error("Missing required argument: leadId")
+    _, None, _ -> Error("Missing required argument: score")
+    _, _, None -> Error("Missing required argument: productId")
+  }
+}
+
+/// Update lead priority
+fn resolve_update_priority(args: Dict(String, Value), _ctx: Context) -> Result(Json, String) {
+  case get_int_arg(args, "leadId"), get_string_arg(args, "priority") {
+    Some(lead_id), Some(priority_str) -> {
+      case sales_types.lead_priority_from_string(priority_str) {
+        Ok(priority) -> {
+          case lead_service.update_lead_priority(lead_id, priority) {
+            Ok(lead) -> Ok(lead_to_graphql_json(lead))
+            Error(err) -> Error(lead_service.error_to_string(err))
+          }
+        }
+        Error(_) -> Error("Invalid priority: " <> priority_str)
+      }
+    }
+    None, _ -> Error("Missing required argument: leadId")
+    _, None -> Error("Missing required argument: priority")
+  }
+}
+
+/// Add note to lead
+fn resolve_add_note(args: Dict(String, Value), _ctx: Context) -> Result(Json, String) {
+  case get_int_arg(args, "leadId"), get_string_arg(args, "note") {
+    Some(lead_id), Some(note) -> {
+      case lead_service.add_lead_note(lead_id, note) {
+        Ok(lead) -> Ok(lead_to_graphql_json(lead))
+        Error(err) -> Error(lead_service.error_to_string(err))
+      }
+    }
+    None, _ -> Error("Missing required argument: leadId")
+    _, None -> Error("Missing required argument: note")
+  }
+}
+
+/// Assign lead to agent
+fn resolve_assign_lead(args: Dict(String, Value), _ctx: Context) -> Result(Json, String) {
+  case get_int_arg(args, "leadId"), get_string_arg(args, "agentId") {
+    Some(lead_id), Some(agent_id) -> {
+      case lead_service.assign_lead(lead_id, agent_id) {
+        Ok(lead) -> Ok(lead_to_graphql_json(lead))
+        Error(err) -> Error(lead_service.error_to_string(err))
+      }
+    }
+    None, _ -> Error("Missing required argument: leadId")
+    _, None -> Error("Missing required argument: agentId")
+  }
+}
+
+/// Delete lead
+fn resolve_delete_lead(args: Dict(String, Value), _ctx: Context) -> Result(Json, String) {
+  case get_int_arg(args, "leadId") {
+    Some(lead_id) -> {
+      case lead_service.delete_lead(lead_id) {
+        Ok(deleted) -> Ok(json.object([
+          #("id", json.int(lead_id)),
+          #("deleted", json.bool(deleted)),
+          #("message", json.string(case deleted {
+            True -> "Lead deleted successfully"
+            False -> "Lead not found"
+          })),
+        ]))
+        Error(err) -> Error(lead_service.error_to_string(err))
+      }
+    }
+    None -> Error("Missing required argument: leadId")
   }
 }
 

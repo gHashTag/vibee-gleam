@@ -9,7 +9,7 @@
  * - Dynamic position based on layout mode
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   AbsoluteFill,
   useCurrentFrame,
@@ -19,14 +19,8 @@ import {
   delayRender,
   continueRender,
 } from 'remotion';
-import { loadFont, fontFamily } from '@remotion/google-fonts/Inter';
 import { CAPTION_DEFAULTS } from '@/constants/captions';
-
-// Load Inter Black (900) with Cyrillic support
-const { waitUntilDone } = loadFont('normal', {
-  weights: ['900'],
-  subsets: ['cyrillic', 'latin'],
-});
+import { getFontById, DEFAULT_FONT_ID, type CyrillicFont } from '@/shared/fonts';
 
 // Our own Caption interface (not from @remotion/captions)
 export interface Caption {
@@ -40,7 +34,7 @@ export interface Caption {
 export interface CaptionsProps {
   /** Array of caption objects with timing info */
   captions: Caption[];
-  /** Font size in pixels (default: 56) */
+  /** Font size in pixels (default: 70) */
   fontSize?: number;
   /** Text color - main color for captions (default: bright yellow) */
   textColor?: string;
@@ -48,16 +42,24 @@ export interface CaptionsProps {
   highlightColor?: string;
   /** Position from top in % (default: 50 = center). Use ~50 for split border, ~50 for fullscreen center */
   topPercent?: number;
-  /** Max words to show at once (default: 2) */
+  /** Max words to show at once (default: 1) */
   maxWords?: number;
+  /** Font ID from fonts registry (e.g., "Montserrat", "PTSerif") */
+  fontId?: string;
+  /** Font weight (400-900) */
+  fontWeight?: number;
+  /** Show text shadow */
+  showShadow?: boolean;
+  /** Max width as percentage of container */
+  maxWidthPercent?: number;
+  /** Bottom position as percentage (used when not in split mode) */
+  bottomPercent?: number;
   /** Not used anymore but kept for compatibility */
   combineWithinMs?: number;
   /** Not used anymore but kept for compatibility */
   backgroundColor?: string;
   /** Not used anymore but kept for compatibility */
   position?: 'bottom' | 'center';
-  /** Not used anymore but kept for compatibility */
-  bottomPercent?: number;
 }
 
 /**
@@ -69,22 +71,50 @@ export const Captions: React.FC<CaptionsProps> = ({
   textColor = CAPTION_DEFAULTS.textColor,
   topPercent = 50, // Center by default, overridden by SplitTalkingHead
   maxWords = CAPTION_DEFAULTS.maxWords,
+  fontId = DEFAULT_FONT_ID,
+  fontWeight = CAPTION_DEFAULTS.fontWeight,
+  showShadow = CAPTION_DEFAULTS.showShadow,
+  maxWidthPercent = CAPTION_DEFAULTS.maxWidthPercent,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const currentTimeMs = (frame / fps) * 1000;
 
-  // Wait for Montserrat font to load before rendering
-  const [fontHandle] = useState(() => delayRender('Loading Montserrat font'));
+  // Get font info from registry
+  const fontInfo = useMemo(() => getFontById(fontId), [fontId]);
+  const fontName = fontInfo?.name || 'Montserrat';
+  const fontFamilyCss = `"${fontName}", sans-serif`;
+
+  // Dynamic font loading via CSS link
+  const [fontHandle] = useState(() => delayRender(`Loading font: ${fontName}`));
 
   useEffect(() => {
-    waitUntilDone()
-      .then(() => continueRender(fontHandle))
-      .catch((err) => {
-        console.error('Font loading failed:', err);
-        continueRender(fontHandle);
-      });
-  }, [fontHandle]);
+    // Build Google Fonts URL
+    const encodedFontName = fontName.replace(/\s+/g, '+');
+    const fontUrl = `https://fonts.googleapis.com/css2?family=${encodedFontName}:wght@${fontWeight}&display=swap&subset=cyrillic`;
+
+    // Check if already loaded
+    const existingLink = document.querySelector(`link[href*="${encodedFontName}"]`);
+    if (existingLink) {
+      continueRender(fontHandle);
+      return;
+    }
+
+    // Load via CSS link
+    const link = document.createElement('link');
+    link.href = fontUrl;
+    link.rel = 'stylesheet';
+    link.onload = () => continueRender(fontHandle);
+    link.onerror = () => {
+      console.warn(`[Captions] Failed to load font: ${fontName}`);
+      continueRender(fontHandle);
+    };
+    document.head.appendChild(link);
+
+    return () => {
+      // Don't remove - other components may use same font
+    };
+  }, [fontName, fontWeight, fontHandle]);
 
   // Skip if no captions
   if (!captions || captions.length === 0) {
@@ -167,6 +197,20 @@ export const Captions: React.FC<CaptionsProps> = ({
   // Build caption text
   const captionText = visibleWords.map(w => w.text).join(' ').toUpperCase();
 
+  // Text shadow for outline effect
+  const textShadow = showShadow
+    ? `
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000,
+        -2px -2px 0 #000,
+        2px -2px 0 #000,
+        -2px 2px 0 #000,
+        2px 2px 0 #000
+      `
+    : 'none';
+
   return (
     <AbsoluteFill
       style={{
@@ -190,24 +234,15 @@ export const Captions: React.FC<CaptionsProps> = ({
         <p
           style={{
             fontSize,
-            fontFamily: fontFamily,
-            fontWeight: 900,
+            fontFamily: fontFamilyCss,
+            fontWeight,
             fontStyle: 'normal', // NOT italic - straight like reel_01.mp4
             color: textColor,
             textAlign: 'center',
             margin: 0,
             lineHeight: 1.1,
-            // Thin black outline for contrast (like reel_01.mp4)
-            textShadow: `
-              -1px -1px 0 #000,
-              1px -1px 0 #000,
-              -1px 1px 0 #000,
-              1px 1px 0 #000,
-              -2px -2px 0 #000,
-              2px -2px 0 #000,
-              -2px 2px 0 #000,
-              2px 2px 0 #000
-            `,
+            maxWidth: `${maxWidthPercent}%`,
+            textShadow,
             letterSpacing: '0.02em',
           }}
         >

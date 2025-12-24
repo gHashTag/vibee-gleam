@@ -87,6 +87,7 @@ export const captionStyleAtom = atomWithStorage<CaptionStyle>(
     maxWidthPercent: CAPTION_DEFAULTS.maxWidthPercent,
     fontWeight: CAPTION_DEFAULTS.fontWeight,
     showShadow: CAPTION_DEFAULTS.showShadow,
+    fontId: 'Montserrat', // Default font ID
   }
 );
 
