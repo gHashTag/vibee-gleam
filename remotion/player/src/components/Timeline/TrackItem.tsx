@@ -57,10 +57,10 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
     }
   };
 
-  // Double-click on audio track opens volume popup
+  // Double-click on audio/video/avatar track opens volume popup
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (item.type === 'audio') {
+    if (item.type === 'audio' || item.type === 'video' || item.type === 'avatar') {
       setVolumePopupItemId(item.id);
     }
   };
@@ -81,10 +81,10 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
     setContextMenu(null);
   }, []);
 
-  // Volume popup handlers - only for audio tracks
+  // Volume popup handlers - for audio, video, avatar tracks
   const handleVolumeClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (item.type === 'audio') {
+    if (item.type === 'audio' || item.type === 'video' || item.type === 'avatar') {
       setVolumePopupItemId(item.id);
     }
   }, [item.type, item.id, setVolumePopupItemId]);

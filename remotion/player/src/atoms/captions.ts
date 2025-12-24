@@ -77,7 +77,7 @@ export const loadCaptionsAtom = atom(
 
       if (!response.ok) {
         console.warn('[loadCaptions] No captions.json found at:', fullUrl);
-        set(captionsAtom, []);
+        // Don't clear existing captions on error (they might be from transcription)
         set(captionsLoadingAtom, false);
         return;
       }
@@ -94,8 +94,8 @@ export const loadCaptionsAtom = atom(
         console.log(`[loadCaptions] Loaded ${captions.length} captions`);
         set(captionsAtom, captions);
       } else {
-        console.warn('[loadCaptions] Empty or invalid captions');
-        set(captionsAtom, []);
+        console.warn('[loadCaptions] Empty or invalid captions from server, keeping existing');
+        // DON'T clear - persisted captions might exist from transcription
       }
     } catch (error) {
       // Ignore abort errors
@@ -106,7 +106,7 @@ export const loadCaptionsAtom = atom(
 
       console.error('[loadCaptions] Failed:', error);
       set(captionsErrorAtom, error instanceof Error ? error.message : 'Unknown error');
-      set(captionsAtom, []);
+      // DON'T clear captions - they might be persisted from transcription
     } finally {
       // Only update loading state if not aborted
       if (!controller.signal.aborted) {
@@ -137,8 +137,8 @@ export const transcribeVideoAtom = atom(
     // Check localStorage to prevent re-transcription on page refresh
     const lastTranscribed = localStorage.getItem('vibee-last-transcribed-video');
     if (!options?.force && lastTranscribed === lipSyncVideo) {
-      console.log('[Transcribe] Already transcribed this video, loading captions');
-      set(loadCaptionsAtom, lipSyncVideo);
+      console.log('[Transcribe] Already transcribed this video, using persisted captions');
+      // Captions are already persisted via atomWithStorage - no need to fetch
       return;
     }
 
@@ -217,16 +217,71 @@ export const updateDurationFromLipSyncAtom = atom(
 
       console.log(`[Duration] Video: ${duration.toFixed(2)}s = ${durationInFrames} frames`);
 
-      // Update project duration
-      set(projectAtom, { ...project, durationInFrames });
+      // Update project duration (Avatar is master!)
+      const currentProject = get(projectAtom);
+      console.log(`[Duration] OLD project.durationInFrames: ${currentProject.durationInFrames}`);
 
-      // Also update Avatar track duration
-      set(tracksAtom, produce(get(tracksAtom), (draft) => {
+      const newProject: typeof currentProject = {
+        id: currentProject.id,
+        name: currentProject.name,
+        fps: currentProject.fps,
+        width: currentProject.width,
+        height: currentProject.height,
+        durationInFrames,  // NEW VALUE
+      };
+      console.log(`[Duration] NEW project.durationInFrames: ${newProject.durationInFrames}`);
+
+      // Force update both atom AND localStorage directly
+      set(projectAtom, newProject);
+
+      // Also directly update localStorage as backup (atomWithStorage sometimes doesn't sync)
+      try {
+        localStorage.setItem('vibee-project-v15', JSON.stringify(newProject));
+        console.log('[Duration] Forced localStorage update:', newProject.durationInFrames);
+
+        // Dispatch storage event to force any listeners to re-read
+        window.dispatchEvent(new StorageEvent('storage', {
+          key: 'vibee-project-v15',
+          newValue: JSON.stringify(newProject),
+        }));
+      } catch (e) {
+        console.warn('[Duration] localStorage update failed:', e);
+      }
+
+      // Update ONLY Avatar track to match lipsync - NON-DESTRUCTIVE!
+      // Other tracks (Video, Audio, Text) stay UNTOUCHED
+      const currentTracks = get(tracksAtom);
+      const newTracks = produce(currentTracks, (draft) => {
         const avatarTrack = draft.find((t) => t.type === 'avatar');
         if (avatarTrack && avatarTrack.items.length > 0) {
+          console.log(`[Duration] Avatar OLD: ${avatarTrack.items[0].durationInFrames} frames`);
           avatarTrack.items[0].durationInFrames = durationInFrames;
+          avatarTrack.items[0].startFrame = 0;
+          console.log(`[Duration] Avatar NEW: ${avatarTrack.items[0].durationInFrames} frames`);
         }
-      }));
+        // NO deletion of other tracks - professional NLE behavior!
+      });
+      set(tracksAtom, newTracks);
+
+      // Force localStorage update for tracks (atomWithStorage sometimes doesn't sync)
+      try {
+        localStorage.setItem('vibee-tracks-v14', JSON.stringify(newTracks));
+        console.log('[Duration] Forced tracks localStorage update');
+        window.dispatchEvent(new StorageEvent('storage', {
+          key: 'vibee-tracks-v14',
+          newValue: JSON.stringify(newTracks),
+        }));
+      } catch (e) {
+        console.warn('[Duration] tracks localStorage update failed:', e);
+      }
+
+      // Verify the update worked
+      const verifyProject = get(projectAtom);
+      const verifyTracks = get(tracksAtom);
+      const verifyAvatar = verifyTracks.find((t) => t.type === 'avatar');
+      console.log(`[Duration] VERIFY project: ${verifyProject.durationInFrames} frames`);
+      console.log(`[Duration] VERIFY avatar: ${verifyAvatar?.items[0]?.durationInFrames} frames`);
+      console.log(`[Duration] Project: ${durationInFrames} frames (${duration.toFixed(1)}s) - non-destructive`);
     } catch (error) {
       console.error('[Duration] Failed to get video duration:', error);
     }

@@ -60,6 +60,7 @@ function createDefaultTracks(fps: number, durationInFrames: number): Track[] {
   });
 
   return [
+    // Avatar first - primary content
     {
       id: 'track-avatar',
       type: 'avatar',
@@ -78,7 +79,6 @@ function createDefaultTracks(fps: number, durationInFrames: number): Track[] {
           height: 1920,
           rotation: 0,
           opacity: 1,
-          volume: 1,
           circleSizePercent: DEFAULT_TEMPLATE.circleSizePercent || 25.2,
           circleBottomPercent: DEFAULT_TEMPLATE.circleBottomPercent || 15,
           circleLeftPx: DEFAULT_TEMPLATE.circleLeftPx || 40,
@@ -87,6 +87,7 @@ function createDefaultTracks(fps: number, durationInFrames: number): Track[] {
       locked: false,
       visible: true,
     },
+    // Video/B-roll second
     {
       id: 'track-video',
       type: 'video',
@@ -137,7 +138,7 @@ const DEFAULT_TRACKS = createDefaultTracks(30, 825);
 // ===============================
 
 export const tracksAtom = atomWithStorage<Track[]>(
-  'vibee-tracks-v16',
+  'vibee-tracks-v14',
   DEFAULT_TRACKS
 );
 

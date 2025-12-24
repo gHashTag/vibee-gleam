@@ -147,6 +147,22 @@ export function CaptionsPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fontDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Preload Google Fonts for dropdown preview
+  useEffect(() => {
+    if (!showFontDropdown) return;
+
+    // Check if fonts are already loaded
+    const existingLink = document.querySelector('link[data-fonts-preview]');
+    if (existingLink) return;
+
+    // Build Google Fonts URL for popular fonts
+    const fontFamilies = POPULAR_FONTS.map(f => f.name.replace(/ /g, '+')).join('&family=');
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${fontFamilies}&display=swap&subset=cyrillic`;
+    link.setAttribute('data-fonts-preview', 'true');
+    document.head.appendChild(link);
+  }, [showFontDropdown]);
 
   // Handle Whisper transcription
   const handleTranscribe = async () => {
@@ -229,33 +245,13 @@ export function CaptionsPanel() {
     );
   }, [fontSearch]);
 
-  // Preload Google Fonts when dropdown opens
-  useEffect(() => {
-    if (!showFontDropdown) return;
-
-    // Build Google Fonts URL with all fonts for preview
-    const fontFamilies = POPULAR_FONTS.map((f) => f.name.replace(/\s+/g, '+')).join('&family=');
-    const googleFontsUrl = `https://fonts.googleapis.com/css2?family=${fontFamilies}&display=swap&subset=cyrillic`;
-
-    // Check if already loaded
-    const existingLink = document.querySelector(`link[href*="fonts.googleapis.com"][data-font-preview]`);
-    if (existingLink) return;
-
-    // Load fonts
-    const link = document.createElement('link');
-    link.href = googleFontsUrl;
-    link.rel = 'stylesheet';
-    link.dataset.fontPreview = 'true';
-    document.head.appendChild(link);
-  }, [showFontDropdown]);
-
   // Get current font name
-  const currentFontId = captionStyle.fontId || 'Montserrat';
+  const currentFontId = captionStyle.fontFamily || 'Montserrat';
   const currentFont = UNIQUE_FONTS.find((f: CyrillicFont) => f.id === currentFontId) || POPULAR_FONTS[0];
 
   // Handle font selection
   const handleFontSelect = (fontId: string) => {
-    handleStyleChange('fontId', fontId);
+    handleStyleChange('fontFamily', fontId);
     setShowFontDropdown(false);
     setFontSearch('');
   };
@@ -505,8 +501,8 @@ export function CaptionsPanel() {
                               className={`font-option ${currentFontId === font.id ? 'selected' : ''}`}
                               onClick={() => handleFontSelect(font.id)}
                             >
-                              <span className="font-option-name" style={{ fontFamily: `"${font.name}", sans-serif` }}>{font.name}</span>
-                              <span className="font-option-preview" style={{ fontFamily: `"${font.name}", sans-serif` }}>Привет</span>
+                              <span className="font-option-name" style={{ fontFamily: font.name }}>{font.name}</span>
+                              <span className="font-option-preview" style={{ fontFamily: font.name }}>Привет</span>
                             </button>
                           ))}
                           <div className="font-category">All Fonts</div>
@@ -520,7 +516,7 @@ export function CaptionsPanel() {
                             className={`font-option ${currentFontId === font.id ? 'selected' : ''}`}
                             onClick={() => handleFontSelect(font.id)}
                           >
-                            <span className="font-option-name" style={{ fontFamily: `"${font.name}", sans-serif` }}>{font.name}</span>
+                            <span className="font-option-name" style={{ fontFamily: font.name }}>{font.name}</span>
                             <span className="font-option-category">{font.category}</span>
                           </button>
                         ))}

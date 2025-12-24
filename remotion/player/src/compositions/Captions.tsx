@@ -20,7 +20,38 @@ import {
   continueRender,
 } from 'remotion';
 import { CAPTION_DEFAULTS } from '@/constants/captions';
-import { getFontById, DEFAULT_FONT_ID, type CyrillicFont } from '@/shared/fonts';
+
+/**
+ * Dynamic Google Font loader
+ * Loads font via CSS @import from Google Fonts CDN
+ */
+const loadGoogleFont = (fontId: string, weight: number = 900): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    // Convert fontId to Google Fonts URL format (e.g., 'OpenSans' -> 'Open+Sans')
+    const fontName = fontId.replace(/([A-Z])/g, ' $1').trim().replace(/ /g, '+');
+
+    // Check if already loaded
+    const existingLink = document.querySelector(`link[data-font="${fontId}"]`);
+    if (existingLink) {
+      resolve();
+      return;
+    }
+
+    // Create link element
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@${weight}&display=swap&subset=cyrillic,latin`;
+    link.setAttribute('data-font', fontId);
+
+    link.onload = () => resolve();
+    link.onerror = () => {
+      console.warn(`Failed to load font ${fontId}, falling back to Inter`);
+      resolve(); // Resolve anyway, will use fallback
+    };
+
+    document.head.appendChild(link);
+  });
+};
 
 // Our own Caption interface (not from @remotion/captions)
 export interface Caption {
@@ -34,7 +65,7 @@ export interface Caption {
 export interface CaptionsProps {
   /** Array of caption objects with timing info */
   captions: Caption[];
-  /** Font size in pixels (default: 70) */
+  /** Font size in pixels (default: 56) */
   fontSize?: number;
   /** Text color - main color for captions (default: bright yellow) */
   textColor?: string;
@@ -42,24 +73,22 @@ export interface CaptionsProps {
   highlightColor?: string;
   /** Position from top in % (default: 50 = center). Use ~50 for split border, ~50 for fullscreen center */
   topPercent?: number;
-  /** Max words to show at once (default: 1) */
+  /** Max words to show at once (default: 2) */
   maxWords?: number;
-  /** Font ID from fonts registry (e.g., "Montserrat", "PTSerif") */
-  fontId?: string;
-  /** Font weight (400-900) */
+  /** Font family/ID from Google Fonts (e.g., 'Montserrat', 'Roboto') */
+  fontFamily?: string;
+  /** Font weight (400, 500, 600, 700, 800, 900) */
   fontWeight?: number;
-  /** Show text shadow */
+  /** Show text shadow for contrast */
   showShadow?: boolean;
-  /** Max width as percentage of container */
-  maxWidthPercent?: number;
-  /** Bottom position as percentage (used when not in split mode) */
-  bottomPercent?: number;
   /** Not used anymore but kept for compatibility */
   combineWithinMs?: number;
   /** Not used anymore but kept for compatibility */
   backgroundColor?: string;
   /** Not used anymore but kept for compatibility */
   position?: 'bottom' | 'center';
+  /** Not used anymore but kept for compatibility */
+  bottomPercent?: number;
 }
 
 /**
@@ -71,50 +100,32 @@ export const Captions: React.FC<CaptionsProps> = ({
   textColor = CAPTION_DEFAULTS.textColor,
   topPercent = 50, // Center by default, overridden by SplitTalkingHead
   maxWords = CAPTION_DEFAULTS.maxWords,
-  fontId = DEFAULT_FONT_ID,
-  fontWeight = CAPTION_DEFAULTS.fontWeight,
-  showShadow = CAPTION_DEFAULTS.showShadow,
-  maxWidthPercent = CAPTION_DEFAULTS.maxWidthPercent,
+  fontFamily = 'Inter', // Default font
+  fontWeight = 900, // Default weight (bold)
+  showShadow = true, // Show shadow by default
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const currentTimeMs = (frame / fps) * 1000;
 
-  // Get font info from registry
-  const fontInfo = useMemo(() => getFontById(fontId), [fontId]);
-  const fontName = fontInfo?.name || 'Montserrat';
-  const fontFamilyCss = `"${fontName}", sans-serif`;
-
-  // Dynamic font loading via CSS link
-  const [fontHandle] = useState(() => delayRender(`Loading font: ${fontName}`));
+  // Wait for selected font to load before rendering
+  const [fontHandle] = useState(() => delayRender(`Loading ${fontFamily} font`));
 
   useEffect(() => {
-    // Build Google Fonts URL
-    const encodedFontName = fontName.replace(/\s+/g, '+');
-    const fontUrl = `https://fonts.googleapis.com/css2?family=${encodedFontName}:wght@${fontWeight}&display=swap&subset=cyrillic`;
+    loadGoogleFont(fontFamily, fontWeight)
+      .then(() => continueRender(fontHandle))
+      .catch((err) => {
+        console.error('Font loading failed:', err);
+        continueRender(fontHandle);
+      });
+  }, [fontHandle, fontFamily, fontWeight]);
 
-    // Check if already loaded
-    const existingLink = document.querySelector(`link[href*="${encodedFontName}"]`);
-    if (existingLink) {
-      continueRender(fontHandle);
-      return;
-    }
-
-    // Load via CSS link
-    const link = document.createElement('link');
-    link.href = fontUrl;
-    link.rel = 'stylesheet';
-    link.onload = () => continueRender(fontHandle);
-    link.onerror = () => {
-      console.warn(`[Captions] Failed to load font: ${fontName}`);
-      continueRender(fontHandle);
-    };
-    document.head.appendChild(link);
-
-    return () => {
-      // Don't remove - other components may use same font
-    };
-  }, [fontName, fontWeight, fontHandle]);
+  // Compute CSS font-family with fallback
+  const cssFontFamily = useMemo(() => {
+    // Convert fontId to CSS font-family format (e.g., 'OpenSans' -> 'Open Sans')
+    const displayName = fontFamily.replace(/([A-Z])/g, ' $1').trim();
+    return `"${displayName}", "Inter", sans-serif`;
+  }, [fontFamily]);
 
   // Skip if no captions
   if (!captions || captions.length === 0) {
@@ -197,20 +208,6 @@ export const Captions: React.FC<CaptionsProps> = ({
   // Build caption text
   const captionText = visibleWords.map(w => w.text).join(' ').toUpperCase();
 
-  // Text shadow for outline effect
-  const textShadow = showShadow
-    ? `
-        -1px -1px 0 #000,
-        1px -1px 0 #000,
-        -1px 1px 0 #000,
-        1px 1px 0 #000,
-        -2px -2px 0 #000,
-        2px -2px 0 #000,
-        -2px 2px 0 #000,
-        2px 2px 0 #000
-      `
-    : 'none';
-
   return (
     <AbsoluteFill
       style={{
@@ -234,15 +231,24 @@ export const Captions: React.FC<CaptionsProps> = ({
         <p
           style={{
             fontSize,
-            fontFamily: fontFamilyCss,
-            fontWeight,
+            fontFamily: cssFontFamily,
+            fontWeight: fontWeight,
             fontStyle: 'normal', // NOT italic - straight like reel_01.mp4
             color: textColor,
             textAlign: 'center',
             margin: 0,
             lineHeight: 1.1,
-            maxWidth: `${maxWidthPercent}%`,
-            textShadow,
+            // Thin black outline for contrast (like reel_01.mp4)
+            textShadow: showShadow
+              ? `-1px -1px 0 #000,
+                 1px -1px 0 #000,
+                 -1px 1px 0 #000,
+                 1px 1px 0 #000,
+                 -2px -2px 0 #000,
+                 2px -2px 0 #000,
+                 -2px 2px 0 #000,
+                 2px 2px 0 #000`
+              : 'none',
             letterSpacing: '0.02em',
           }}
         >

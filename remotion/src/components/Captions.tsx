@@ -9,7 +9,7 @@
  * - Dynamic position based on layout mode
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   AbsoluteFill,
   useCurrentFrame,
@@ -18,15 +18,41 @@ import {
   spring,
   delayRender,
   continueRender,
+  staticFile,
 } from 'remotion';
-import { loadFont, fontFamily } from '@remotion/google-fonts/Inter';
 import { CAPTION_DEFAULTS } from '../constants/captions';
 
-// Load Inter Black (900) with Cyrillic support
-const { waitUntilDone } = loadFont('normal', {
-  weights: ['900'],
-  subsets: ['cyrillic', 'latin'],
-});
+/**
+ * Dynamic Google Font loader
+ * Loads font via CSS @import from Google Fonts CDN
+ */
+const loadGoogleFont = (fontId: string, weight: number = 900): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    // Convert fontId to Google Fonts URL format (e.g., 'OpenSans' -> 'Open+Sans')
+    const fontName = fontId.replace(/([A-Z])/g, ' $1').trim().replace(/ /g, '+');
+
+    // Check if already loaded
+    const existingLink = document.querySelector(`link[data-font="${fontId}"]`);
+    if (existingLink) {
+      resolve();
+      return;
+    }
+
+    // Create link element
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@${weight}&display=swap&subset=cyrillic,latin`;
+    link.setAttribute('data-font', fontId);
+
+    link.onload = () => resolve();
+    link.onerror = () => {
+      console.warn(`Failed to load font ${fontId}, falling back to Inter`);
+      resolve(); // Resolve anyway, will use fallback
+    };
+
+    document.head.appendChild(link);
+  });
+};
 
 // Our own Caption interface (not from @remotion/captions)
 export interface Caption {
@@ -50,6 +76,12 @@ export interface CaptionsProps {
   topPercent?: number;
   /** Max words to show at once (default: 2) */
   maxWords?: number;
+  /** Font family/ID from Google Fonts (e.g., 'Montserrat', 'Roboto') */
+  fontFamily?: string;
+  /** Font weight (400, 500, 600, 700, 800, 900) */
+  fontWeight?: number;
+  /** Show text shadow for contrast */
+  showShadow?: boolean;
   /** Not used anymore but kept for compatibility */
   combineWithinMs?: number;
   /** Not used anymore but kept for compatibility */
@@ -69,22 +101,32 @@ export const Captions: React.FC<CaptionsProps> = ({
   textColor = CAPTION_DEFAULTS.textColor,
   topPercent = 50, // Center by default, overridden by SplitTalkingHead
   maxWords = CAPTION_DEFAULTS.maxWords,
+  fontFamily = 'Inter', // Default font
+  fontWeight = 900, // Default weight (bold)
+  showShadow = true, // Show shadow by default
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const currentTimeMs = (frame / fps) * 1000;
 
-  // Wait for Montserrat font to load before rendering
-  const [fontHandle] = useState(() => delayRender('Loading Montserrat font'));
+  // Wait for selected font to load before rendering
+  const [fontHandle] = useState(() => delayRender(`Loading ${fontFamily} font`));
 
   useEffect(() => {
-    waitUntilDone()
+    loadGoogleFont(fontFamily, fontWeight)
       .then(() => continueRender(fontHandle))
       .catch((err) => {
         console.error('Font loading failed:', err);
         continueRender(fontHandle);
       });
-  }, [fontHandle]);
+  }, [fontHandle, fontFamily, fontWeight]);
+
+  // Compute CSS font-family with fallback
+  const cssFontFamily = useMemo(() => {
+    // Convert fontId to CSS font-family format (e.g., 'OpenSans' -> 'Open Sans')
+    const displayName = fontFamily.replace(/([A-Z])/g, ' $1').trim();
+    return `"${displayName}", "Inter", sans-serif`;
+  }, [fontFamily]);
 
   // Skip if no captions
   if (!captions || captions.length === 0) {
@@ -190,24 +232,24 @@ export const Captions: React.FC<CaptionsProps> = ({
         <p
           style={{
             fontSize,
-            fontFamily: fontFamily,
-            fontWeight: 900,
+            fontFamily: cssFontFamily,
+            fontWeight: fontWeight,
             fontStyle: 'normal', // NOT italic - straight like reel_01.mp4
             color: textColor,
             textAlign: 'center',
             margin: 0,
             lineHeight: 1.1,
             // Thin black outline for contrast (like reel_01.mp4)
-            textShadow: `
-              -1px -1px 0 #000,
-              1px -1px 0 #000,
-              -1px 1px 0 #000,
-              1px 1px 0 #000,
-              -2px -2px 0 #000,
-              2px -2px 0 #000,
-              -2px 2px 0 #000,
-              2px 2px 0 #000
-            `,
+            textShadow: showShadow
+              ? `-1px -1px 0 #000,
+                 1px -1px 0 #000,
+                 -1px 1px 0 #000,
+                 1px 1px 0 #000,
+                 -2px -2px 0 #000,
+                 2px -2px 0 #000,
+                 -2px 2px 0 #000,
+                 2px 2px 0 #000`
+              : 'none',
             letterSpacing: '0.02em',
           }}
         >

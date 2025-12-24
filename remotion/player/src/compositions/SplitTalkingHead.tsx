@@ -48,8 +48,7 @@ export const CaptionStyleSchema = z.object({
   highlightColor: z.string().optional(),
   backgroundColor: z.string().optional(),
   bottomPercent: z.number().optional(),
-  maxWidthPercent: z.number().optional(),
-  fontId: z.string().optional(),
+  fontFamily: z.string().optional(),
   fontWeight: z.number().optional(),
   showShadow: z.boolean().optional(),
 });
@@ -303,18 +302,17 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
       </div>
 
       {/* ========== 📝 reel_01.mp4 style CAPTIONS ========== */}
-      {/* Dynamic position: at split border (splitRatio * 100%) in split mode, use bottomPercent in fullscreen */}
+      {/* Dynamic position: at split border (splitRatio * 100%) in split mode, center (50%) in fullscreen */}
       {showCaptions && captions && captions.length > 0 && (
         <Captions
           captions={captions}
           fontSize={captionStyle?.fontSize ?? CAPTION_DEFAULTS.fontSize}
           textColor={captionStyle?.textColor ?? CAPTION_DEFAULTS.textColor}
-          topPercent={isSplit ? splitRatio * 100 : (100 - (captionStyle?.bottomPercent ?? CAPTION_DEFAULTS.bottomPercent))}
+          topPercent={isSplit ? splitRatio * 100 : 75} // At border in split, BOTTOM in fullscreen
           maxWords={CAPTION_DEFAULTS.maxWords}
-          fontId={captionStyle?.fontId}
-          fontWeight={captionStyle?.fontWeight ?? CAPTION_DEFAULTS.fontWeight}
-          showShadow={captionStyle?.showShadow ?? CAPTION_DEFAULTS.showShadow}
-          maxWidthPercent={captionStyle?.maxWidthPercent ?? CAPTION_DEFAULTS.maxWidthPercent}
+          fontFamily={captionStyle?.fontFamily}
+          fontWeight={captionStyle?.fontWeight}
+          showShadow={captionStyle?.showShadow}
         />
       )}
 

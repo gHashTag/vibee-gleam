@@ -48,6 +48,9 @@ export const CaptionStyleSchema = z.object({
   highlightColor: z.string().optional(),
   backgroundColor: z.string().optional(),
   bottomPercent: z.number().optional(),
+  fontFamily: z.string().optional(),
+  fontWeight: z.number().optional(),
+  showShadow: z.boolean().optional(),
 });
 
 export const SplitTalkingHeadSchema = z.object({
@@ -219,6 +222,9 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
           textColor={captionStyle?.textColor ?? CAPTION_DEFAULTS.textColor}
           topPercent={isSplit ? splitRatio * 100 : 75} // At border in split, BOTTOM in fullscreen
           maxWords={CAPTION_DEFAULTS.maxWords}
+          fontFamily={captionStyle?.fontFamily}
+          fontWeight={captionStyle?.fontWeight}
+          showShadow={captionStyle?.showShadow}
         />
       )}
 

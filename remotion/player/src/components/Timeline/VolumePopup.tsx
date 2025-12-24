@@ -1,24 +1,53 @@
 import { createPortal } from 'react-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { musicVolumeAtom, volumePopupItemIdAtom } from '@/atoms';
+import { volumePopupItemIdAtom, getItemByIdAtom, updateItemAtom } from '@/atoms';
 
 /**
- * VolumePopup - Separate component for music volume control
+ * VolumePopup - Universal volume control for video, avatar, and audio tracks
  *
- * Why separate? TrackItem is wrapped in memo with custom comparison.
- * When musicVolumeAtom changes, memo blocks re-render.
- * This component subscribes directly to Jotai atoms, bypassing memo.
+ * Works with item's own volume property, not global atom.
+ * Updates volume via updateItemAtom.
  */
 export function VolumePopup() {
-  const musicVolume = useAtomValue(musicVolumeAtom);
-  const setMusicVolume = useSetAtom(musicVolumeAtom);
   const volumePopupItemId = useAtomValue(volumePopupItemIdAtom);
   const setVolumePopupItemId = useSetAtom(volumePopupItemIdAtom);
+  const getItemById = useAtomValue(getItemByIdAtom);
+  const updateItem = useSetAtom(updateItemAtom);
 
   if (!volumePopupItemId) return null;
 
+  const item = getItemById(volumePopupItemId);
+  if (!item) return null;
+
+  const volume = (item as any).volume ?? 1;
+  const itemType = item.type;
+
+  // Header based on type
+  const headerText = itemType === 'audio'
+    ? 'Music Volume'
+    : itemType === 'avatar'
+      ? 'Avatar Volume'
+      : 'Video Volume';
+
+  // Presets based on type
+  const presets = itemType === 'audio'
+    ? [
+        { label: 'Mute', value: 0 },
+        { label: '6%', value: 0.06 },
+        { label: '15%', value: 0.15 },
+      ]
+    : [
+        { label: 'Mute', value: 0 },
+        { label: '50%', value: 0.5 },
+        { label: '100%', value: 1 },
+      ];
+
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setMusicVolume(parseFloat(e.target.value));
+    updateItem({ itemId: volumePopupItemId, updates: { volume: parseFloat(e.target.value) } });
+  };
+
+  const setVolume = (value: number) => {
+    updateItem({ itemId: volumePopupItemId, updates: { volume: value } });
   };
 
   const closePopup = () => setVolumePopupItemId(null);
@@ -26,23 +55,32 @@ export function VolumePopup() {
   return createPortal(
     <div className="volume-popup-overlay" onClick={closePopup}>
       <div className="volume-popup" onClick={(e) => e.stopPropagation()}>
-        <div className="volume-popup-header">Music Volume</div>
+        <div className="volume-popup-header">{headerText}</div>
         <div className="volume-popup-content">
           <input
             type="range"
             min="0"
             max="1"
             step="0.01"
-            value={musicVolume}
+            value={volume}
             onChange={handleVolumeChange}
             className="volume-popup-slider"
           />
-          <span className="volume-popup-value">{Math.round(musicVolume * 100)}%</span>
+          <span className="volume-popup-value">{Math.round(volume * 100)}%</span>
         </div>
         <div className="volume-popup-presets">
-          <button type="button" onClick={() => { setMusicVolume(0); closePopup(); }}>Mute</button>
-          <button type="button" onClick={() => { setMusicVolume(0.06); closePopup(); }}>6%</button>
-          <button type="button" onClick={() => { setMusicVolume(0.15); closePopup(); }}>15%</button>
+          {presets.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => {
+                setVolume(preset.value);
+                closePopup();
+              }}
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
       </div>
     </div>,
