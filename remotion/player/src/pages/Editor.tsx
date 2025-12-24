@@ -1,6 +1,7 @@
 import { useEffect, useState, Suspense, useRef } from 'react';
 import { useSetAtom, useAtomValue } from 'jotai';
 import { loadCaptionsAtom, updateDurationFromLipSyncAtom, lipSyncVideoAtom, transcribeVideoAtom } from '@/atoms';
+import { useAutoRecordHistory } from '@/atoms/hooks';
 import { Header } from '@/components/Header';
 import { AssetsPanel } from '@/components/Panels/AssetsPanel';
 import { PropertiesPanel } from '@/components/Panels/PropertiesPanel';
@@ -30,6 +31,9 @@ function EditorContent() {
 
   // Enable keyboard shortcuts
   useKeyboardShortcuts();
+
+  // Auto-record history on state changes (for undo/redo)
+  useAutoRecordHistory();
 
   // Auto-detect duration from lipsync video on mount
   useEffect(() => {

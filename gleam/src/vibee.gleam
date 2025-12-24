@@ -163,6 +163,14 @@ fn run_telegram_agent() {
       // Track first polling agent for shutdown handler and count successful agents
       let #(first_agent_subject, agents_started) = list.fold(sessions_to_poll, #(None, 0), fn(acc, sid) {
         let #(first_subject, count) = acc
+        // Get owner_id from DB for this session
+        let owner_id = case db_pool {
+          Some(pool) -> case session_db.get_session(pool, sid) {
+            Ok(session) -> session.owner_id
+            Error(_) -> 144_022_504
+          }
+          None -> 144_022_504
+        }
         let agent_config = TelegramAgentConfig(
           bridge_url: telegram_config.bridge_url(),
           session_id: sid,
@@ -170,9 +178,9 @@ fn run_telegram_agent() {
           llm_model: "x-ai/grok-4.1-fast",
           auto_reply_enabled: True,
           cooldown_ms: 30_000,
-          // Digital Twin enabled only for primary session
-          digital_twin_enabled: sid == session_id,
-          owner_id: 144_022_504,
+          // Digital Twin enabled for ALL sessions from DB
+          digital_twin_enabled: True,
+          owner_id: owner_id,
         )
 
         case use_websocket {

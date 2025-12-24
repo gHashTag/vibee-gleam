@@ -12,6 +12,7 @@ import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/otp/actor
+import gleam/result
 import gleam/set.{type Set}
 import gleam/string
 import vibee/agent/agent_registry
@@ -429,17 +430,44 @@ fn populate_seen_ids(
     |> vibe_logger.with_data("chat_count", json.int(list.length(all_ids))),
     "Populating seen_ids from existing chats")
 
+  // Получаем текущий timestamp для проверки свежести сообщений
+  let current_time = get_timestamp()
+  // Grace period: сообщения моложе 2 минут не добавляем в seen_ids
+  // чтобы они были обработаны на следующем poll
+  let grace_period_seconds = 120
+
   // Обходим все чаты и добавляем их сообщения в seen_ids
   list.fold(all_ids, seen_ids, fn(acc_seen, chat_id) {
     case get_history(config, chat_id) {
       Error(_) -> acc_seen
       Ok(history_json) -> {
-        let messages = extract_messages(history_json)
-        // Добавляем ВСЕ сообщения (входящие и исходящие) в seen_ids
+        let messages = extract_messages_with_date(history_json)
+        // Добавляем сообщения в seen_ids, НО пропускаем свежие (< grace_period)
         list.fold(messages, acc_seen, fn(acc, msg) {
-          let #(msg_id, _, _, _, _, _, _, _, _, _) = msg
+          let #(msg_id, _, _, _, _, _, _, _, is_outgoing, _, msg_timestamp) = msg
           let unique_id = chat_id <> ":" <> int.to_string(msg_id)
-          set.insert(acc, unique_id)
+          let age_seconds = current_time - msg_timestamp
+
+          // Для личных чатов (положительный chat_id) и ВХОДЯЩИХ сообщений:
+          // не добавляем в seen_ids если сообщение свежее (< grace_period)
+          let is_private = case int.parse(chat_id) {
+            Ok(id) -> id > 0
+            Error(_) -> False
+          }
+
+          case is_private && !is_outgoing && age_seconds < grace_period_seconds {
+            True -> {
+              // Свежее входящее сообщение в личном чате - НЕ добавляем в seen
+              // Оно будет обработано на следующем poll
+              vibe_logger.info(logger
+                |> vibe_logger.with_data("chat_id", json.string(chat_id))
+                |> vibe_logger.with_data("msg_id", json.int(msg_id))
+                |> vibe_logger.with_data("age_seconds", json.int(age_seconds)),
+                "Initial poll: SKIPPING fresh message for later processing")
+              acc
+            }
+            False -> set.insert(acc, unique_id)
+          }
         })
       }
     }
@@ -628,6 +656,12 @@ fn process_chat_messages_with_events(
   let chat_log = logger
     |> vibe_logger.with_data("chat_id", json.string(chat_id))
 
+  // Check if this is a private chat (positive chat_id = personal DM)
+  let is_private = case int.parse(chat_id) {
+    Ok(id) -> id > 0
+    Error(_) -> False
+  }
+
   // Log if this is a trigger chat for debugging
   let is_trigger = case trigger_chats.find_chat_config(chat_id) {
     Ok(_) -> {
@@ -637,13 +671,17 @@ fn process_chat_messages_with_events(
     Error(_) -> False
   }
 
+  // For private chats, log at INFO level for debugging Woody DM issue
+  let should_log_info = is_trigger || is_private
+
   case get_history(state.config, chat_id) {
     Error(err) -> {
-      // Log at INFO level for trigger chats, TRACE for others
-      case is_trigger {
+      // Log at INFO level for trigger chats AND private chats
+      case should_log_info {
         True -> vibe_logger.info(chat_log
-            |> vibe_logger.with_data("error", json.string(err)),
-            "History ERROR for TRIGGER chat")
+            |> vibe_logger.with_data("error", json.string(err))
+            |> vibe_logger.with_data("is_private", json.bool(is_private)),
+            "History ERROR")
         False -> vibe_logger.trace(chat_log
           |> vibe_logger.with_data("error", json.string(err)),
           "History error")
@@ -662,11 +700,12 @@ fn process_chat_messages_with_events(
         int.compare(id_a, id_b)
       })
 
-      // For trigger chats - log at INFO level for debugging
-      case is_trigger {
+      // Log at INFO level for trigger chats AND private chats
+      case should_log_info {
         True -> vibe_logger.info(chat_log
-          |> vibe_logger.with_data("message_count", json.int(list.length(sorted_messages))),
-          "TRIGGER: Got messages from history")
+          |> vibe_logger.with_data("message_count", json.int(list.length(sorted_messages)))
+          |> vibe_logger.with_data("is_private", json.bool(is_private)),
+          "Got messages from history")
         False -> vibe_logger.trace(chat_log
           |> vibe_logger.with_data("message_count", json.int(list.length(sorted_messages))),
           "Got messages (sorted by msg_id)")
@@ -682,11 +721,13 @@ fn process_chat_messages_with_events(
         case is_outgoing {
           True -> {
             // Исходящее сообщение - добавляем в seen но не обрабатываем
-            case is_trigger {
+            case should_log_info {
               True -> vibe_logger.info(chat_log
                 |> vibe_logger.with_data("msg_id", json.int(msg_id))
-                |> vibe_logger.with_data("from_name", json.string(from_name)),
-                "TRIGGER: Skipping OUTGOING message")
+                |> vibe_logger.with_data("from_id", json.int(from_id))
+                |> vibe_logger.with_data("from_name", json.string(from_name))
+                |> vibe_logger.with_data("is_private", json.bool(is_private)),
+                "Skipping OUTGOING message")
               False -> Nil
             }
             #(acc_state, set.insert(acc_seen, unique_id))
@@ -696,10 +737,13 @@ fn process_chat_messages_with_events(
             case set.contains(acc_seen, unique_id) {
               True -> {
                 // Уже обработали - пропускаем
-                case is_trigger {
+                case should_log_info {
                   True -> vibe_logger.info(chat_log
-                    |> vibe_logger.with_data("msg_id", json.int(msg_id)),
-                    "TRIGGER: Skipping SEEN message")
+                    |> vibe_logger.with_data("msg_id", json.int(msg_id))
+                    |> vibe_logger.with_data("from_id", json.int(from_id))
+                    |> vibe_logger.with_data("from_name", json.string(from_name))
+                    |> vibe_logger.with_data("is_private", json.bool(is_private)),
+                    "Skipping SEEN message")
                   False -> Nil
                 }
                 acc
@@ -798,6 +842,114 @@ fn extract_messages(json: String) -> List(#(Int, Int, String, String, String, St
     // Парсим каждый объект сообщения
     parse_message_object(part)
   })
+}
+
+/// Извлечь сообщения из JSON ответа С timestamp
+/// Returns: List(#(msg_id, from_id, from_name, username, text, phone, lang_code, is_premium, is_outgoing, reply_to_id, timestamp))
+fn extract_messages_with_date(json: String) -> List(#(Int, Int, String, String, String, String, String, Bool, Bool, Int, Int)) {
+  // Разбиваем по объектам сообщений
+  let message_parts = string.split(json, "{\"id\":")
+
+  list.filter_map(list.drop(message_parts, 1), fn(part) {
+    // Парсим каждый объект сообщения с датой
+    parse_message_object_with_date(part)
+  })
+}
+
+/// Парсит один объект сообщения с датой
+fn parse_message_object_with_date(part: String) -> Result(#(Int, Int, String, String, String, String, String, Bool, Bool, Int, Int), Nil) {
+  // Извлекаем id (первое число до запятой)
+  let id = case string.split(part, ",") {
+    [id_str, ..] -> {
+      case int.parse(string.trim(id_str)) {
+        Ok(n) -> n
+        Error(_) -> 0
+      }
+    }
+    _ -> 0
+  }
+
+  // Извлекаем text
+  let text = extract_json_field(part, "text")
+
+  // Извлекаем from_id
+  let from_id = extract_json_int_field(part, "from_id")
+
+  // Извлекаем from_name (fallback на "User" если пустое)
+  let from_name = case extract_json_field(part, "from_name") {
+    "" -> "User"
+    name -> name
+  }
+
+  // Извлекаем username
+  let username = extract_json_field(part, "username")
+
+  // Извлекаем phone
+  let phone = extract_json_field(part, "phone")
+
+  // Извлекаем lang_code
+  let lang_code = extract_json_field(part, "lang_code")
+
+  // Извлекаем premium
+  let is_premium = extract_json_bool_field(part, "premium")
+
+  // Извлекаем out (исходящее сообщение)
+  let is_outgoing = extract_json_bool_field(part, "out")
+
+  // Извлекаем reply_to_id
+  let reply_to_id = extract_json_int_field(part, "reply_to_id")
+
+  // Извлекаем date (RFC3339 формат: "2025-12-24T10:47:37Z")
+  // Парсим в Unix timestamp
+  let msg_timestamp = parse_rfc3339_timestamp(extract_json_field(part, "date"))
+
+  // Пропускаем только сообщения с пустым текстом (медиа-сообщения)
+  case text {
+    "" -> Error(Nil)
+    _ -> Ok(#(id, from_id, from_name, username, text, phone, lang_code, is_premium, is_outgoing, reply_to_id, msg_timestamp))
+  }
+}
+
+/// Парсит RFC3339 timestamp (например "2025-12-24T10:47:37Z") в Unix timestamp
+fn parse_rfc3339_timestamp(date_str: String) -> Int {
+  // Простой парсинг: извлекаем год, месяц, день, час, минуту, секунду
+  // Формат: YYYY-MM-DDTHH:MM:SSZ
+  case string.length(date_str) >= 19 {
+    False -> 0
+    True -> {
+      // Разбиваем по T
+      case string.split(date_str, "T") {
+        [date_part, time_part] -> {
+          // Парсим дату: YYYY-MM-DD
+          case string.split(date_part, "-") {
+            [year_str, month_str, day_str] -> {
+              // Парсим время: HH:MM:SS или HH:MM:SSZ
+              let time_clean = string.replace(time_part, "Z", "")
+              case string.split(time_clean, ":") {
+                [hour_str, min_str, sec_str] -> {
+                  // Преобразуем в числа
+                  let year = result.unwrap(int.parse(year_str), 2025)
+                  let month = result.unwrap(int.parse(month_str), 1)
+                  let day = result.unwrap(int.parse(day_str), 1)
+                  let hour = result.unwrap(int.parse(hour_str), 0)
+                  let min = result.unwrap(int.parse(min_str), 0)
+                  let sec = result.unwrap(int.parse(string.slice(sec_str, 0, 2)), 0)
+
+                  // Приблизительный расчёт Unix timestamp
+                  // (упрощённо, без учёта високосных годов и часовых поясов)
+                  let days_since_1970 = { year - 1970 } * 365 + { month - 1 } * 30 + day
+                  days_since_1970 * 86400 + hour * 3600 + min * 60 + sec
+                }
+                _ -> 0
+              }
+            }
+            _ -> 0
+          }
+        }
+        _ -> 0
+      }
+    }
+  }
 }
 
 /// Парсит один объект сообщения из строки

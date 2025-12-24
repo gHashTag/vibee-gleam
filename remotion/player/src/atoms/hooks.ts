@@ -225,11 +225,19 @@ export function useAutoRecordHistory() {
   const tracks = useAtomValue(tracksAtom);
   const assets = useAtomValue(assetsAtom);
   const project = useAtomValue(projectAtom);
+  const templateProps = useAtomValue(templatePropsAtom);
   const recordSnapshot = useSetAtom(recordSnapshotAtom);
 
+  // Record initial snapshot on mount (so first undo has something to undo to)
   useEffect(() => {
     recordSnapshot();
-  }, [tracks, assets, project, recordSnapshot]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Record snapshot on state changes
+  useEffect(() => {
+    recordSnapshot();
+  }, [tracks, assets, project, templateProps, recordSnapshot]);
 }
 
 // ===============================

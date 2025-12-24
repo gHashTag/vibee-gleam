@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { useSetAtom } from 'jotai';
 import { userAtom, fetchQuotaAtom } from '@/atoms';
 import type { TelegramUser } from '@/atoms';
+import { RENDER_SERVER_URL } from '@/lib/mediaUrl';
 
 declare global {
   interface Window {
@@ -26,12 +27,21 @@ interface TelegramLoginButtonProps {
   botUsername?: string;
   size?: 'small' | 'medium' | 'large';
   onSuccess?: () => void;
+  showFallback?: boolean;
 }
+
+// Telegram SVG icon
+const TelegramIcon = () => (
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+  </svg>
+);
 
 export function TelegramLoginButton({
   botUsername = 'agent_vibecoder_bot',
   size = 'medium',
   onSuccess,
+  showFallback = false,
 }: TelegramLoginButtonProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const setUser = useSetAtom(userAtom);
@@ -54,11 +64,23 @@ export function TelegramLoginButton({
 
       setUser(user);
       fetchQuota();
+
+      // Notify about new lead
+      fetch(`${RENDER_SERVER_URL}/api/notify/lead`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegram_id: data.id,
+          username: data.username,
+          first_name: data.first_name,
+        }),
+      }).catch(() => {}); // Don't block on notification failure
+
       onSuccess?.();
     };
 
-    // Dynamically load Telegram widget script
-    if (containerRef.current) {
+    // Only load native widget when not using fallback
+    if (!showFallback && containerRef.current) {
       containerRef.current.innerHTML = '';
 
       const script = document.createElement('script');
@@ -76,9 +98,31 @@ export function TelegramLoginButton({
       // Cleanup
       delete (window as any).onTelegramAuth;
     };
-  }, [botUsername, size, setUser, fetchQuota, onSuccess]);
+  }, [botUsername, size, setUser, fetchQuota, onSuccess, showFallback]);
 
-  return <div ref={containerRef} className="telegram-login-container" />;
+  // Fallback: Open bot directly in Telegram
+  const handleFallbackClick = () => {
+    window.open(`https://t.me/${botUsername}?start=login`, '_blank');
+  };
+
+  return (
+    <div className="telegram-login-wrapper">
+      {/* Show custom button when showFallback is true, hide native widget */}
+      {showFallback ? (
+        <button
+          className={`telegram-login-btn ${size === 'small' ? 'small' : ''}`}
+          onClick={handleFallbackClick}
+          type="button"
+        >
+          <TelegramIcon />
+          <span>{size === 'small' ? 'Login' : 'Sign in with Telegram'}</span>
+        </button>
+      ) : (
+        /* Native Telegram widget for header */
+        <div ref={containerRef} className="telegram-login-container" />
+      )}
+    </div>
+  );
 }
 
 // Compact user avatar display (when logged in)

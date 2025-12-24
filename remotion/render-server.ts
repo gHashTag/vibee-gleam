@@ -46,6 +46,71 @@ const s3Client = new S3Client({
   } : undefined,
 });
 
+// Telegram Notification Configuration
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_OWNER_ID = '144022504';
+const TELEGRAM_RENDERS_GROUP = '-1002737186844';
+
+// Send text message to Telegram
+async function sendTelegramMessage(chatId: string, message: string): Promise<boolean> {
+  if (!TELEGRAM_BOT_TOKEN) {
+    console.warn('⚠️ TELEGRAM_BOT_TOKEN not set, skipping notification');
+    return false;
+  }
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+        parse_mode: 'HTML'
+      })
+    });
+    const result = await response.json();
+    if (!result.ok) {
+      console.error('❌ Telegram sendMessage failed:', result);
+      return false;
+    }
+    console.log(`📨 Telegram notification sent to ${chatId}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Telegram sendMessage error:', error);
+    return false;
+  }
+}
+
+// Send video to Telegram
+async function sendTelegramVideo(chatId: string, videoUrl: string, caption: string): Promise<boolean> {
+  if (!TELEGRAM_BOT_TOKEN) {
+    console.warn('⚠️ TELEGRAM_BOT_TOKEN not set, skipping video notification');
+    return false;
+  }
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        video: videoUrl,
+        caption: caption,
+        parse_mode: 'HTML'
+      })
+    });
+    const result = await response.json();
+    if (!result.ok) {
+      console.error('❌ Telegram sendVideo failed:', result);
+      // Fallback to message with link
+      return sendTelegramMessage(chatId, `${caption}\n\n🔗 ${videoUrl}`);
+    }
+    console.log(`📹 Telegram video sent to ${chatId}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Telegram sendVideo error:', error);
+    return false;
+  }
+}
+
 // Upload directory for temp files
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "./uploads";
 
@@ -327,6 +392,13 @@ interface RenderRequest {
   inputProps?: Record<string, unknown>;
   codec?: string;
   frame?: number;
+  // User info for notifications
+  userInfo?: {
+    telegram_id: number;
+    username?: string;
+    first_name?: string;
+    project_name?: string;
+  };
 }
 
 interface RenderResponse {
@@ -343,8 +415,10 @@ interface RenderJob {
   status: 'pending' | 'rendering' | 'completed' | 'failed';
   progress: number;
   outputUrl?: string;
+  publicUrl?: string;  // S3 public URL for notifications
   error?: string;
   startedAt: Date;
+  userInfo?: RenderRequest['userInfo'];
 }
 
 // Universal template render API types
@@ -365,6 +439,14 @@ interface TemplateRenderRequest {
   s3Prefix?: string;               // default: "renders/"
   webhookUrl?: string;             // POST on completion
   webhookSecret?: string;          // HMAC signature
+
+  // User info for notifications
+  userInfo?: {
+    telegram_id: number;
+    username?: string;
+    first_name?: string;
+    project_name?: string;
+  };
 }
 
 interface SimplifiedSegment {
@@ -416,12 +498,13 @@ function resolveMediaPath(mediaPath: string): string {
 function startRenderAsync(req: RenderRequest): string {
   const renderId = randomUUID();
 
-  // Create job entry
+  // Create job entry with userInfo for notifications
   renderJobs.set(renderId, {
     id: renderId,
     status: 'pending',
     progress: 0,
     startedAt: new Date(),
+    userInfo: req.userInfo,
   });
 
   // Start render in background
@@ -621,6 +704,33 @@ function startRenderAsync(req: RenderRequest): string {
       job.outputUrl = `/renders/${renderId}.${ext}`;
       console.log(`✅ Render ${renderId} completed: ${job.outputUrl}`);
 
+      // Upload to S3 and send Telegram notification
+      try {
+        const videoBuffer = fs.readFileSync(outputPath);
+        const uploadResult = await uploadToS3(videoBuffer, `render-${renderId}.${ext}`, ext === 'gif' ? 'image/gif' : 'video/mp4');
+
+        if (uploadResult.success && (uploadResult as { directUrl?: string }).directUrl) {
+          const publicUrl = (uploadResult as { directUrl: string }).directUrl;
+          job.publicUrl = publicUrl;
+          console.log(`📤 Uploaded to S3: ${publicUrl}`);
+
+          // Send Telegram notification with video
+          const renderTimeMs = Date.now() - job.startedAt.getTime();
+          const renderTimeSec = Math.round(renderTimeMs / 1000);
+          const userInfo = job.userInfo;
+
+          const caption = userInfo
+            ? `✅ <b>Рендер готов!</b>\n\n👤 ${userInfo.first_name || 'Unknown'} (@${userInfo.username || 'нет'})\n📹 ${userInfo.project_name || 'Untitled'}\n⏱ ${renderTimeSec}s`
+            : `✅ <b>Рендер готов!</b>\n\n⏱ ${renderTimeSec}s`;
+
+          await sendTelegramVideo(TELEGRAM_RENDERS_GROUP, publicUrl, caption);
+          console.log(`📱 Telegram notification sent for render ${renderId}`);
+        }
+      } catch (uploadError) {
+        console.error(`⚠️ S3 upload or notification failed for ${renderId}:`, uploadError);
+        // Don't fail the render if upload/notification fails
+      }
+
     } catch (error) {
       console.error(`❌ Render ${renderId} failed:`, error);
       job.status = 'failed';
@@ -651,6 +761,46 @@ const server = createServer(async (req, res) => {
   if (req.url === "/health" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ status: "ok", bundleReady: !!bundleLocation }));
+    return;
+  }
+
+  // Notify: New lead (user login)
+  if (req.url === "/api/notify/lead" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", async () => {
+      try {
+        const { telegram_id, username, first_name } = JSON.parse(body);
+        const message = `🐝 <b>Новый пользователь VIBEE!</b>\n\n👤 ${first_name || 'Unknown'}\n📱 @${username || 'нет'}\n🆔 ${telegram_id}`;
+        await sendTelegramMessage(TELEGRAM_OWNER_ID, message);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (error) {
+        console.error('Lead notification error:', error);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: 'Failed to send notification' }));
+      }
+    });
+    return;
+  }
+
+  // Notify: Render started
+  if (req.url === "/api/notify/render-start" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", async () => {
+      try {
+        const { telegram_id, username, first_name, project_name } = JSON.parse(body);
+        const message = `🎬 <b>Рендер запущен</b>\n\n👤 ${first_name || 'Unknown'} (@${username || 'нет'})\n🆔 ${telegram_id}\n📹 ${project_name || 'Untitled'}`;
+        await sendTelegramMessage(TELEGRAM_RENDERS_GROUP, message);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (error) {
+        console.error('Render start notification error:', error);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: 'Failed to send notification' }));
+      }
+    });
     return;
   }
 
@@ -1323,6 +1473,16 @@ const server = createServer(async (req, res) => {
                 },
                 request.webhookSecret
               );
+            }
+
+            // Send Telegram notification with video
+            if (publicUrl) {
+              const renderTimeSec = Math.round(renderTimeMs / 1000);
+              const userInfo = request.userInfo;
+              const caption = userInfo
+                ? `✅ <b>Рендер готов!</b>\n\n👤 ${userInfo.first_name || 'Unknown'} (@${userInfo.username || 'нет'})\n📹 ${userInfo.project_name || 'Untitled'}\n⏱ ${renderTimeSec}s`
+                : `✅ <b>Рендер готов!</b>\n\n⏱ ${renderTimeSec}s`;
+              await sendTelegramVideo(TELEGRAM_RENDERS_GROUP, publicUrl, caption);
             }
 
           } catch (error) {

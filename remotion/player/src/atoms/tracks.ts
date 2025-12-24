@@ -7,7 +7,25 @@ import { atomWithStorage } from 'jotai/utils';
 import { produce } from 'immer';
 import { nanoid } from 'nanoid';
 import type { Track, TrackItem, TrackType, LipSyncMainProps } from '@/store/types';
-import { lipSyncVideoAtom, captionsAtom } from './derived/templateProps';
+import {
+  lipSyncVideoAtom,
+  captionsAtom,
+  coverImageAtom,
+  backgroundMusicAtom,
+  musicVolumeAtom,
+  coverDurationAtom,
+  vignetteStrengthAtom,
+  colorCorrectionAtom,
+  circleSizePercentAtom,
+  circleBottomPercentAtom,
+  circleLeftPxAtom,
+  faceOffsetXAtom,
+  faceOffsetYAtom,
+  faceScaleAtom,
+  captionStyleAtom,
+  showCaptionsAtom,
+} from './derived/templateProps';
+import { CAPTION_DEFAULTS } from '@/constants/captions';
 import { projectAtom } from './project';
 
 // Default template props for track generation
@@ -484,6 +502,32 @@ export const resetTracksAtom = atom(
 
     // Clear captions (will be loaded fresh from default captions.json)
     set(captionsAtom, []);
+
+    // Reset all template props to defaults
+    set(coverImageAtom, '/covers/cover.jpeg');
+    set(backgroundMusicAtom, '/audio/music/phonk_01.mp3');
+    set(musicVolumeAtom, 0.06);
+    set(coverDurationAtom, 0.5);
+    set(vignetteStrengthAtom, 0.7);
+    set(colorCorrectionAtom, 1.2);
+    set(circleSizePercentAtom, 25.2);
+    set(circleBottomPercentAtom, 15);
+    set(circleLeftPxAtom, 40);
+    set(faceOffsetXAtom, undefined);
+    set(faceOffsetYAtom, undefined);
+    set(faceScaleAtom, undefined);
+    set(showCaptionsAtom, true);
+    set(captionStyleAtom, {
+      fontSize: CAPTION_DEFAULTS.fontSize,
+      textColor: CAPTION_DEFAULTS.textColor,
+      highlightColor: CAPTION_DEFAULTS.highlightColor,
+      backgroundColor: CAPTION_DEFAULTS.backgroundColor,
+      bottomPercent: CAPTION_DEFAULTS.bottomPercent,
+      maxWidthPercent: CAPTION_DEFAULTS.maxWidthPercent,
+      fontWeight: CAPTION_DEFAULTS.fontWeight,
+      showShadow: CAPTION_DEFAULTS.showShadow,
+      fontId: 'Montserrat',
+    });
 
     // Clear localStorage transcription cache
     localStorage.removeItem('vibee-last-transcribed-video');

@@ -341,6 +341,20 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
       });
       console.log('[Export] Render props:', renderProps);
 
+      // Notify about render start
+      if (user) {
+        fetch(`${RENDER_SERVER_URL}/api/notify/render-start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            telegram_id: user.id,
+            username: user.username,
+            first_name: user.first_name,
+            project_name: project.name,
+          }),
+        }).catch(() => {}); // Don't block on notification failure
+      }
+
       // Start render with converted template props
       console.log('[Export] Sending render request to:', `${RENDER_SERVER_URL}/render`);
       const renderRes = await fetch(`${RENDER_SERVER_URL}/render`, {
@@ -351,6 +365,13 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
           compositionId: DEFAULT_COMPOSITION_ID,
           codec: 'h264',
           inputProps: renderProps,
+          // User info for Telegram notification on completion
+          userInfo: user ? {
+            telegram_id: user.id,
+            username: user.username,
+            first_name: user.first_name,
+            project_name: project.name,
+          } : undefined,
         }),
       });
 
@@ -794,9 +815,12 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
           <div className="login-modal" onClick={(e) => e.stopPropagation()}>
             <h2>Login to Export</h2>
             <p>Sign in with Telegram to get 3 free video renders!</p>
-            <TelegramLoginButton
-              onSuccess={() => setShowLoginModal(false)}
-            />
+            <div className="login-modal-widget">
+              <TelegramLoginButton
+                onSuccess={() => setShowLoginModal(false)}
+                size="large"
+              />
+            </div>
           </div>
         </div>
       )}
