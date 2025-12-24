@@ -194,12 +194,12 @@ async function preDownloadS3Asset(url: string): Promise<string> {
       const outputStats = fs.statSync(outputPath);
       console.log(`✅ Transcoded to ${(outputStats.size / 1024 / 1024).toFixed(2)} MB`);
 
-      // Return file:// URL for Remotion to access directly
-      return `file://${outputPath}`;
+      // Return HTTP URL for Remotion to access via render server
+      return `http://0.0.0.0:${PORT}/render-temp/${outputFilename}`;
     } catch (transcodeError) {
       console.warn(`⚠️ Transcode failed, using original:`, transcodeError);
-      // If transcode fails, try to use original with file:// URL
-      return `file://${downloadPath}`;
+      // If transcode fails, use original via HTTP
+      return `http://0.0.0.0:${PORT}/render-temp/${downloadFilename}`;
     }
   } catch (error) {
     console.error(`❌ Failed to pre-download:`, error);
