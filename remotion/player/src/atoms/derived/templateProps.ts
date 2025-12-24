@@ -72,8 +72,8 @@ export const faceScaleAtom = atom<number | undefined>(undefined);
 // Captions Atoms
 // ===============================
 
-// Captions data (not persisted - loaded fresh from server)
-export const captionsAtom = atom<CaptionItem[]>([]);
+// Captions data - PERSISTED to survive page refresh
+export const captionsAtom = atomWithStorage<CaptionItem[]>('vibee-captions-v2', []);
 
 // Caption style (persisted)
 export const captionStyleAtom = atomWithStorage<CaptionStyle>(
