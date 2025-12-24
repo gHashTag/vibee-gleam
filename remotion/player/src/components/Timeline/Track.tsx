@@ -1,6 +1,6 @@
 import { useState, useCallback, memo } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { selectedItemIdsAtom, addItemAtom, updateItemAtom, lipSyncVideoAtom } from '@/atoms';
+import { selectedItemIdsAtom, addItemAtom, updateItemAtom, lipSyncVideoAtom, backgroundMusicAtom } from '@/atoms';
 import { TrackItem } from './TrackItem';
 import type { Track as TrackType, Asset } from '@/store/types';
 
@@ -14,6 +14,7 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
   const addItem = useSetAtom(addItemAtom);
   const updateItem = useSetAtom(updateItemAtom);
   const setLipSyncVideo = useSetAtom(lipSyncVideoAtom);
+  const setBackgroundMusic = useSetAtom(backgroundMusicAtom);
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -73,6 +74,12 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
           console.log(`[Track] Avatar video changed to: ${asset.url}`);
           setLipSyncVideo(asset.url);
         }
+
+        // Update backgroundMusicAtom if this is audio track
+        if (track.type === 'audio' && asset.url) {
+          console.log(`[Track] Background music changed to: ${asset.url}`);
+          setBackgroundMusic(asset.url);
+        }
         return;
       }
 
@@ -108,11 +115,17 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
         setLipSyncVideo(asset.url);
       }
 
+      // Update backgroundMusicAtom if this is audio track
+      if (track.type === 'audio' && asset.url) {
+        console.log(`[Track] Background music set to: ${asset.url}`);
+        setBackgroundMusic(asset.url);
+      }
+
       console.log(`Added ${asset.name} to ${track.name} at frame ${dropFrame}`);
     } catch (error) {
       console.error('Drop error:', error);
     }
-  }, [track, pxPerFrame, addItem, updateItem, setLipSyncVideo]);
+  }, [track, pxPerFrame, addItem, updateItem, setLipSyncVideo, setBackgroundMusic]);
 
   return (
     <div
