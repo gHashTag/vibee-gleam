@@ -135,6 +135,7 @@ fn handle_reels_creation(context: ActionContext) -> ActionResult {
     voice_id: None,
     webhook_url: None,
     test_mode: False,  // Use real AI pipeline
+    quick_test: False,  // Full render, not quick test
   )
 
   // Start pipeline

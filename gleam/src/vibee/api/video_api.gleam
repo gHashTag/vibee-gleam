@@ -47,6 +47,7 @@ pub fn auto_render_handler(req: Request(Connection)) -> Response(ResponseData) {
             voice_id: render_req.voice_id,
             webhook_url: render_req.webhook_url,
             test_mode: render_req.test_mode,
+            quick_test: False,  // Full render via API
           )
 
           // Start pipeline (test mode for now)
@@ -121,6 +122,7 @@ pub fn ai_render_handler(req: Request(Connection)) -> Response(ResponseData) {
             voice_id: render_req.voice_id,
             webhook_url: render_req.webhook_url,
             test_mode: render_req.test_mode,
+            quick_test: False,  // Full render via API
           )
 
           // Start AI pipeline (uses OpenRouter for B-roll generation)

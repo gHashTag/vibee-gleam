@@ -31,6 +31,9 @@ import vibee/integrations/telegram/client as tg_client
 import vibee/integrations/telegram/types as tg_types
 import vibee/agent/reels_plugin
 import vibee/agent/eliza.{ActionContext}
+import vibee/video/pipeline
+import gleam/erlang/process
+import gleam/dynamic/decode
 
 /// Get VIBEE_API_KEY from environment
 @external(erlang, "vibee_polling_ffi", "get_api_key")
@@ -351,13 +354,12 @@ pub fn handle_incoming_message(
   let is_trigger_chat = trigger_chats.is_trigger_chat_active(chat_id)
   io.println("[FILTER] Checking chat " <> chat_id <> " is_trigger_chat=" <> case is_trigger_chat { True -> "YES" False -> "NO" })
 
-  // Проверяем, это команда (начинается с / ИЛИ NLP-распознанная команда)
-  let is_slash_command = string.starts_with(text, "/")
-  let is_nlp_command = case detect_nlp_command(text) {
+  // ElizaOS: Проверяем Action (естественный язык, НЕ /commands!)
+  // Digital Twin понимает контекст, а не слэш-команды
+  let is_action = case detect_action(text) {
     Some(_) -> True
     None -> False
   }
-  let is_command = is_slash_command || is_nlp_command
   // Личный чат = положительный chat_id
   let is_private_chat = case int.parse(chat_id) {
     Ok(cid) -> cid > 0
@@ -372,11 +374,11 @@ pub fn handle_incoming_message(
         |> vibe_logger.with_data("bot_id", json.int(id))
         |> vibe_logger.with_data("is_bot", json.bool(is_bot))
         |> vibe_logger.with_data("is_owner", json.bool(is_owner))
-        |> vibe_logger.with_data("is_command", json.bool(is_command))
+        |> vibe_logger.with_data("is_action", json.bool(is_action))
         |> vibe_logger.with_data("is_private_chat", json.bool(is_private_chat))
         |> vibe_logger.with_data("is_trigger_chat", json.bool(is_trigger_chat)), "Filter check")
-      // В trigger-чатах или при отправке команды в личном чате разрешаем сообщения от owner
-      case is_trigger_chat || { is_command && is_private_chat } {
+      // В trigger-чатах или при Action в личном чате разрешаем сообщения от owner
+      case is_trigger_chat || { is_action && is_private_chat } {
         True -> is_bot  // Только пропускаем сообщения бота, owner разрешён
         False -> is_bot || is_owner  // В обычных чатах пропускаем и бота, и owner (защита от цикла)
       }
@@ -384,10 +386,10 @@ pub fn handle_incoming_message(
     None -> {
       vibe_logger.debug(filter_log
         |> vibe_logger.with_data("is_trigger_chat", json.bool(is_trigger_chat))
-        |> vibe_logger.with_data("is_command", json.bool(is_command))
+        |> vibe_logger.with_data("is_action", json.bool(is_action))
         |> vibe_logger.with_data("is_private_chat", json.bool(is_private_chat)), "No bot_id cached, checking owner_id only")
-      // В trigger-чатах или при отправке команды в личном чате разрешаем сообщения от owner
-      case is_trigger_chat || { is_command && is_private_chat } {
+      // В trigger-чатах или при Action в личном чате разрешаем сообщения от owner
+      case is_trigger_chat || { is_action && is_private_chat } {
         True -> False  // Не пропускаем - разрешаем owner
         False -> from_id == updated_state.config.owner_id  // В обычных чатах пропускаем owner
       }
@@ -401,126 +403,56 @@ pub fn handle_incoming_message(
     }
     False -> {
       vibe_logger.debug(log |> vibe_logger.with_data("action", json.string("process")), "Processing message")
-      let cmd_log = vibe_logger.new("cmd")
+      let action_log = vibe_logger.new("action")
         |> vibe_logger.with_session_id(updated_state.config.session_id)
         |> vibe_logger.with_data("chat_id", json.string(chat_id))
 
-      // Сначала проверяем команды (работают везде, включая личные чаты)
-      case parse_command(text) {
-        Some(#("neurophoto", prompt)) -> {
-          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("neurophoto")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
-          handle_neurophoto_command(updated_state, chat_id, message_id, prompt)
-        }
-        Some(#("neuro", prompt)) -> {
-          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("neuro")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
-          handle_neurophoto_command(updated_state, chat_id, message_id, prompt)
-        }
-        Some(#("start", _)) -> {
-          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("start")), "Command detected")
-          let welcome = "Privet! Ya VIBEE - AI agent dlya generacii izobrazhenij.\n\nKomandy:\n/neurophoto <prompt> - generaciya izobrazheniya\n/neuro <prompt> - korotkaya versiya\n\nPrimer: /neurophoto cyberpunk portrait neon lights"
-          let _ = send_message(updated_state.config, chat_id, welcome, Some(message_id))
-          AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
-        }
+      // ============================================================
+      // ElizaOS ACTIONS-BASED ARCHITECTURE (NO /commands!)
+      // Digital Twin понимает естественный язык, не слэш-команды
+      // ============================================================
+
+      // 1. Detect Action from natural language
+      case detect_action(text) {
         Some(#("help", _)) -> {
-          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("help")), "Command detected")
+          vibe_logger.info(action_log |> vibe_logger.with_data("action", json.string("HELP")), "Action: HELP")
           let is_ru = is_cyrillic_text(text)
           let help_text = case is_ru {
-            True -> "🤖 VIBEE Bot - Команды:\n\n📸 Изображения:\n/neurophoto <prompt> - Генерация с FLUX LoRA\n/neuro <prompt> - Короткая версия\n\n🎬 Видео:\n/video <описание> - Text-to-Video (Kling)\n/i2v - Image-to-Video\n/morph - Морфинг изображений\n/broll <тема> - B-Roll генерация\n\n🎤 Аудио:\n/voice <текст> - Голосовой синтез (ElevenLabs)\n/talking <текст> - Говорящий аватар (Hedra)\n\n💰 Тарифы:\n/pricing - Показать тарифы\n/quiz - Подобрать тариф\n\n💡 Trigger слово NEURO_SAGE добавляется автоматически."
-            False -> "🤖 VIBEE Bot - Commands:\n\n📸 Images:\n/neurophoto <prompt> - FLUX LoRA generation\n/neuro <prompt> - Short version\n\n🎬 Video:\n/video <description> - Text-to-Video (Kling)\n/i2v - Image-to-Video\n/morph - Image morphing\n/broll <topic> - B-Roll generation\n\n🎤 Audio:\n/voice <text> - Voice synthesis (ElevenLabs)\n/talking <text> - Talking avatar (Hedra)\n\n💰 Pricing:\n/pricing - Show pricing\n/quiz - Find your plan\n\n💡 Trigger word NEURO_SAGE is added automatically."
+            True -> "🤖 Привет! Я VIBEE — твой AI ассистент.\n\nПросто напиши мне что хочешь:\n\n📸 Изображения:\n• \"Сгенерируй фото...\"\n• \"Нарисуй картинку...\"\n\n🎬 Видео:\n• \"Хочу создать видео...\"\n• \"Создай рилс про...\"\n\n🎤 Аудио:\n• \"Озвучь текст...\"\n\n💰 Тарифы:\n• \"Покажи тарифы\"\n• \"Сколько стоит?\"\n\n💬 Просто пиши естественно — я пойму!"
+            False -> "🤖 Hi! I'm VIBEE — your AI assistant.\n\nJust tell me what you want:\n\n📸 Images:\n• \"Generate a photo of...\"\n• \"Draw a picture...\"\n\n🎬 Video:\n• \"I want to create a video...\"\n• \"Make a reel about...\"\n\n🎤 Audio:\n• \"Voice this text...\"\n\n💰 Pricing:\n• \"Show pricing\"\n• \"How much does it cost?\"\n\n💬 Just write naturally — I'll understand!"
           }
           let _ = send_message(updated_state.config, chat_id, help_text, Some(message_id))
           AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
         }
         Some(#("pricing", _)) -> {
-          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("pricing")), "Command detected")
+          vibe_logger.info(action_log |> vibe_logger.with_data("action", json.string("PRICING")), "Action: PRICING")
           let is_ru = is_cyrillic_text(text)
           let pricing_text = case is_ru {
-            True -> "💎 VIBEE Тарифы:\n\n🥉 JUNIOR - $99/мес\n• 100 генераций\n• Telegram бот\n• Email поддержка\n\n🥈 MIDDLE - $299/мес\n• 500 генераций\n• Custom персона\n• CRM + Аналитика\n\n🥇 SENIOR - $999/мес\n• Безлимит генераций\n• Мультиканал\n• API доступ + SLA\n\n👉 /quiz - подобрать тариф"
-            False -> "💎 VIBEE Pricing:\n\n🥉 JUNIOR - $99/mo\n• 100 generations\n• Telegram bot\n• Email support\n\n🥈 MIDDLE - $299/mo\n• 500 generations\n• Custom persona\n• CRM + Analytics\n\n🥇 SENIOR - $999/mo\n• Unlimited generations\n• Multichannel\n• API access + SLA\n\n👉 /quiz - find your plan"
+            True -> "💎 VIBEE Тарифы:\n\n🥉 JUNIOR - $99/мес\n• 100 генераций\n• Telegram бот\n• Email поддержка\n\n🥈 MIDDLE - $299/мес\n• 500 генераций\n• Custom персона\n• CRM + Аналитика\n\n🥇 SENIOR - $999/мес\n• Безлимит генераций\n• Мультиканал\n• API доступ + SLA\n\n💬 Напиши \"хочу подобрать тариф\" для консультации"
+            False -> "💎 VIBEE Pricing:\n\n🥉 JUNIOR - $99/mo\n• 100 generations\n• Telegram bot\n• Email support\n\n🥈 MIDDLE - $299/mo\n• 500 generations\n• Custom persona\n• CRM + Analytics\n\n🥇 SENIOR - $999/mo\n• Unlimited generations\n• Multichannel\n• API access + SLA\n\n💬 Write \"help me choose a plan\" for consultation"
           }
           let _ = send_message(updated_state.config, chat_id, pricing_text, Some(message_id))
           AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
         }
-        Some(#("quiz", _)) -> {
-          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("quiz")), "Command detected")
-          let is_ru = is_cyrillic_text(text)
-          let quiz_text = case is_ru {
-            True -> "🎯 Quiz: Какой тариф вам подходит?\n\n1️⃣ Сколько генераций в месяц вам нужно?\n   A) До 100\n   B) 100-500\n   C) Больше 500\n\n2️⃣ Нужна ли интеграция с CRM?\n   A) Нет\n   B) Да\n\n3️⃣ Нужен ли API доступ?\n   A) Нет\n   B) Да\n\nОтветьте буквами, например: ABA\n\n💡 Или напишите 'помощь' для консультации"
-            False -> "🎯 Quiz: Which plan fits you?\n\n1️⃣ How many generations per month do you need?\n   A) Up to 100\n   B) 100-500\n   C) More than 500\n\n2️⃣ Do you need CRM integration?\n   A) No\n   B) Yes\n\n3️⃣ Do you need API access?\n   A) No\n   B) Yes\n\nAnswer with letters, e.g.: ABA\n\n💡 Or type 'help' for consultation"
-          }
-          let _ = send_message(updated_state.config, chat_id, quiz_text, Some(message_id))
-          AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
-        }
-        Some(#("voice", prompt)) -> {
-          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("voice")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
-          handle_voice_command(updated_state, chat_id, message_id, prompt)
-        }
         Some(#("video", prompt)) -> {
-          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("video")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
+          vibe_logger.info(action_log |> vibe_logger.with_data("action", json.string("CREATE_VIDEO")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Action: CREATE_VIDEO")
           handle_video_command(updated_state, chat_id, message_id, prompt)
         }
-        Some(#("talking", prompt)) -> {
-          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("talking")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
-          handle_talking_command(updated_state, chat_id, message_id, prompt)
-        }
-        Some(#("morph", prompt)) -> {
-          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("morph")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
-          handle_morph_command(updated_state, chat_id, message_id, prompt)
-        }
-        Some(#("i2v", prompt)) -> {
-          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("i2v")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
-          handle_i2v_command(updated_state, chat_id, message_id, prompt)
-        }
-        Some(#("broll", prompt)) -> {
-          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("broll")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Command detected")
-          handle_broll_command(updated_state, chat_id, message_id, prompt)
+        Some(#("neuro", prompt)) -> {
+          vibe_logger.info(action_log |> vibe_logger.with_data("action", json.string("GENERATE_IMAGE")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Action: GENERATE_IMAGE")
+          handle_neurophoto_command(updated_state, chat_id, message_id, prompt)
         }
         Some(#("reels", prompt)) -> {
-          vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("reels")) |> vibe_logger.with_data("prompt", json.string(prompt)), "NLP reels command detected")
+          vibe_logger.info(action_log |> vibe_logger.with_data("action", json.string("CREATE_REELS")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Action: CREATE_REELS")
           handle_reels_action(updated_state, chat_id, message_id, prompt, from_name, from_id)
         }
+        Some(#("voice", prompt)) -> {
+          vibe_logger.info(action_log |> vibe_logger.with_data("action", json.string("VOICE_CLONE")) |> vibe_logger.with_data("prompt", json.string(prompt)), "Action: VOICE_CLONE")
+          handle_voice_command(updated_state, chat_id, message_id, prompt)
+        }
         _ -> {
-          // Check for NLP commands (natural language without /)
-          case detect_nlp_command(text) {
-            Some(#("help", _)) -> {
-              vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("help")), "NLP help command detected")
-              let is_ru = is_cyrillic_text(text)
-              let help_text = case is_ru {
-                True -> "🤖 Привет! Я VIBEE — твой AI ассистент.\n\nПросто напиши мне что хочешь:\n\n📸 Изображения:\n• \"Сгенерируй фото...\"\n• \"Нарисуй картинку...\"\n\n🎬 Видео:\n• \"Хочу создать видео...\"\n• \"Создай рилс про...\"\n\n🎤 Аудио:\n• \"Озвучь текст...\"\n\n💰 Тарифы:\n• \"Покажи тарифы\"\n• \"Сколько стоит?\"\n\n💬 Просто пиши естественно — я пойму!"
-                False -> "🤖 Hi! I'm VIBEE — your AI assistant.\n\nJust tell me what you want:\n\n📸 Images:\n• \"Generate a photo of...\"\n• \"Draw a picture...\"\n\n🎬 Video:\n• \"I want to create a video...\"\n• \"Make a reel about...\"\n\n🎤 Audio:\n• \"Voice this text...\"\n\n💰 Pricing:\n• \"Show pricing\"\n• \"How much does it cost?\"\n\n💬 Just write naturally — I'll understand!"
-              }
-              let _ = send_message(updated_state.config, chat_id, help_text, Some(message_id))
-              AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
-            }
-            Some(#("pricing", _)) -> {
-              vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("pricing")), "NLP pricing command detected")
-              let is_ru = is_cyrillic_text(text)
-              let pricing_text = case is_ru {
-                True -> "💎 VIBEE Тарифы:\n\n🥉 JUNIOR - $99/мес\n• 100 генераций\n• Telegram бот\n• Email поддержка\n\n🥈 MIDDLE - $299/мес\n• 500 генераций\n• Custom персона\n• CRM + Аналитика\n\n🥇 SENIOR - $999/мес\n• Безлимит генераций\n• Мультиканал\n• API доступ + SLA\n\n💬 Напиши \"хочу подобрать тариф\" для консультации"
-                False -> "💎 VIBEE Pricing:\n\n🥉 JUNIOR - $99/mo\n• 100 generations\n• Telegram bot\n• Email support\n\n🥈 MIDDLE - $299/mo\n• 500 generations\n• Custom persona\n• CRM + Analytics\n\n🥇 SENIOR - $999/mo\n• Unlimited generations\n• Multichannel\n• API access + SLA\n\n💬 Write \"help me choose a plan\" for consultation"
-              }
-              let _ = send_message(updated_state.config, chat_id, pricing_text, Some(message_id))
-              AgentState(..updated_state, total_messages: updated_state.total_messages + 1)
-            }
-            Some(#("video", prompt)) -> {
-              vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("video")) |> vibe_logger.with_data("prompt", json.string(prompt)), "NLP video command detected")
-              handle_video_command(updated_state, chat_id, message_id, prompt)
-            }
-            Some(#("neuro", prompt)) -> {
-              vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("neuro")) |> vibe_logger.with_data("prompt", json.string(prompt)), "NLP neuro command detected")
-              handle_neurophoto_command(updated_state, chat_id, message_id, prompt)
-            }
-            Some(#("reels", prompt)) -> {
-              vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("reels")) |> vibe_logger.with_data("prompt", json.string(prompt)), "NLP reels command detected")
-              handle_reels_action(updated_state, chat_id, message_id, prompt, from_name, from_id)
-            }
-            Some(#("voice", prompt)) -> {
-              vibe_logger.info(cmd_log |> vibe_logger.with_data("command", json.string("voice")) |> vibe_logger.with_data("prompt", json.string(prompt)), "NLP voice command detected")
-              handle_voice_command(updated_state, chat_id, message_id, prompt)
-            }
-            _ -> {
-              // No NLP command - continue with normal flow
-              let sniper_log = vibe_logger.new("sniper")
+          // 2. No Action matched - check trigger chats or Digital Twin response
+          let sniper_log = vibe_logger.new("sniper")
                 |> vibe_logger.with_session_id(updated_state.config.session_id)
                 |> vibe_logger.with_data("chat_id", json.string(chat_id))
 
@@ -533,8 +465,27 @@ pub fn handle_incoming_message(
               // 1. Сначала проверяем триггеры (быстрый путь)
               case trigger_chats.should_respond_to_trigger(chat_id, text) {
                 True -> {
-                  vibe_logger.info(sniper_log |> vibe_logger.with_data("trigger", json.bool(True)), "TRIGGER FOUND! Generating response")
-                  process_with_digital_twin(updated_state, chat_id, message_id, text, from_name, username, phone, lang_code, is_premium, from_id)
+                  vibe_logger.info(sniper_log |> vibe_logger.with_data("trigger", json.bool(True)), "TRIGGER FOUND!")
+
+                  // Проверяем режим observe_only (только сохранять лид, не отвечать)
+                  case trigger_chats.find_chat_config(chat_id) {
+                    Ok(config) -> {
+                      case config.observe_only {
+                        True -> {
+                          vibe_logger.info(sniper_log |> vibe_logger.with_data("mode", json.string("observe_only")), "OBSERVE ONLY MODE: Saving lead without response")
+                          process_observe_only(updated_state, chat_id, message_id, text, from_name, username, phone, lang_code, is_premium, from_id)
+                        }
+                        False -> {
+                          vibe_logger.info(sniper_log |> vibe_logger.with_data("mode", json.string("respond")), "Generating response")
+                          process_with_digital_twin(updated_state, chat_id, message_id, text, from_name, username, phone, lang_code, is_premium, from_id)
+                        }
+                      }
+                    }
+                    Error(_) -> {
+                      vibe_logger.info(sniper_log |> vibe_logger.with_data("mode", json.string("respond")), "No config found, responding normally")
+                      process_with_digital_twin(updated_state, chat_id, message_id, text, from_name, username, phone, lang_code, is_premium, from_id)
+                    }
+                  }
                 }
                 False -> {
                   // 2. Нет триггера - проверяем проактивный режим
@@ -577,8 +528,6 @@ pub fn handle_incoming_message(
                   handle_normal_mode(updated_state, chat_id, message_id, text)
                 }
               }
-            }
-          }
             }
           }
         }
@@ -706,6 +655,84 @@ fn handle_normal_mode(state: AgentState, chat_id: String, message_id: Int, text:
       }
     }
   }
+}
+
+/// Observe Only обработка - только сохраняет лид, НЕ отвечает в чат
+fn process_observe_only(state: AgentState, chat_id: String, message_id: Int, text: String, from_name: String, username: String, phone: String, lang_code: String, is_premium: Bool, from_id: Int) -> AgentState {
+  let log = vibe_logger.new("observe_only")
+    |> vibe_logger.with_session_id(state.config.session_id)
+    |> vibe_logger.with_data("chat_id", json.string(chat_id))
+    |> vibe_logger.with_data("from", json.string(from_name))
+    |> vibe_logger.with_data("username", json.string(username))
+    |> vibe_logger.with_data("from_id", json.int(from_id))
+
+  vibe_logger.info(log, "OBSERVE ONLY: Saving lead without response")
+
+  // Пересылаем диалог в целевую группу (без ответа агента)
+  case trigger_chats.find_chat_config(chat_id) {
+    Ok(chat_config) -> {
+      let forward_chat_id = chat_config.forward_chat_id
+      let chat_name = chat_config.chat_name
+      let fwd_log = vibe_logger.new("forward_observe")
+        |> vibe_logger.with_data("target", json.string(forward_chat_id))
+        |> vibe_logger.with_data("chat_name", json.string(chat_name))
+      vibe_logger.info(fwd_log, "Forwarding lead silently")
+
+      let original_msg = dialog_forwarder.MessageInfo(
+        chat_id: chat_id,
+        chat_name: chat_name,
+        message_id: message_id,
+        from_id: from_id,
+        from_name: from_name,
+        username: username,
+        phone: phone,
+        lang_code: lang_code,
+        is_premium: is_premium,
+        text: text,
+        timestamp: 0,
+      )
+
+      // Нет ответа агента - создаем MessageInfo с placeholder текстом
+      // ВАЖНО: dialog_forwarder проверяет что text не пустой!
+      let empty_agent_msg = dialog_forwarder.MessageInfo(
+        chat_id: chat_id,
+        chat_name: chat_name,
+        message_id: 0,
+        from_id: 0,
+        from_name: "VIBEE",
+        username: "",
+        phone: "",
+        lang_code: "",
+        is_premium: False,
+        text: "[Режим наблюдения - без ответа]",
+        timestamp: 0,
+      )
+
+      // Собираем контекст из истории сообщений
+      let context = collect_dialog_context(state.config, chat_id, from_id, message_id)
+
+      case dialog_forwarder.forward_dialog_with_context(
+        state.config.session_id,
+        original_msg,
+        empty_agent_msg,
+        forward_chat_id,
+        context,
+      ) {
+        dialog_forwarder.ForwardSuccess(fwd_id) -> {
+          vibe_logger.info(fwd_log |> vibe_logger.with_data("fwd_msg_id", json.int(fwd_id)), "Lead forwarded silently")
+        }
+        dialog_forwarder.ForwardError(reason) -> {
+          vibe_logger.error(fwd_log |> vibe_logger.with_data("error", json.string(reason)), "Forward failed")
+        }
+      }
+    }
+    Error(_) -> {
+      vibe_logger.warn(log, "No forward target configured")
+    }
+  }
+
+  // Возвращаем state без отправки ответа
+  AgentState(..state, total_messages: state.total_messages + 1)
 }
 
 /// Digital Twin обработка - отвечает в стиле владельца аккаунта
@@ -1054,30 +1081,18 @@ fn is_cyrillic_text(text: String) -> Bool {
   }
 }
 
-/// Парсит команду из текста сообщения
-/// Возвращает Some(#(command, args)) или None
+/// DEPRECATED: Old /command parser - use detect_action() instead
+/// Kept for backwards compatibility with some flows
 fn parse_command(text: String) -> Option(#(String, String)) {
   let trimmed = string.trim(text)
-  // First check for / commands
-  case string.starts_with(trimmed, "/") {
-    True -> {
-      let without_slash = string.drop_start(trimmed, 1)
-      case string.split(without_slash, " ") {
-        [] -> None
-        [cmd] -> Some(#(string.lowercase(cmd), ""))
-        [cmd, ..rest] -> Some(#(string.lowercase(cmd), string.join(rest, " ")))
-      }
-    }
-    False -> {
-      // NLP routing: detect natural language commands
-      detect_nlp_command(trimmed)
-    }
-  }
+  // For ElizaOS: no more /commands, use natural language
+  detect_action(trimmed)
 }
 
-/// Detect natural language commands (NLP routing)
-/// Maps natural language phrases to command equivalents
-fn detect_nlp_command(text: String) -> Option(#(String, String)) {
+/// ElizaOS Action Detection
+/// Detects user intent from natural language (NO /commands!)
+/// Returns: Some(#(action_type, prompt)) or None
+fn detect_action(text: String) -> Option(#(String, String)) {
   let lower = string.lowercase(text)
 
   // Help / capabilities patterns
@@ -1522,16 +1537,71 @@ fn handle_video_command(
       }
     }
     _ -> {
-      let access_key = get_env("KLING_ACCESS_KEY")
-      case access_key {
-        "" -> {
-          let _ = send_message(state.config, chat_id, "❌ KLING_ACCESS_KEY не настроен. Генерация видео недоступна.\n\n💡 Для видео нужен Kling AI API ключ: https://klingai.com/", Some(message_id))
-          AgentState(..state, total_messages: state.total_messages + 1)
+      // Send "generating" message
+      let _ = send_message(state.config, chat_id, "🎬 Генерирую видео...\n\n📝 Тема: " <> string.slice(prompt, 0, 50) <> "...\n\n⏱ Это займёт 2-5 минут...", Some(message_id))
+
+      // Configure pipeline
+      let remotion_url = config.get_env_or("REMOTION_URL", "https://vibee-remotion.fly.dev")
+      let test_assets_url = remotion_url <> "/public"
+
+      let pipeline_config = pipeline.PipelineConfig(
+        elevenlabs_api_key: "",  // Not needed for test mode
+        fal_api_key: "",         // Not needed for test mode
+        remotion_url: remotion_url,
+        test_assets_url: test_assets_url,
+      )
+
+      // Quick test mode for E2E tests (5 sec video instead of 26 sec)
+      let is_quick_test = string.contains(string.lowercase(prompt), "тест")
+        || string.contains(string.lowercase(prompt), "test")
+
+      let pipeline_req = pipeline.PipelineRequest(
+        photo_url: test_assets_url <> "/avatars/default.png",
+        script_text: prompt,
+        voice_id: None,
+        webhook_url: None,
+        test_mode: True,
+        quick_test: is_quick_test,
+      )
+
+      // Start test pipeline
+      case pipeline.start_test_pipeline(pipeline_config, pipeline_req) {
+        Ok(job) -> {
+          case job.render_id {
+            Some(render_id) -> {
+              // Poll for render completion (150 attempts × 2s = 5 min timeout)
+              case poll_render_status(remotion_url, render_id, 150, 2000) {
+                Ok(video_url) -> {
+                  // Add full URL if relative path
+                  let full_url = case string.starts_with(video_url, "/") {
+                    True -> remotion_url <> video_url
+                    False -> video_url
+                  }
+                  let _ = send_message(state.config, chat_id, "✅ Видео готово!\n\n🎬 " <> full_url, Some(message_id))
+                  AgentState(..state, total_messages: state.total_messages + 1)
+                }
+                Error(err) -> {
+                  let _ = send_message(state.config, chat_id, "❌ Ошибка рендера: " <> err, Some(message_id))
+                  AgentState(..state, total_messages: state.total_messages + 1)
+                }
+              }
+            }
+            None -> {
+              let _ = send_message(state.config, chat_id, "❌ Pipeline не вернул render_id", Some(message_id))
+              AgentState(..state, total_messages: state.total_messages + 1)
+            }
+          }
         }
-        _ -> {
-          let _ = send_message(state.config, chat_id, "🎬 Генерирую видео...\n\nPrompt: " <> string.slice(prompt, 0, 50) <> "...", Some(message_id))
-          // TODO: Implement Kling video generation
-          let _ = send_message(state.config, chat_id, "✅ Видео генерация в разработке. Kling API настроен!", Some(message_id))
+        Error(err) -> {
+          let err_str = case err {
+            pipeline.TTSError(e) -> "TTS: " <> e
+            pipeline.LipsyncError(e) -> "Lipsync: " <> e
+            pipeline.RenderError(e) -> "Render: " <> e
+            pipeline.ConfigError(e) -> "Config: " <> e
+            pipeline.NetworkError(e) -> "Network: " <> e
+            pipeline.BRollError(e) -> "B-Roll: " <> e
+          }
+          let _ = send_message(state.config, chat_id, "❌ Ошибка pipeline: " <> err_str, Some(message_id))
           AgentState(..state, total_messages: state.total_messages + 1)
         }
       }
@@ -2376,5 +2446,97 @@ fn bot_api_error_to_string(err: tg_types.TelegramError) -> String {
     tg_types.NetworkError(msg) -> "NetworkError: " <> msg
     tg_types.InvalidSession -> "InvalidSession"
     tg_types.NotAuthorized -> "NotAuthorized"
+  }
+}
+
+// ============================================================
+// Video Render Polling
+// ============================================================
+
+/// Poll remotion render status until completed or timeout
+fn poll_render_status(
+  remotion_url: String,
+  render_id: String,
+  max_attempts: Int,
+  interval_ms: Int,
+) -> Result(String, String) {
+  do_poll_render_status(remotion_url, render_id, max_attempts, interval_ms, 0)
+}
+
+fn do_poll_render_status(
+  remotion_url: String,
+  render_id: String,
+  max_attempts: Int,
+  interval_ms: Int,
+  attempt: Int,
+) -> Result(String, String) {
+  case attempt >= max_attempts {
+    True -> Error("Timeout: render did not complete in " <> int.to_string(max_attempts * interval_ms / 1000) <> "s")
+    False -> {
+      // Wait before checking
+      process.sleep(interval_ms)
+
+      // Parse host from URL
+      let host = case string.split(remotion_url, "://") {
+        [_, rest] -> case string.split(rest, "/") {
+          [h, ..] -> h
+          _ -> rest
+        }
+        _ -> remotion_url
+      }
+
+      // Build GET request for /render/{render_id}
+      let req = request.new()
+        |> request.set_method(http.Get)
+        |> request.set_scheme(http.Https)
+        |> request.set_host(host)
+        |> request.set_path("/render/" <> render_id)
+
+      case httpc.send(req) {
+        Ok(resp) -> {
+          // Parse JSON response: { status, outputUrl, progress }
+          case parse_render_status_response(resp.body) {
+            Ok(#(status, output_url, progress)) -> {
+              // Log progress every 10 attempts
+              case attempt % 10 == 0 {
+                True -> io.println("[render_poll] attempt=" <> int.to_string(attempt) <> " status=" <> status <> " progress=" <> int.to_string(progress) <> "%")
+                False -> Nil
+              }
+              case status {
+                "completed" -> {
+                  io.println("[render_poll] COMPLETED! outputUrl=" <> output_url)
+                  Ok(output_url)
+                }
+                "failed" -> Error("Render failed")
+                _ -> do_poll_render_status(remotion_url, render_id, max_attempts, interval_ms, attempt + 1)
+              }
+            }
+            Error(_) -> {
+              io.println("[render_poll] Failed to parse response: " <> string.slice(resp.body, 0, 200))
+              do_poll_render_status(remotion_url, render_id, max_attempts, interval_ms, attempt + 1)
+            }
+          }
+        }
+        Error(e) -> {
+          io.println("[render_poll] HTTP error: " <> string.inspect(e))
+          do_poll_render_status(remotion_url, render_id, max_attempts, interval_ms, attempt + 1)
+        }
+      }
+    }
+  }
+}
+
+/// Parse render status response JSON: { status, outputUrl?, progress? }
+fn parse_render_status_response(body: String) -> Result(#(String, String, Int), Nil) {
+  let decoder = {
+    use status <- decode.field("status", decode.string)
+    use output_url <- decode.optional_field("outputUrl", "", decode.string)
+    use progress <- decode.optional_field("progress", 0, decode.int)
+    decode.success(#(status, output_url, progress))
+  }
+
+  case json.parse(body, decoder) {
+    Ok(result) -> Ok(result)
+    Error(_) -> Error(Nil)
   }
 }

@@ -33,6 +33,7 @@ pub type PipelineRequest {
     voice_id: Option(String),
     webhook_url: Option(String),
     test_mode: Bool,
+    quick_test: Bool,
   )
 }
 
@@ -232,40 +233,76 @@ fn run_test_mode_pipeline(
   // Step 1: Use existing lipsync video
   let lipsync_url = config.test_assets_url <> "/lipsync/lipsync.mp4"
 
-  // Step 2: Generate B-roll prompts from script
-  let prompts = broll_prompts.get_preset_prompts(
-    job.request.script_text,
-    25.92,  // Duration of test lipsync video
-  )
+  // Step 2: Check for quick test mode (5 sec, 150 frames, 1 segment)
+  case job.request.quick_test {
+    True -> {
+      io.println("[PIPELINE] Quick test mode - 5 sec video with 1 segment")
+      // Quick test: single fullscreen segment with static image
+      let segments = [
+        Segment(
+          segment_type: "fullscreen",
+          start_seconds: 0.0,
+          duration_seconds: 5.0,
+          broll_url: Some(config.test_assets_url <> "/covers/cover.jpeg"),
+        )
+      ]
 
-  // Step 3: Map prompts to existing assets
-  let asset_mapping = broll_prompts.map_to_test_assets(prompts, config.test_assets_url)
-
-  // Step 4: Build segments for render
-  let segments = build_segments_from_assets(asset_mapping, 25.92)
-
-  // Step 5: Call render API
-  let render_result = call_render_api(
-    config.remotion_url,
-    lipsync_url,
-    segments,
-    job.request.webhook_url,
-  )
-
-  case render_result {
-    Ok(render_response) -> {
-      let updated_job = PipelineJob(
-        ..job,
-        state: Rendering,
-        progress: 80,
-        current_step: "Rendering video",
-        lipsync_url: Some(lipsync_url),
-        broll_prompts: prompts,
-        render_id: Some(render_response.render_id),
+      let render_result = call_render_api_quick(
+        config.remotion_url,
+        lipsync_url,
+        segments,
+        job.request.webhook_url,
       )
-      Ok(updated_job)
+
+      case render_result {
+        Ok(render_response) -> {
+          let updated_job = PipelineJob(
+            ..job,
+            state: Rendering,
+            progress: 80,
+            current_step: "Rendering quick test video",
+            lipsync_url: Some(lipsync_url),
+            broll_prompts: [],
+            render_id: Some(render_response.render_id),
+          )
+          Ok(updated_job)
+        }
+        Error(err) -> Error(RenderError(err))
+      }
     }
-    Error(err) -> Error(RenderError(err))
+    False -> {
+      // Full test: 4 segments with B-roll videos
+      let prompts = broll_prompts.get_preset_prompts(
+        job.request.script_text,
+        25.92,  // Duration of test lipsync video
+      )
+
+      let asset_mapping = broll_prompts.map_to_test_assets(prompts, config.test_assets_url)
+      let segments = build_segments_from_assets(asset_mapping, 25.92)
+
+      let render_result = call_render_api(
+        config.remotion_url,
+        lipsync_url,
+        segments,
+        job.request.webhook_url,
+      )
+
+      case render_result {
+        Ok(render_response) -> {
+          let updated_job = PipelineJob(
+            ..job,
+            state: Rendering,
+            progress: 80,
+            current_step: "Rendering video",
+            lipsync_url: Some(lipsync_url),
+            broll_prompts: prompts,
+            render_id: Some(render_response.render_id),
+          )
+          Ok(updated_job)
+        }
+        Error(err) -> Error(RenderError(err))
+      }
+    }
   }
 }
 
@@ -321,6 +358,76 @@ pub type RenderResponse {
     render_id: String,
     status_url: String,
   )
+}
+
+/// Call Remotion render API for quick test mode (5 sec, 150 frames)
+fn call_render_api_quick(
+  remotion_url: String,
+  lipsync_url: String,
+  segments: List(Segment),
+  _webhook_url: Option(String),
+) -> Result(RenderResponse, String) {
+  // Quick test: 150 frames (5 sec), single segment with image, no face detection
+  let segments_json = json.array(segments, fn(seg) {
+    json.object([
+      #("bRollUrl", json.string(option.unwrap(seg.broll_url, ""))),
+      #("bRollType", json.string("image")),
+      #("type", json.string(seg.segment_type)),
+      #("startFrame", json.int(0)),
+      #("durationFrames", json.int(150)),
+      #("caption", json.string("")),
+    ])
+  })
+
+  let body = json.object([
+    #("type", json.string("video")),
+    #("compositionId", json.string("SplitTalkingHead")),
+    #("inputProps", json.object([
+      #("lipSyncVideo", json.string(lipsync_url)),
+      #("quickTest", json.bool(True)),
+      #("durationFrames", json.int(150)),
+      #("segments", segments_json),
+      #("faceOffsetX", json.float(0.0)),
+      #("faceOffsetY", json.float(0.0)),
+      #("faceScale", json.float(1.0)),
+      #("backgroundMusic", json.string("/audio/music/phonk_01.mp3")),
+      #("musicVolume", json.float(0.10)),
+      #("captions", json.array([], fn(x) { x })),
+      #("showCaptions", json.bool(False)),
+    ])),
+  ])
+
+  let body_str = json.to_string(body)
+  io.println("[RENDER API QUICK] Sending quick test request to: " <> remotion_url <> "/render")
+  io.println("[RENDER API QUICK] Body: " <> body_str)
+
+  let host = case string.split(remotion_url, "://") {
+    [_, rest] -> case string.split(rest, "/") {
+      [h, ..] -> h
+      _ -> rest
+    }
+    _ -> remotion_url
+  }
+
+  let req = request.new()
+    |> request.set_method(http.Post)
+    |> request.set_scheme(http.Https)
+    |> request.set_host(host)
+    |> request.set_path("/render")
+    |> request.set_header("content-type", "application/json")
+    |> request.set_body(body_str)
+
+  case httpc.send(req) {
+    Ok(resp) -> {
+      io.println("[RENDER API QUICK] Response status: " <> int.to_string(resp.status))
+      io.println("[RENDER API QUICK] Response body: " <> resp.body)
+      parse_render_response(resp.body)
+    }
+    Error(e) -> {
+      io.println("[RENDER API QUICK] HTTP error: " <> string.inspect(e))
+      Error("Failed to connect to Remotion: " <> string.inspect(e))
+    }
+  }
 }
 
 /// Call Remotion render API with real HTTP request
