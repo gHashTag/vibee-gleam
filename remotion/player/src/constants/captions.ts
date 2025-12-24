@@ -7,7 +7,7 @@ export const CAPTION_DEFAULTS = {
   fontSize: 70,
   textColor: '#FFFF00', // Bright yellow TikTok-style
   highlightColor: '#f59e0b', // VIBEE amber
-  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  backgroundColor: '#00000099', // Black with 60% opacity (hex8 format)
   bottomPercent: 20,
   maxWidthPercent: 85,
   fontWeight: 900,

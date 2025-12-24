@@ -373,7 +373,7 @@ export function InteractiveCanvas() {
           loop
           clickToPlay={true}
           playbackRate={playbackRate}
-          numberOfSharedAudioTags={2}
+          numberOfSharedAudioTags={4}
         />
       </div>
     </div>

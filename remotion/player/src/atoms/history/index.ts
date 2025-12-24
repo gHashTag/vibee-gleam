@@ -8,7 +8,7 @@ import { tracksAtom } from '../tracks';
 import { assetsAtom } from '../assets';
 import { projectAtom } from '../project';
 import { timelineZoomAtom, canvasZoomAtom } from '../ui';
-import { currentFrameAtom } from '../playback';
+// NOTE: currentFrameAtom is NOT imported - it changes every frame during playback
 import {
   captionsAtom,
   captionStyleAtom,
@@ -55,7 +55,7 @@ interface TemplatePropsSnapshot {
 interface UIStateSnapshot {
   timelineZoom: number;
   canvasZoom: number;
-  currentFrame: number;
+  // NOTE: currentFrame is NOT tracked - it changes every frame during playback
 }
 
 interface HistorySnapshot {
@@ -106,7 +106,6 @@ function createUIStateSnapshot(get: any): UIStateSnapshot {
   return {
     timelineZoom: get(timelineZoomAtom),
     canvasZoom: get(canvasZoomAtom),
-    currentFrame: get(currentFrameAtom),
   };
 }
 
@@ -132,7 +131,6 @@ function applyTemplatePropsSnapshot(set: any, templateProps: TemplatePropsSnapsh
 function applyUIStateSnapshot(set: any, uiState: UIStateSnapshot) {
   set(timelineZoomAtom, uiState.timelineZoom);
   set(canvasZoomAtom, uiState.canvasZoom);
-  set(currentFrameAtom, uiState.currentFrame);
 }
 
 // Check if snapshots are identical (for skip logic)

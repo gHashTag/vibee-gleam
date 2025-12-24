@@ -8,6 +8,7 @@ import fs from "node:fs";
 import { randomUUID, createHmac } from "node:crypto";
 import { execSync } from "node:child_process";
 import { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { transcribeVideo } from "./src/lib/transcribe";
 import { detectFaceInVideo, detectFaceInImage, calculateCropSettings, loadModels } from "./src/lib/faceDetection";
 
@@ -232,7 +233,7 @@ async function uploadToS3(
   fileBuffer: Buffer,
   filename: string,
   contentType: string
-): Promise<{ success: boolean; url?: string; key?: string; error?: string }> {
+): Promise<{ success: boolean; url?: string; key?: string; error?: string; signedUrl?: string }> {
   const key = `assets/${Date.now()}-${filename}`;
 
   try {
@@ -243,11 +244,18 @@ async function uploadToS3(
       ContentType: contentType,
     }));
 
+    // Generate presigned URL for public access (7 days)
+    const signedUrl = await getSignedUrl(
+      s3Client,
+      new GetObjectCommand({ Bucket: S3_BUCKET, Key: key }),
+      { expiresIn: 604800 } // 7 days
+    );
+
     // Return proxy URL instead of direct S3 URL for browser compatibility (HEVC → H.264)
     const proxyUrl = `/s3/${key}`;
     const directUrl = `${S3_PUBLIC_URL}/${key}`;
-    console.log(`✅ Uploaded to S3: ${directUrl} (proxy: ${proxyUrl})`);
-    return { success: true, url: proxyUrl, key, directUrl };
+    console.log(`✅ Uploaded to S3: ${directUrl} (signed: ${signedUrl.substring(0, 80)}...)`);
+    return { success: true, url: proxyUrl, key, directUrl, signedUrl };
   } catch (error) {
     console.error("❌ S3 upload failed:", error);
     return {
@@ -709,10 +717,9 @@ function startRenderAsync(req: RenderRequest): string {
         const videoBuffer = fs.readFileSync(outputPath);
         const uploadResult = await uploadToS3(videoBuffer, `render-${renderId}.${ext}`, ext === 'gif' ? 'image/gif' : 'video/mp4');
 
-        if (uploadResult.success && (uploadResult as { directUrl?: string }).directUrl) {
-          const publicUrl = (uploadResult as { directUrl: string }).directUrl;
-          job.publicUrl = publicUrl;
-          console.log(`📤 Uploaded to S3: ${publicUrl}`);
+        if (uploadResult.success && uploadResult.signedUrl) {
+          job.publicUrl = uploadResult.signedUrl;
+          console.log(`📤 Uploaded to S3 with signed URL`);
 
           // Send Telegram notification with video
           const renderTimeMs = Date.now() - job.startedAt.getTime();
@@ -723,7 +730,7 @@ function startRenderAsync(req: RenderRequest): string {
             ? `✅ <b>Рендер готов!</b>\n\n👤 ${userInfo.first_name || 'Unknown'} (@${userInfo.username || 'нет'})\n📹 ${userInfo.project_name || 'Untitled'}\n⏱ ${renderTimeSec}s`
             : `✅ <b>Рендер готов!</b>\n\n⏱ ${renderTimeSec}s`;
 
-          await sendTelegramVideo(TELEGRAM_RENDERS_GROUP, publicUrl, caption);
+          await sendTelegramVideo(TELEGRAM_RENDERS_GROUP, uploadResult.signedUrl, caption);
           console.log(`📱 Telegram notification sent for render ${renderId}`);
         }
       } catch (uploadError) {

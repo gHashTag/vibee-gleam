@@ -234,6 +234,7 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
           key={backgroundMusic}
           src={resolveMediaPath(backgroundMusic)}
           volume={musicVolume}
+          pauseWhenBuffering
         />
       )}
     </AbsoluteFill>

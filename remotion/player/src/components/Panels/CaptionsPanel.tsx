@@ -27,6 +27,34 @@ import {
 
 const RENDER_SERVER_URL = import.meta.env.VITE_RENDER_SERVER_URL || 'https://vibee-remotion.fly.dev';
 
+// Convert any color format (rgba, hex, hex8) to #rrggbb for HTML color picker
+function toHexColor(color: string | undefined, fallback: string): string {
+  if (!color) return fallback;
+
+  // Already hex format (#rgb, #rrggbb, #rrggbbaa)
+  if (color.startsWith('#')) {
+    // Remove alpha if present (8 char hex)
+    if (color.length === 9) return color.slice(0, 7);
+    if (color.length === 7) return color;
+    if (color.length === 4) {
+      // Expand #rgb to #rrggbb
+      return `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`;
+    }
+    return fallback;
+  }
+
+  // rgba(r, g, b, a) or rgb(r, g, b) format
+  const rgbaMatch = color.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (rgbaMatch) {
+    const r = parseInt(rgbaMatch[1]).toString(16).padStart(2, '0');
+    const g = parseInt(rgbaMatch[2]).toString(16).padStart(2, '0');
+    const b = parseInt(rgbaMatch[3]).toString(16).padStart(2, '0');
+    return `#${r}${g}${b}`;
+  }
+
+  return fallback;
+}
+
 // Parse SRT timestamp to milliseconds (format: 00:00:00,000)
 function parseSrtTime(time: string): number {
   const [hours, minutes, rest] = time.split(':');
@@ -537,7 +565,7 @@ export function CaptionsPanel() {
               <label>Text Color</label>
               <input
                 type="color"
-                value={captionStyle.textColor || '#ffffff'}
+                value={toHexColor(captionStyle.textColor, '#ffffff')}
                 onChange={(e) => handleStyleChange('textColor', e.target.value)}
               />
             </div>
@@ -545,7 +573,7 @@ export function CaptionsPanel() {
               <label>Highlight</label>
               <input
                 type="color"
-                value={captionStyle.highlightColor || '#f59e0b'}
+                value={toHexColor(captionStyle.highlightColor, '#f59e0b')}
                 onChange={(e) => handleStyleChange('highlightColor', e.target.value)}
               />
             </div>
@@ -553,7 +581,7 @@ export function CaptionsPanel() {
               <label>Background</label>
               <input
                 type="color"
-                value={captionStyle.backgroundColor || '#000000'}
+                value={toHexColor(captionStyle.backgroundColor, '#000000')}
                 onChange={(e) => handleStyleChange('backgroundColor', e.target.value + '99')}
               />
             </div>

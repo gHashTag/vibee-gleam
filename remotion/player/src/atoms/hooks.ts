@@ -226,10 +226,9 @@ export function useAutoRecordHistory() {
   const assets = useAtomValue(assetsAtom);
   const project = useAtomValue(projectAtom);
   const templateProps = useAtomValue(templatePropsAtom);
-  // UI state for undo/redo
+  // UI state for undo/redo (NOT currentFrame - changes every frame during playback!)
   const timelineZoom = useAtomValue(timelineZoomAtom);
   const canvasZoom = useAtomValue(canvasZoomAtom);
-  const currentFrame = useAtomValue(currentFrameAtom);
   const recordSnapshot = useSetAtom(recordSnapshotAtom);
 
   // Record initial snapshot on mount (so first undo has something to undo to)
@@ -239,10 +238,10 @@ export function useAutoRecordHistory() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Record snapshot on ANY state change
+  // Record snapshot on state changes (NOT currentFrame - it changes too frequently)
   useEffect(() => {
     recordSnapshot();
-  }, [tracks, assets, project, templateProps, timelineZoom, canvasZoom, currentFrame, recordSnapshot]);
+  }, [tracks, assets, project, templateProps, timelineZoom, canvasZoom, recordSnapshot]);
 }
 
 // ===============================
