@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { assetsAtom, addAssetAtom, removeAssetAtom, addItemAtom } from '@/atoms';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Film, Image, Music, Plus, Trash2, Upload, Loader2 } from 'lucide-react';
 import type { Asset, AssetType } from '@/store/types';
 import { broadcastAssetAdded, broadcastAssetRemoved } from '@/lib/websocket';
@@ -23,6 +24,7 @@ interface UploadProgress {
 }
 
 export function AssetsPanel() {
+  const { t } = useLanguage();
   const assets = useAtomValue(assetsAtom);
   const addAsset = useSetAtom(addAssetAtom);
   const removeAsset = useSetAtom(removeAssetAtom);
@@ -193,8 +195,8 @@ export function AssetsPanel() {
         />
         <label htmlFor="file-upload" className="upload-label">
           <Upload size={20} />
-          <span>Drop files or click to upload</span>
-          <span className="upload-hint">Uploads to S3 cloud</span>
+          <span>{t('assets.dropOrClick')}</span>
+          <span className="upload-hint">{t('assets.uploadsToCloud')}</span>
         </label>
       </div>
 
@@ -206,8 +208,8 @@ export function AssetsPanel() {
               <Loader2 size={14} className={upload.status === 'uploading' ? 'spin' : ''} />
               <span className="upload-filename">{upload.fileName}</span>
               <span className="upload-status">
-                {upload.status === 'uploading' ? 'Uploading...' :
-                 upload.status === 'done' ? 'Done' : 'Error'}
+                {upload.status === 'uploading' ? t('assets.uploading') :
+                 upload.status === 'done' ? t('assets.done') : t('assets.error')}
               </span>
             </div>
           ))}
@@ -217,36 +219,39 @@ export function AssetsPanel() {
       {/* Videos */}
       {videoAssets.length > 0 && (
         <AssetGroup
-          title="Videos"
+          title={t('assets.videos')}
           count={videoAssets.length}
           assets={videoAssets}
           onDragStart={handleDragStart}
           onAddToTimeline={handleAddToTimeline}
           onRemove={handleRemoveAsset}
+          t={t}
         />
       )}
 
       {/* Images */}
       {imageAssets.length > 0 && (
         <AssetGroup
-          title="Images"
+          title={t('assets.images')}
           count={imageAssets.length}
           assets={imageAssets}
           onDragStart={handleDragStart}
           onAddToTimeline={handleAddToTimeline}
           onRemove={handleRemoveAsset}
+          t={t}
         />
       )}
 
       {/* Audio */}
       {audioAssets.length > 0 && (
         <AssetGroup
-          title="Audio"
+          title={t('assets.audio')}
           count={audioAssets.length}
           assets={audioAssets}
           onDragStart={handleDragStart}
           onAddToTimeline={handleAddToTimeline}
           onRemove={handleRemoveAsset}
+          t={t}
         />
       )}
     </div>
@@ -260,6 +265,7 @@ interface AssetGroupProps {
   onDragStart: (e: React.DragEvent, asset: Asset) => void;
   onAddToTimeline: (asset: Asset) => void;
   onRemove: (id: string) => void;
+  t: (key: string) => string;
 }
 
 function AssetGroup({
@@ -269,6 +275,7 @@ function AssetGroup({
   onDragStart,
   onAddToTimeline,
   onRemove,
+  t,
 }: AssetGroupProps) {
   return (
     <div className="asset-group">
@@ -288,15 +295,15 @@ function AssetGroup({
               onDragStart={(e) => onDragStart(e, asset)}
               onDoubleClick={() => onAddToTimeline(asset)}
               title={isBlobUrl
-                ? `${asset.name}\n⚠️ Local file - will be skipped during export!\nRe-upload to fix.`
-                : `${asset.name}\nDouble-click or drag to timeline`}
+                ? `${asset.name}\n${t('assets.localWarning')}`
+                : `${asset.name}\n${t('assets.doubleClickHint')}`}
             >
               <div className="asset-icon">
                 <Icon size={16} />
               </div>
               <span className="asset-name">{asset.name}</span>
               {isBlobUrl && (
-                <span className="blob-badge" title="Local file - won't export">
+                <span className="blob-badge" title={t('assets.localNoExport')}>
                   ⚠️
                 </span>
               )}

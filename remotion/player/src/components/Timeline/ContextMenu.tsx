@@ -12,18 +12,19 @@ import {
   getItemByIdAtom,
   projectAtom,
 } from '@/atoms';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { ColorTag } from '@/store/types';
 import './ContextMenu.css';
 
-const COLOR_OPTIONS: { value: ColorTag; color: string; label: string }[] = [
-  { value: 'none', color: 'transparent', label: 'Без цвета' },
-  { value: 'red', color: '#ef4444', label: 'Красный' },
-  { value: 'orange', color: '#f97316', label: 'Оранжевый' },
-  { value: 'yellow', color: '#eab308', label: 'Жёлтый' },
-  { value: 'green', color: '#22c55e', label: 'Зелёный' },
-  { value: 'blue', color: '#3b82f6', label: 'Синий' },
-  { value: 'purple', color: '#a855f7', label: 'Фиолетовый' },
-  { value: 'pink', color: '#ec4899', label: 'Розовый' },
+const COLOR_OPTIONS: { value: ColorTag; color: string; labelKey: string }[] = [
+  { value: 'none', color: 'transparent', labelKey: 'menu.noColor' },
+  { value: 'red', color: '#ef4444', labelKey: 'color.red' },
+  { value: 'orange', color: '#f97316', labelKey: 'color.orange' },
+  { value: 'yellow', color: '#eab308', labelKey: 'color.yellow' },
+  { value: 'green', color: '#22c55e', labelKey: 'color.green' },
+  { value: 'blue', color: '#3b82f6', labelKey: 'color.blue' },
+  { value: 'purple', color: '#a855f7', labelKey: 'color.purple' },
+  { value: 'pink', color: '#ec4899', labelKey: 'color.pink' },
 ];
 
 interface ContextMenuProps {
@@ -34,6 +35,7 @@ interface ContextMenuProps {
 }
 
 export const ContextMenu = memo(function ContextMenu({ x, y, itemId, onClose }: ContextMenuProps) {
+  const { t } = useLanguage();
   const menuRef = useRef<HTMLDivElement>(null);
 
   const copyItems = useSetAtom(copyItemsAtom);
@@ -124,7 +126,7 @@ export const ContextMenu = memo(function ContextMenu({ x, y, itemId, onClose }: 
     >
       <button className="context-menu-item" onClick={handleCopy}>
         <Copy size={14} />
-        <span>Копировать</span>
+        <span>{t('menu.copy')}</span>
         <span className="shortcut">⌘C</span>
       </button>
 
@@ -134,13 +136,13 @@ export const ContextMenu = memo(function ContextMenu({ x, y, itemId, onClose }: 
         disabled={clipboard.length === 0}
       >
         <ClipboardPaste size={14} />
-        <span>Вставить</span>
+        <span>{t('menu.paste')}</span>
         <span className="shortcut">⌘V</span>
       </button>
 
       <button className="context-menu-item" onClick={handleDuplicate}>
         <Layers size={14} />
-        <span>Дублировать</span>
+        <span>{t('menu.duplicate')}</span>
         <span className="shortcut">⌘D</span>
       </button>
 
@@ -149,7 +151,7 @@ export const ContextMenu = memo(function ContextMenu({ x, y, itemId, onClose }: 
       {/* Color Tags */}
       <div className="context-menu-item color-picker-row">
         <Palette size={14} />
-        <span>Цвет</span>
+        <span>{t('menu.color')}</span>
         <div className="color-swatches">
           {COLOR_OPTIONS.map((opt) => (
             <button
@@ -157,7 +159,7 @@ export const ContextMenu = memo(function ContextMenu({ x, y, itemId, onClose }: 
               className={`color-swatch ${opt.value === 'none' ? 'none' : ''}`}
               style={{ backgroundColor: opt.color }}
               onClick={() => handleColorTag(opt.value)}
-              title={opt.label}
+              title={t(opt.labelKey)}
             />
           ))}
         </div>
@@ -167,7 +169,7 @@ export const ContextMenu = memo(function ContextMenu({ x, y, itemId, onClose }: 
 
       <button className="context-menu-item danger" onClick={handleDelete}>
         <Trash2 size={14} />
-        <span>Удалить{itemCount > 1 ? ` (${itemCount})` : ''}</span>
+        <span>{t('menu.delete')}{itemCount > 1 ? ` (${itemCount})` : ''}</span>
         <span className="shortcut">⌫</span>
       </button>
     </div>

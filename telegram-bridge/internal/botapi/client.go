@@ -3,9 +3,11 @@
 package botapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"sync"
@@ -19,6 +21,7 @@ type BotClient struct {
 	token         string
 	webhookURL    string
 	gleamURL      string // URL to forward callbacks to Gleam
+	apiKey        string // API key for Gleam authentication
 	callbackQueue chan *tgbotapi.CallbackQuery
 	mu            sync.RWMutex
 }
@@ -27,7 +30,8 @@ type BotClient struct {
 type Config struct {
 	Token      string
 	WebhookURL string // e.g., https://vibee-telegram-bridge.fly.dev/api/v1/bot/webhook
-	GleamURL   string // e.g., https://vibee-mcp.fly.dev/api/v1/bot/callback
+	GleamURL   string // e.g., https://vibee-mcp.fly.dev
+	ApiKey     string // VIBEE_API_KEY for Gleam authentication
 }
 
 // NewBotClient creates a new Bot API client
@@ -48,6 +52,7 @@ func NewBotClient(cfg Config) (*BotClient, error) {
 		token:         cfg.Token,
 		webhookURL:    cfg.WebhookURL,
 		gleamURL:      cfg.GleamURL,
+		apiKey:        cfg.ApiKey,
 		callbackQueue: make(chan *tgbotapi.CallbackQuery, 100),
 	}, nil
 }
@@ -220,10 +225,39 @@ func (c *BotClient) ForwardCallbackToGleam(ctx context.Context, data *CallbackDa
 		return fmt.Errorf("gleam URL not configured")
 	}
 
-	// TODO: Implement HTTP POST to Gleam
-	// For now, log the callback
-	log.Printf("[BotAPI] Would forward callback to Gleam: %+v", data)
+	log.Printf("[BotAPI] Forwarding callback to Gleam: query_id=%s, data=%s", data.QueryID, data.Data)
 
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("marshal callback: %w", err)
+	}
+
+	url := c.gleamURL + "/api/v1/bot/callback"
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	if c.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("[BotAPI] ❌ Failed to forward callback: %v", err)
+		return fmt.Errorf("forward callback: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("[BotAPI] ❌ Gleam returned %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("gleam returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	log.Printf("[BotAPI] ✅ Callback forwarded to Gleam: query_id=%s, response=%s", data.QueryID, string(body))
 	return nil
 }
 

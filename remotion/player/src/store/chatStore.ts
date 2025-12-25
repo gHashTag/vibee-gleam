@@ -60,6 +60,7 @@ interface ChatStore {
   addMessage: (role: Message['role'], content: string, extras?: Partial<Message>) => string;
   updateMessage: (id: string, updates: Partial<Message>) => void;
   clearMessages: () => void;
+  refreshWelcomeMessage: () => void;
   setStreaming: (streaming: boolean) => void;
   setConnected: (connected: boolean) => void;
 
@@ -78,58 +79,39 @@ interface ChatStore {
 // Localization helpers
 // ===============================
 
-function getBrowserLanguage(): string {
-  if (typeof navigator === 'undefined') return 'en';
-  const lang = navigator.language || (navigator as { userLanguage?: string }).userLanguage || 'en';
-  return lang.toLowerCase().split('-')[0];
+function getSavedLanguage(): 'ru' | 'en' {
+  if (typeof window === 'undefined') return 'en';
+  // Check localStorage for saved language (from languageAtom)
+  try {
+    const saved = localStorage.getItem('vibee-lang');
+    if (saved === '"ru"' || saved === 'ru') return 'ru';
+    if (saved === '"en"' || saved === 'en') return 'en';
+  } catch {}
+  // Fallback to browser language
+  const browserLang = navigator.language?.toLowerCase() || '';
+  return browserLang.startsWith('ru') ? 'ru' : 'en';
 }
 
+// Translation messages
+const messages = {
+  en: {
+    welcome: "Hi! I'm your VIBEE AI assistant. I can help you create and edit video templates. What would you like to build today?",
+    cleared: "Chat cleared. How can I help?",
+  },
+  ru: {
+    welcome: "Привет! Я VIBEE AI ассистент. Могу помочь создать и отредактировать видео шаблоны. Что хотите сделать?",
+    cleared: "Чат очищен. Чем могу помочь?",
+  },
+};
+
 function getWelcomeMessage(): string {
-  const lang = getBrowserLanguage();
-  switch (lang) {
-    case 'ru':
-      return 'Привет! Я VIBEE AI ассистент. Могу помочь создать и отредактировать видео шаблоны. Что хотите сделать?';
-    case 'uk':
-      return 'Привіт! Я VIBEE AI асистент. Можу допомогти створити та відредагувати відео шаблони. Що хочете зробити?';
-    case 'es':
-      return '¡Hola! Soy tu asistente VIBEE AI. Puedo ayudarte a crear y editar plantillas de video. ¿Qué te gustaría hacer?';
-    case 'de':
-      return 'Hallo! Ich bin dein VIBEE AI Assistent. Ich kann dir helfen, Video-Vorlagen zu erstellen und zu bearbeiten. Was möchtest du machen?';
-    case 'fr':
-      return 'Salut! Je suis ton assistant VIBEE AI. Je peux t\'aider à créer et modifier des modèles vidéo. Que veux-tu faire?';
-    case 'zh':
-      return '你好！我是你的 VIBEE AI 助手。我可以帮你创建和编辑视频模板。你想做什么？';
-    case 'ja':
-      return 'こんにちは！VIBEE AIアシスタントです。動画テンプレートの作成・編集をお手伝いします。何をしましょうか？';
-    case 'ko':
-      return '안녕하세요! VIBEE AI 어시스턴트입니다. 비디오 템플릿 제작과 편집을 도와드릴 수 있어요. 무엇을 하시겠어요?';
-    default:
-      return 'Hi! I\'m your VIBEE AI assistant. I can help you create and edit video templates. What would you like to build today?';
-  }
+  const lang = getSavedLanguage();
+  return messages[lang].welcome;
 }
 
 function getClearMessage(): string {
-  const lang = getBrowserLanguage();
-  switch (lang) {
-    case 'ru':
-      return 'Чат очищен. Чем могу помочь?';
-    case 'uk':
-      return 'Чат очищено. Чим можу допомогти?';
-    case 'es':
-      return 'Chat borrado. ¿Cómo puedo ayudarte?';
-    case 'de':
-      return 'Chat gelöscht. Wie kann ich dir helfen?';
-    case 'fr':
-      return 'Chat effacé. Comment puis-je t\'aider?';
-    case 'zh':
-      return '聊天已清空。有什么可以帮你的？';
-    case 'ja':
-      return 'チャットをクリアしました。何かお手伝いできますか？';
-    case 'ko':
-      return '채팅이 삭제되었습니다. 무엇을 도와드릴까요?';
-    default:
-      return 'Chat cleared. How can I help you?';
-  }
+  const lang = getSavedLanguage();
+  return messages[lang].cleared;
 }
 
 // ===============================
@@ -190,6 +172,14 @@ export const useChatStore = create<ChatStore>()(
             timestamp: Date.now(),
           },
         ];
+      }),
+
+    refreshWelcomeMessage: () =>
+      set((state) => {
+        // Only update if first message is the welcome message
+        if (state.messages.length > 0 && state.messages[0].id === 'welcome') {
+          state.messages[0].content = getWelcomeMessage();
+        }
       }),
 
     setStreaming: (streaming) =>

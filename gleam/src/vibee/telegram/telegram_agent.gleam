@@ -20,7 +20,9 @@ import vibee/config/target_chats
 import vibee/config/telegram_config
 import vibee/config/trigger_chats
 import vibee/config/twin_config
+import vibee/config/chat_permissions
 import vibee/db/postgres
+import vibee/notifications/owner_notifier
 import vibee/leads/lead_logger
 import vibee/logging
 import vibee/mcp/session_manager
@@ -403,17 +405,104 @@ pub fn handle_incoming_message(
     }
     False -> {
       vibe_logger.debug(log |> vibe_logger.with_data("action", json.string("process")), "Processing message")
-      let action_log = vibe_logger.new("action")
-        |> vibe_logger.with_session_id(updated_state.config.session_id)
-        |> vibe_logger.with_data("chat_id", json.string(chat_id))
 
       // ============================================================
-      // ElizaOS ACTIONS-BASED ARCHITECTURE (NO /commands!)
-      // Digital Twin понимает естественный язык, не слэш-команды
+      // CHAT PERMISSIONS CHECK (Whitelist approach)
+      // По умолчанию агент молчит, отвечает только в разрешённых чатах
       // ============================================================
+      let chat_id_int = chat_permissions.parse_chat_id(chat_id)
 
-      // 1. Detect Action from natural language
-      case detect_action(text) {
+      case postgres.get_global_pool() {
+        None -> {
+          vibe_logger.debug(log, "No DB pool, skipping permission check")
+          updated_state
+        }
+        Some(pool) -> {
+          case chat_permissions.can_respond(pool, chat_id_int) {
+            chat_permissions.Denied(chat_permissions.ChatBlocked) -> {
+              vibe_logger.debug(log |> vibe_logger.with_data("reason", json.string("blocked")), "Chat blocked, ignoring")
+              updated_state
+            }
+            chat_permissions.Denied(chat_permissions.ChatNotWhitelisted) -> {
+              vibe_logger.debug(log |> vibe_logger.with_data("reason", json.string("not_whitelisted")), "Chat not whitelisted, logging for review")
+              let username_opt = case username {
+                "" -> None
+                u -> Some(u)
+              }
+              chat_permissions.log_unknown_chat(pool, chat_id_int, from_id, from_name, username_opt, text)
+
+              // === OWNER NOTIFICATION: новый неизвестный чат ===
+              let _ = owner_notifier.notify_new_chat(
+                chat_id_int,
+                "private",
+                from_id,
+                from_name,
+                username,
+                text,
+              )
+
+              updated_state
+            }
+            chat_permissions.Denied(chat_permissions.ObserveOnlyMode) -> {
+              vibe_logger.debug(log |> vibe_logger.with_data("reason", json.string("observe_only")), "Observe only mode, saving lead")
+              process_observe_only(updated_state, chat_id, message_id, text, from_name, username, phone, lang_code, is_premium, from_id)
+            }
+            chat_permissions.Denied(chat_permissions.PermissionExpired) -> {
+              vibe_logger.debug(log |> vibe_logger.with_data("reason", json.string("expired")), "Permission expired, ignoring")
+              updated_state
+            }
+            chat_permissions.Unknown(_) -> {
+              // Первое сообщение из неизвестного чата - WHITELIST: молчим
+              vibe_logger.info(log |> vibe_logger.with_data("reason", json.string("unknown")), "Unknown chat, logging for review")
+              let username_opt = case username {
+                "" -> None
+                u -> Some(u)
+              }
+              chat_permissions.log_unknown_chat(pool, chat_id_int, from_id, from_name, username_opt, text)
+
+              // === OWNER NOTIFICATION: новый неизвестный чат ===
+              let _ = owner_notifier.notify_new_chat(
+                chat_id_int,
+                "private",
+                from_id,
+                from_name,
+                username,
+                text,
+              )
+
+              updated_state
+            }
+            chat_permissions.Allowed(permission) -> {
+              // Чат разрешён - продолжаем обработку
+              vibe_logger.debug(log
+                |> vibe_logger.with_data("permission_level", json.string(chat_permissions.level_to_string(permission.permission_level)))
+                |> vibe_logger.with_data("use_triggers", json.bool(permission.use_triggers)), "Chat allowed, processing")
+
+              // === OWNER NOTIFICATION: новое сообщение ===
+              let _notify_result = owner_notifier.notify(owner_notifier.OwnerEvent(
+                event_type: owner_notifier.NewMessage,
+                importance: owner_notifier.Medium,
+                chat_id: chat_id_int,
+                chat_name: permission.chat_name |> option.unwrap(""),
+                from_id: from_id,
+                from_name: from_name,
+                username: username,
+                text: text,
+                timestamp: get_current_timestamp(),
+                extra: [],
+              ))
+
+              let action_log = vibe_logger.new("action")
+                |> vibe_logger.with_session_id(updated_state.config.session_id)
+                |> vibe_logger.with_data("chat_id", json.string(chat_id))
+
+              // ============================================================
+              // ElizaOS ACTIONS-BASED ARCHITECTURE (NO /commands!)
+              // Digital Twin понимает естественный язык, не слэш-команды
+              // ============================================================
+
+              // 1. Detect Action from natural language
+              case detect_action(text) {
         Some(#("help", _)) -> {
           vibe_logger.info(action_log |> vibe_logger.with_data("action", json.string("HELP")), "Action: HELP")
           let is_ru = is_cyrillic_text(text)
@@ -470,6 +559,17 @@ pub fn handle_incoming_message(
                   // Проверяем режим observe_only (только сохранять лид, не отвечать)
                   case trigger_chats.find_chat_config(chat_id) {
                     Ok(config) -> {
+                      // === OWNER NOTIFICATION: триггер найден ===
+                      let _ = owner_notifier.notify_lead(
+                        chat_id_int,
+                        config.chat_name,
+                        from_id,
+                        from_name,
+                        username,
+                        text,
+                        "crypto_trigger",
+                      )
+
                       case config.observe_only {
                         True -> {
                           vibe_logger.info(sniper_log |> vibe_logger.with_data("mode", json.string("observe_only")), "OBSERVE ONLY MODE: Saving lead without response")
@@ -528,6 +628,10 @@ pub fn handle_incoming_message(
                   handle_normal_mode(updated_state, chat_id, message_id, text)
                 }
               }
+            }
+          }
+        }
+      }
             }
           }
         }

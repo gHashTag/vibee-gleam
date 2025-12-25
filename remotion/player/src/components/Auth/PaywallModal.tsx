@@ -3,40 +3,41 @@
 
 import { useAtomValue, useSetAtom } from 'jotai';
 import { showPaywallAtom, renderQuotaAtom, userAtom } from '@/atoms';
+import { useLanguage } from '@/hooks/useLanguage';
 import { X, Zap, Star, Crown, CreditCard, Sparkles } from 'lucide-react';
 import './styles.css';
 
 const PLANS = [
   {
     id: 'junior',
-    name: 'JUNIOR',
+    nameKey: 'paywall.junior',
     price: 99,
     generations: 100,
-    features: ['100 renders/month', 'HD quality', 'Email support'],
+    featureKeys: ['100 renders/month', 'paywall.hdQuality', 'paywall.emailSupport'],
     popular: false,
   },
   {
     id: 'middle',
-    name: 'MIDDLE',
+    nameKey: 'paywall.middle',
     price: 299,
     generations: 500,
-    features: ['500 renders/month', '4K quality', 'Priority support', 'Custom fonts'],
+    featureKeys: ['500 renders/month', 'paywall.4kQuality', 'paywall.prioritySupport', 'paywall.customFonts'],
     popular: true,
   },
   {
     id: 'senior',
-    name: 'SENIOR',
+    nameKey: 'paywall.senior',
     price: 999,
     generations: null, // Unlimited
-    features: ['Unlimited renders', '4K quality', 'Premium support', 'Custom fonts', 'API access'],
+    featureKeys: ['paywall.unlimitedRenders', 'paywall.4kQuality', 'paywall.premiumSupport', 'paywall.customFonts', 'paywall.apiAccess'],
     popular: false,
   },
 ];
 
 const PAYMENT_METHODS = [
-  { id: 'robokassa', name: 'Robokassa', icon: CreditCard, label: 'Card' },
-  { id: 'stars', name: 'Telegram Stars', icon: Star, label: 'Stars' },
-  { id: 'ton', name: 'TON', icon: Sparkles, label: 'TON' },
+  { id: 'robokassa', name: 'Robokassa', icon: CreditCard, labelKey: 'paywall.card' },
+  { id: 'stars', name: 'Telegram Stars', icon: Star, labelKey: 'paywall.stars' },
+  { id: 'ton', name: 'TON', icon: Sparkles, labelKey: 'paywall.ton' },
 ];
 
 interface PaywallModalProps {
@@ -44,10 +45,24 @@ interface PaywallModalProps {
 }
 
 export function PaywallModal({ onClose }: PaywallModalProps) {
+  const { t } = useLanguage();
   const showPaywall = useAtomValue(showPaywallAtom);
   const setShowPaywall = useSetAtom(showPaywallAtom);
   const quota = useAtomValue(renderQuotaAtom);
   const user = useAtomValue(userAtom);
+
+  // Translate feature key or return as-is if it's a number-based string
+  const translateFeature = (key: string) => {
+    if (key.startsWith('paywall.')) {
+      return t(key);
+    }
+    // Handle "100 renders/month" style strings
+    const match = key.match(/^(\d+)\s+renders\/month$/);
+    if (match) {
+      return `${match[1]} ${t('paywall.rendersMonth')}`;
+    }
+    return key;
+  };
 
   const handleClose = () => {
     setShowPaywall(false);
@@ -80,10 +95,9 @@ export function PaywallModal({ onClose }: PaywallModalProps) {
 
         <div className="paywall-header">
           <Zap size={48} className="paywall-icon" />
-          <h2>Free Renders Used Up!</h2>
+          <h2>{t('paywall.freeUsedUp')}</h2>
           <p className="paywall-subtitle">
-            You've used all {quota?.total_renders || 3} free renders.
-            Subscribe to continue creating amazing videos.
+            {t('paywall.subscribeMessage')}
           </p>
         </div>
 
@@ -94,14 +108,14 @@ export function PaywallModal({ onClose }: PaywallModalProps) {
               className={`paywall-plan ${plan.popular ? 'popular' : ''}`}
             >
               {plan.popular && (
-                <div className="plan-badge">Most Popular</div>
+                <div className="plan-badge">{t('paywall.mostPopular')}</div>
               )}
 
               <div className="plan-header">
-                <h3 className="plan-name">{plan.name}</h3>
+                <h3 className="plan-name">{t(plan.nameKey)}</h3>
                 <div className="plan-price">
                   <span className="price-amount">${plan.price}</span>
-                  <span className="price-period">/month</span>
+                  <span className="price-period">{t('paywall.perMonth')}</span>
                 </div>
               </div>
 
@@ -109,19 +123,19 @@ export function PaywallModal({ onClose }: PaywallModalProps) {
                 {plan.generations === null ? (
                   <>
                     <Crown size={20} />
-                    <span>Unlimited renders</span>
+                    <span>{t('paywall.unlimitedRenders')}</span>
                   </>
                 ) : (
                   <>
                     <Zap size={20} />
-                    <span>{plan.generations} renders/month</span>
+                    <span>{plan.generations} {t('paywall.rendersMonth')}</span>
                   </>
                 )}
               </div>
 
               <ul className="plan-features">
-                {plan.features.map((feature, i) => (
-                  <li key={i}>{feature}</li>
+                {plan.featureKeys.map((featureKey, i) => (
+                  <li key={i}>{translateFeature(featureKey)}</li>
                 ))}
               </ul>
 
@@ -131,10 +145,10 @@ export function PaywallModal({ onClose }: PaywallModalProps) {
                     key={method.id}
                     className="payment-btn"
                     onClick={() => handleSubscribe(plan.id, method.id)}
-                    title={`Pay with ${method.name}`}
+                    title={method.name}
                   >
                     <method.icon size={16} />
-                    <span>{method.label}</span>
+                    <span>{t(method.labelKey)}</span>
                   </button>
                 ))}
               </div>
@@ -143,7 +157,7 @@ export function PaywallModal({ onClose }: PaywallModalProps) {
         </div>
 
         <div className="paywall-footer">
-          <p>All payments are secure and processed via Telegram</p>
+          <p>{t('paywall.securePayments')}</p>
         </div>
       </div>
     </div>

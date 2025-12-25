@@ -5,6 +5,7 @@
 import { atom } from 'jotai';
 import { produce } from 'immer';
 import { nanoid } from 'nanoid';
+import { languageAtom, translateAtom } from './language';
 
 // ===============================
 // Types
@@ -174,18 +175,38 @@ export const updateMessageAtom = atom(
   }
 );
 
-// Clear messages
+// Clear messages - uses translation system
 export const clearMessagesAtom = atom(
   null,
   (get, set) => {
+    const t = get(translateAtom);
     set(messagesAtom, [
       {
         id: 'welcome',
         role: 'assistant',
-        content: getClearMessage(),
+        content: t('chat.cleared'),
         timestamp: Date.now(),
       },
     ]);
+  }
+);
+
+// Refresh welcome message when language changes
+export const refreshWelcomeMessageAtom = atom(
+  null,
+  (get, set) => {
+    const t = get(translateAtom);
+    const messages = get(messagesAtom);
+    // Only update if first message is the welcome message
+    if (messages.length > 0 && messages[0].id === 'welcome') {
+      set(messagesAtom, [
+        {
+          ...messages[0],
+          content: t('chat.welcome'),
+        },
+        ...messages.slice(1),
+      ]);
+    }
   }
 );
 

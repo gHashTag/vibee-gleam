@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
+import { useLanguage } from '@/hooks/useLanguage';
 import { templatePropsAtom, updateTemplatePropAtom, currentFrameAtom, projectAtom, transcribingAtom } from '@/atoms';
 import type { CaptionItem, CaptionStyle } from '@/store/types';
 import {
@@ -163,6 +164,7 @@ function parseVtt(content: string): CaptionItem[] {
 }
 
 export function CaptionsPanel() {
+  const { t } = useLanguage();
   const templateProps = useAtomValue(templatePropsAtom);
   const updateTemplateProp = useSetAtom(updateTemplatePropAtom);
   const currentFrame = useAtomValue(currentFrameAtom);
@@ -197,7 +199,7 @@ export function CaptionsPanel() {
   const handleTranscribe = async () => {
     const lipSyncVideo = templateProps.lipSyncVideo;
     if (!lipSyncVideo) {
-      alert('No video loaded. Please add a lip-sync video first.');
+      alert(t('captions.noVideo'));
       return;
     }
 
@@ -225,7 +227,7 @@ export function CaptionsPanel() {
       }
     } catch (error) {
       console.error('[Captions] Transcription error:', error);
-      alert(`Transcription failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(`${t('captions.transcriptionFailed')} ${error instanceof Error ? error.message : t('chat.unknownError')}`);
     } finally {
       setTranscribing(false);
     }
@@ -252,7 +254,7 @@ export function CaptionsPanel() {
         updateTemplateProp({ key: 'captions', value: parsedCaptions });
         console.log(`[Captions] Loaded ${parsedCaptions.length} captions from ${file.name}`);
       } else {
-        alert('Could not parse captions from file. Please check the format.');
+        alert(t('captions.parseError'));
       }
     };
 
@@ -352,20 +354,20 @@ export function CaptionsPanel() {
             onClick={() => setActiveTab('captions')}
           >
             <Type size={14} />
-            Captions
+            {t('captions.title')}
           </button>
           <button
             className={`caption-tab ${activeTab === 'style' ? 'active' : ''}`}
             onClick={() => setActiveTab('style')}
           >
             <Palette size={14} />
-            Style
+            {t('captions.style')}
           </button>
         </div>
         <button
           className={`caption-toggle ${showCaptions ? 'active' : ''}`}
           onClick={handleToggleCaptions}
-          title={showCaptions ? 'Hide captions' : 'Show captions'}
+          title={showCaptions ? t('captions.hide') : t('captions.show')}
         >
           {showCaptions ? <Eye size={16} /> : <EyeOff size={16} />}
         </button>
@@ -378,7 +380,7 @@ export function CaptionsPanel() {
           <div className="caption-actions">
             <button className="add-caption-btn" onClick={handleAddCaption}>
               <Plus size={16} />
-              Add at {formatTime(currentTimeMs)}
+              {t('captions.addAt')} {formatTime(currentTimeMs)}
             </button>
             <input
               ref={fileInputRef}
@@ -390,23 +392,23 @@ export function CaptionsPanel() {
             <button
               className="upload-caption-btn"
               onClick={() => fileInputRef.current?.click()}
-              title="Upload .srt or .vtt file"
+              title={t('captions.uploadHint')}
             >
               <Upload size={16} />
-              Import
+              {t('captions.import')}
             </button>
             <button
               className="transcribe-btn"
               onClick={handleTranscribe}
               disabled={isTranscribing}
-              title="Auto-transcribe Russian audio using Whisper"
+              title={t('captions.transcribeHint')}
             >
               {isTranscribing ? (
                 <Loader2 size={16} className="spinning" />
               ) : (
                 <Mic size={16} />
               )}
-              {isTranscribing ? 'Transcribing...' : 'Transcribe RU'}
+              {isTranscribing ? t('captions.transcribing') : t('captions.transcribe')}
             </button>
           </div>
 
@@ -415,8 +417,8 @@ export function CaptionsPanel() {
             {captions.length === 0 ? (
               <div className="captions-empty">
                 <FileText size={32} />
-                <p>No captions yet</p>
-                <span>Add manually or import .srt/.vtt file</span>
+                <p>{t('captions.empty')}</p>
+                <span>{t('captions.emptyHint')}</span>
               </div>
             ) : (
               captions
@@ -474,9 +476,9 @@ export function CaptionsPanel() {
       {activeTab === 'style' && (
         <div className="captions-style">
           <div className="style-section">
-            <h4 className="style-section-title">Text</h4>
+            <h4 className="style-section-title">{t('captions.text')}</h4>
             <div className="style-row">
-              <label>Font Size</label>
+              <label>{t('captions.fontSize')}</label>
               <input
                 type="number"
                 value={captionStyle.fontSize || 48}
@@ -486,20 +488,20 @@ export function CaptionsPanel() {
               />
             </div>
             <div className="style-row">
-              <label>Font Weight</label>
+              <label>{t('captions.fontWeight')}</label>
               <select
                 value={captionStyle.fontWeight || 700}
                 onChange={(e) => handleStyleChange('fontWeight', Number(e.target.value))}
               >
-                <option value={400}>Regular</option>
-                <option value={500}>Medium</option>
-                <option value={600}>SemiBold</option>
-                <option value={700}>Bold</option>
-                <option value={800}>ExtraBold</option>
+                <option value={400}>{t('font.regular')}</option>
+                <option value={500}>{t('font.medium')}</option>
+                <option value={600}>{t('font.semibold')}</option>
+                <option value={700}>{t('font.bold')}</option>
+                <option value={800}>{t('font.extrabold')}</option>
               </select>
             </div>
             <div className="style-row font-selector-row">
-              <label>Font ({UNIQUE_FONTS.length} Cyrillic)</label>
+              <label>{t('captions.font')} ({UNIQUE_FONTS.length})</label>
               <div className="font-selector" ref={fontDropdownRef}>
                 <button
                   className="font-selector-button"
@@ -514,7 +516,7 @@ export function CaptionsPanel() {
                       <Search size={14} />
                       <input
                         type="text"
-                        placeholder="Search fonts..."
+                        placeholder={t('captions.searchFonts')}
                         value={fontSearch}
                         onChange={(e) => setFontSearch(e.target.value)}
                         autoFocus
@@ -523,7 +525,7 @@ export function CaptionsPanel() {
                     <div className="font-dropdown-list">
                       {!fontSearch && (
                         <>
-                          <div className="font-category">Popular</div>
+                          <div className="font-category">{t('captions.popular')}</div>
                           {POPULAR_FONTS.map((font: CyrillicFont) => (
                             <button
                               key={font.id}
@@ -531,10 +533,10 @@ export function CaptionsPanel() {
                               onClick={() => handleFontSelect(font.id)}
                             >
                               <span className="font-option-name" style={{ fontFamily: font.name }}>{font.name}</span>
-                              <span className="font-option-preview" style={{ fontFamily: font.name }}>Привет</span>
+                              <span className="font-option-preview" style={{ fontFamily: font.name }}>{t('captions.previewText')}</span>
                             </button>
                           ))}
-                          <div className="font-category">All Fonts</div>
+                          <div className="font-category">{t('captions.allFonts')}</div>
                         </>
                       )}
                       {filteredFonts
@@ -550,7 +552,7 @@ export function CaptionsPanel() {
                           </button>
                         ))}
                       {filteredFonts.length === 0 && (
-                        <div className="font-no-results">No fonts found</div>
+                        <div className="font-no-results">{t('captions.noFonts')}</div>
                       )}
                     </div>
                   </div>
@@ -560,9 +562,9 @@ export function CaptionsPanel() {
           </div>
 
           <div className="style-section">
-            <h4 className="style-section-title">Colors</h4>
+            <h4 className="style-section-title">{t('captions.colors')}</h4>
             <div className="style-row">
-              <label>Text Color</label>
+              <label>{t('captions.textColor')}</label>
               <input
                 type="color"
                 value={toHexColor(captionStyle.textColor, '#ffffff')}
@@ -570,7 +572,7 @@ export function CaptionsPanel() {
               />
             </div>
             <div className="style-row">
-              <label>Highlight</label>
+              <label>{t('captions.highlight')}</label>
               <input
                 type="color"
                 value={toHexColor(captionStyle.highlightColor, '#f59e0b')}
@@ -578,7 +580,7 @@ export function CaptionsPanel() {
               />
             </div>
             <div className="style-row">
-              <label>Background</label>
+              <label>{t('captions.background')}</label>
               <input
                 type="color"
                 value={toHexColor(captionStyle.backgroundColor, '#000000')}
@@ -588,9 +590,9 @@ export function CaptionsPanel() {
           </div>
 
           <div className="style-section">
-            <h4 className="style-section-title">Position</h4>
+            <h4 className="style-section-title">{t('captions.position')}</h4>
             <div className="style-row">
-              <label>Bottom %</label>
+              <label>{t('captions.bottomPercent')}</label>
               <input
                 type="number"
                 value={captionStyle.bottomPercent || 20}
@@ -600,7 +602,7 @@ export function CaptionsPanel() {
               />
             </div>
             <div className="style-row">
-              <label>Max Width %</label>
+              <label>{t('captions.maxWidth')}</label>
               <input
                 type="number"
                 value={captionStyle.maxWidthPercent || 85}
@@ -612,7 +614,7 @@ export function CaptionsPanel() {
           </div>
 
           <div className="style-section">
-            <h4 className="style-section-title">Effects</h4>
+            <h4 className="style-section-title">{t('captions.effects')}</h4>
             <div className="style-row checkbox">
               <label>
                 <input
@@ -620,7 +622,7 @@ export function CaptionsPanel() {
                   checked={captionStyle.showShadow ?? true}
                   onChange={(e) => handleStyleChange('showShadow', e.target.checked)}
                 />
-                Text Shadow
+                {t('captions.textShadow')}
               </label>
             </div>
           </div>
@@ -630,7 +632,7 @@ export function CaptionsPanel() {
       {/* Current Caption Preview */}
       {currentCaption && showCaptions && (
         <div className="caption-preview">
-          <span className="preview-label">Current:</span>
+          <span className="preview-label">{t('captions.current')}:</span>
           <span className="preview-text">{currentCaption.text}</span>
         </div>
       )}

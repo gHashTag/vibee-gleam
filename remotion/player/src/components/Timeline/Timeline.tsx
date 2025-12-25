@@ -1,5 +1,6 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
+import { useLanguage } from '@/hooks/useLanguage';
 import {
   projectAtom,
   tracksAtom,
@@ -27,6 +28,7 @@ import { Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, ChevronDown, Chevr
 import './Timeline.css';
 
 export function Timeline() {
+  const { t } = useLanguage();
   const timelineRef = useRef<HTMLDivElement>(null);
 
   // Jotai atoms - прямое использование
@@ -220,17 +222,17 @@ export function Timeline() {
       {/* Transport Controls */}
       <div className="timeline-transport">
         <div className="transport-controls">
-          <button className="transport-btn" onClick={handleSkipBack} title="Skip to start">
+          <button className="transport-btn" onClick={handleSkipBack} title={t('timeline.skipToStart')}>
             <SkipBack size={16} />
           </button>
           <button
             className="transport-btn play-btn"
             onClickCapture={handlePlay}
-            title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+            title={isPlaying ? `${t('timeline.pause')} (Space)` : `${t('timeline.play')} (Space)`}
           >
             {isPlaying ? <Pause size={18} /> : <Play size={18} />}
           </button>
-          <button className="transport-btn" onClick={handleSkipForward} title="Skip to end">
+          <button className="transport-btn" onClick={handleSkipForward} title={t('timeline.skipToEnd')}>
             <SkipForward size={16} />
           </button>
         </div>
@@ -246,7 +248,7 @@ export function Timeline() {
             className="speed-btn"
             onClick={handleSpeedDown}
             disabled={currentSpeedIndex <= 0}
-            title="Slower"
+            title={t('timeline.slower')}
           >
             <ChevronDown size={12} />
           </button>
@@ -257,7 +259,7 @@ export function Timeline() {
             className="speed-btn"
             onClick={handleSpeedUp}
             disabled={currentSpeedIndex >= speedPresets.length - 1}
-            title="Faster"
+            title={t('timeline.faster')}
           >
             <ChevronUp size={12} />
           </button>
@@ -267,7 +269,7 @@ export function Timeline() {
           <button
             className={`transport-btn ${isMuted ? '' : 'active'}`}
             onClick={handleMuteToggle}
-            title={isMuted ? 'Unmute audio' : 'Mute audio'}
+            title={isMuted ? t('timeline.unmute') : t('timeline.mute')}
           >
             {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
           </button>
@@ -279,27 +281,27 @@ export function Timeline() {
             step="0.05"
             value={isMuted ? 0 : volume}
             onChange={handleVolumeChange}
-            title={`Volume: ${Math.round(volume * 100)}%`}
+            title={`${t('timeline.volume')}: ${Math.round(volume * 100)}%`}
           />
         </div>
 
         <button
           className={`transport-btn snap-btn ${snapSettings.enabled ? 'active' : ''}`}
           onClick={() => setSnapEnabled(!snapSettings.enabled)}
-          title={`Snap to grid (${snapSettings.enabled ? 'ON' : 'OFF'})`}
+          title={`${t('timeline.snapToGrid')} (${snapSettings.enabled ? t('timeline.on') : t('timeline.off')})`}
         >
           <Magnet size={14} />
         </button>
 
         <div className="transport-zoom">
-          <button className="transport-btn" onClick={handleZoomOut} title="Zoom out (-)">
+          <button className="transport-btn" onClick={handleZoomOut} title={`${t('timeline.zoomOut')} (-)`}>
             <ZoomOut size={14} />
           </button>
           <span className="zoom-label">{Math.round(timelineZoom * 100)}%</span>
-          <button className="transport-btn" onClick={handleZoomIn} title="Zoom in (+)">
+          <button className="transport-btn" onClick={handleZoomIn} title={`${t('timeline.zoomIn')} (+)`}>
             <ZoomIn size={14} />
           </button>
-          <button className="transport-btn" onClick={handleFitToView} title="Fit to view (Shift+Z)">
+          <button className="transport-btn" onClick={handleFitToView} title={`${t('timeline.fitToView')} (Shift+Z)`}>
             <Maximize2 size={14} />
           </button>
         </div>
@@ -315,7 +317,7 @@ export function Timeline() {
               <button
                 className={`track-lock-btn ${track.locked ? 'active' : ''}`}
                 onClick={() => updateTrack({ trackId: track.id, updates: { locked: !track.locked } })}
-                title={track.locked ? 'Unlock track' : 'Lock track'}
+                title={track.locked ? t('layers.unlockTrack') : t('layers.lockTrack')}
               >
                 {track.locked ? <Lock size={12} /> : <Unlock size={12} />}
               </button>

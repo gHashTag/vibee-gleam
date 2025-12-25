@@ -50,6 +50,8 @@ import vibee/mcp/content_tools
 import vibee/mcp/sales_tools
 import vibee/api/e2e_handlers
 import vibee/mcp/config_tools
+import vibee/mcp/permission_tools
+import vibee/mcp/notification_tools
 import vibee/config/dynamic_config
 import vibee/db/postgres
 import vibee/mcp/twin_tools
@@ -655,6 +657,10 @@ pub fn init_registry() -> ToolRegistry {
     |> list.append(sales_tools.get_sales_tools())
     // Add Config tools (dynamic configuration management, hot-reload)
     |> list.append(config_tools.get_all_tools())
+    // Add Permission tools (chat permissions, whitelist management)
+    |> list.append(permission_tools.get_all_tools())
+    // Add Notification tools (owner notifications, event filters)
+    |> list.append(notification_tools.get_all_tools())
     // Add Twin tools (Digital Twin configuration, ElizaOS compatible)
     |> list.append(twin_tools.get_all_tools())
     // Add Reports tools (Owner activity reports and growth strategies)
@@ -877,6 +883,17 @@ pub fn init_registry() -> ToolRegistry {
     |> dict.insert("trigger_chat_add", config_tools.handle_trigger_chat_add)
     |> dict.insert("trigger_chat_remove", config_tools.handle_trigger_chat_remove)
     |> dict.insert("config_cache_clear", config_tools.handle_config_cache_clear)
+    // Permission tools handlers (chat permissions, whitelist)
+    |> dict.insert("chat_permission_get", permission_tools.handle_permission_get)
+    |> dict.insert("chat_permission_grant", permission_tools.handle_permission_grant)
+    |> dict.insert("chat_permission_revoke", permission_tools.handle_permission_revoke)
+    |> dict.insert("chat_permission_list", permission_tools.handle_permission_list)
+    |> dict.insert("chat_permission_pending", permission_tools.handle_permission_pending)
+    // Notification tools handlers (owner notifications, event filters)
+    |> dict.insert("owner_notifications_get", notification_tools.handle_notifications_get)
+    |> dict.insert("owner_notifications_set", notification_tools.handle_notifications_set)
+    |> dict.insert("owner_notifications_mute", notification_tools.handle_notifications_mute)
+    |> dict.insert("owner_notifications_history", notification_tools.handle_notifications_history)
     // Twin tools handlers (Digital Twin configuration)
     |> dict.insert("twin_config_get", twin_tools.handle_twin_config_get)
     |> dict.insert("twin_config_set", twin_tools.handle_twin_config_set)

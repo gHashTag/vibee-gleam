@@ -293,6 +293,37 @@
   color: #fff;
 }
 
+/* Language Switcher */
+.lang-switcher {
+  display: flex;
+  gap: 2px;
+  background: #1a1a1a;
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.lang-btn {
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.lang-btn.active {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.lang-btn:hover:not(.active) {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
 /* Settings Modal */
 .settings-overlay {
   position: fixed;

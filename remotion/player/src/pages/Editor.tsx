@@ -4,7 +4,6 @@ import { loadCaptionsAtom, updateDurationFromLipSyncAtom, lipSyncVideoAtom, tran
 import { useAutoRecordHistory } from '@/atoms/hooks';
 import { Header } from '@/components/Header';
 import { AssetsPanel } from '@/components/Panels/AssetsPanel';
-import { PropertiesPanel } from '@/components/Panels/PropertiesPanel';
 import { LayersPanel } from '@/components/Panels/LayersPanel';
 import { CaptionsPanel } from '@/components/Panels/CaptionsPanel';
 import { ChatPanel } from '@/components/Panels/ChatPanel';
@@ -14,11 +13,13 @@ import { Timeline } from '@/components/Timeline/Timeline';
 import { ShortcutsModal } from '@/components/Modals/ShortcutsModal';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboard';
 import { useWebSocket, setGlobalWsSend } from '@/lib/websocket';
-import { Film, Layers, Settings, Subtitles, LayoutTemplate } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
+import { Film, Layers, Subtitles, LayoutTemplate } from 'lucide-react';
 
-type LeftPanelTab = 'templates' | 'assets' | 'layers' | 'props' | 'captions';
+type LeftPanelTab = 'templates' | 'assets' | 'layers' | 'captions';
 
 function EditorContent() {
+  const { t } = useLanguage();
   const [leftTab, setLeftTab] = useState<LeftPanelTab>('templates');
   const [showShortcuts, setShowShortcuts] = useState(false);
 
@@ -112,35 +113,28 @@ function EditorContent() {
             <button
               className={`sidebar-tab ${leftTab === 'templates' ? 'active' : ''}`}
               onClick={() => setLeftTab('templates')}
-              title="Templates"
+              title={t('tabs.templates')}
             >
               <LayoutTemplate size={16} />
             </button>
             <button
               className={`sidebar-tab ${leftTab === 'assets' ? 'active' : ''}`}
               onClick={() => setLeftTab('assets')}
-              title="Assets"
+              title={t('tabs.assets')}
             >
               <Film size={16} />
             </button>
             <button
               className={`sidebar-tab ${leftTab === 'layers' ? 'active' : ''}`}
               onClick={() => setLeftTab('layers')}
-              title="Layers"
+              title={t('tabs.layers')}
             >
               <Layers size={16} />
             </button>
             <button
-              className={`sidebar-tab ${leftTab === 'props' ? 'active' : ''}`}
-              onClick={() => setLeftTab('props')}
-              title="Properties"
-            >
-              <Settings size={16} />
-            </button>
-            <button
               className={`sidebar-tab ${leftTab === 'captions' ? 'active' : ''}`}
               onClick={() => setLeftTab('captions')}
-              title="Captions"
+              title={t('tabs.captions')}
             >
               <Subtitles size={16} />
             </button>
@@ -149,7 +143,6 @@ function EditorContent() {
             {leftTab === 'templates' && <TemplatesPanel />}
             {leftTab === 'assets' && <AssetsPanel />}
             {leftTab === 'layers' && <LayersPanel />}
-            {leftTab === 'props' && <PropertiesPanel />}
             {leftTab === 'captions' && <CaptionsPanel />}
           </div>
         </aside>

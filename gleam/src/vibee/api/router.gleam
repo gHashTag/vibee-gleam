@@ -53,6 +53,7 @@ import vibee/api/e2e_handlers
 import vibee/api/editor_agent_ws
 import vibee/api/video_api
 import vibee/api/render_quota_handlers
+import vibee/notifications/owner_callbacks
 
 /// WebSocket message types
 pub type WsMessage {
@@ -2461,15 +2462,53 @@ fn handle_bot_callback(req: Request(Connection)) -> Response(ResponseData) {
 
               io.println("[BotCallback] 🎯 Routing: chat=" <> int.to_string(chat_id) <> ", user=" <> int.to_string(user_id) <> ", data=" <> callback_data)
 
-              // TODO: Call scene router to process callback
-              // For now, return success
-              let response_body = json.object([
-                #("success", json.bool(True)),
-                #("chat_id", json.int(chat_id)),
-                #("callback_data", json.string(callback_data)),
-                #("message", json.string("Callback processed")),
-              ])
-              json_response(200, response_body)
+              // Route owner notification callbacks
+              case owner_callbacks.is_owner_callback(callback_data) {
+                True -> {
+                  io.println("[BotCallback] 🔔 Owner callback detected")
+                  let result = owner_callbacks.handle(callback_data)
+                  case result {
+                    owner_callbacks.CallbackSuccess(text, show_alert) -> {
+                      // Answer with result text
+                      let _ = bot_api.answer_callback(bot_config, callback.query_id, text, show_alert)
+                      let response_body = json.object([
+                        #("success", json.bool(True)),
+                        #("action", json.string("owner_callback")),
+                        #("message", json.string(text)),
+                      ])
+                      json_response(200, response_body)
+                    }
+                    owner_callbacks.CallbackError(text) -> {
+                      let _ = bot_api.answer_callback(bot_config, callback.query_id, text, True)
+                      let response_body = json.object([
+                        #("success", json.bool(False)),
+                        #("error", json.string(text)),
+                      ])
+                      json_response(400, response_body)
+                    }
+                    owner_callbacks.CallbackUrl(url) -> {
+                      // Send URL to open (not fully supported via answer_callback)
+                      let _ = bot_api.answer_callback(bot_config, callback.query_id, "Opening...", False)
+                      let response_body = json.object([
+                        #("success", json.bool(True)),
+                        #("action", json.string("open_url")),
+                        #("url", json.string(url)),
+                      ])
+                      json_response(200, response_body)
+                    }
+                  }
+                }
+                False -> {
+                  // Other callbacks - process through scene router
+                  let response_body = json.object([
+                    #("success", json.bool(True)),
+                    #("chat_id", json.int(chat_id)),
+                    #("callback_data", json.string(callback_data)),
+                    #("message", json.string("Callback processed")),
+                  ])
+                  json_response(200, response_body)
+                }
+              }
             }
             Error(_) -> {
               io.println("[BotCallback] ❌ Failed to parse callback query")

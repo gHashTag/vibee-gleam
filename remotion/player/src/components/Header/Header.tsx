@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
+import { useLanguage } from '@/hooks/useLanguage';
 import {
   projectAtom,
   tracksAtom,
@@ -99,6 +100,9 @@ interface HeaderProps {
 }
 
 export function Header({ wsStatus, wsClientId }: HeaderProps) {
+  // Language hook
+  const { lang, setLang, t } = useLanguage();
+
   // Jotai atoms - прямое использование
   const project = useAtomValue(projectAtom);
   const tracks = useAtomValue(tracksAtom);
@@ -148,6 +152,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
   const resetToDefaults = () => resetTracks({ fps: 30, durationInFrames: 825 });
 
   const [showBlobWarning, setShowBlobWarning] = useState(false);
+  const [showCriticalBlobError, setShowCriticalBlobError] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [exportSettings, setExportSettings] = useState<ExportSettings>(getExportSettings);
@@ -158,7 +163,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
     setExportSettings(newSettings);
     saveExportSettings(newSettings);
   };
-  const [blobAssets, setBlobAssets] = useState<string[]>([]);
+  const [blobAssets, setBlobAssets] = useState<{ critical: string[]; optional: string[] }>({ critical: [], optional: [] });
 
   // Project Export - save as JSON file
   const handleProjectExport = () => {
@@ -194,7 +199,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
         const data = JSON.parse(content);
 
         if (!data.project || !data.tracks) {
-          alert('Invalid project file format');
+          alert(t('editor.invalidFormat'));
           return;
         }
 
@@ -207,10 +212,10 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
         }
 
         console.log(`[Project] Imported project: ${data.project?.name || 'Unknown'}`);
-        alert(`Project "${data.project?.name || 'Unknown'}" imported successfully!`);
+        alert(t('editor.importSuccess'));
       } catch (err) {
         console.error('[Project] Import failed:', err);
-        alert('Failed to import project. Invalid JSON format.');
+        alert(t('editor.importFailed'));
       }
     };
 
@@ -219,33 +224,36 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
   };
 
   // Check for blob URLs in assets
-  const checkForBlobUrls = (): string[] => {
-    const blobUrls: string[] = [];
+  // Returns { critical: string[], optional: string[] }
+  // Critical = lipSyncVideo (required for render), Optional = can be skipped
+  const checkForBlobUrls = (): { critical: string[]; optional: string[] } => {
+    const critical: string[] = [];
+    const optional: string[] = [];
 
-    // Check backgroundVideos
+    // Check lipSyncVideo - CRITICAL (required for render with audio)
+    if (templateProps.lipSyncVideo.startsWith('blob:')) {
+      critical.push('Lipsync video');
+    }
+
+    // Check backgroundVideos - optional (will be skipped)
     templateProps.backgroundVideos.forEach((url) => {
       if (url.startsWith('blob:')) {
         const asset = assets.find((a) => a.url === url);
-        blobUrls.push(asset?.name || 'Unknown video');
+        optional.push(asset?.name || 'Unknown video');
       }
     });
 
-    // Check lipSyncVideo
-    if (templateProps.lipSyncVideo.startsWith('blob:')) {
-      blobUrls.push('Lipsync video');
-    }
-
-    // Check coverImage
+    // Check coverImage - optional
     if (templateProps.coverImage.startsWith('blob:')) {
-      blobUrls.push('Cover image');
+      optional.push('Cover image');
     }
 
-    // Check backgroundMusic
+    // Check backgroundMusic - optional
     if (templateProps.backgroundMusic?.startsWith('blob:')) {
-      blobUrls.push('Background music');
+      optional.push('Background music');
     }
 
-    return blobUrls;
+    return { critical, optional };
   };
 
   const handleExportClick = () => {
@@ -262,8 +270,16 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
     }
 
     const blobs = checkForBlobUrls();
-    if (blobs.length > 0) {
-      setBlobAssets(blobs);
+    setBlobAssets(blobs);
+
+    // Critical blob URLs (lipSyncVideo) - block export completely
+    if (blobs.critical.length > 0) {
+      setShowCriticalBlobError(true);
+      return;
+    }
+
+    // Optional blob URLs - show warning but allow export
+    if (blobs.optional.length > 0) {
       setShowBlobWarning(true);
     } else {
       handleExport();
@@ -418,7 +434,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
             } else if (data.status === 'failed') {
               console.error('[Export] Render failed:', data.error);
               eventSource.close();
-              alert(`Export failed: ${data.error || 'Unknown error'}`);
+              alert(`${t('editor.exportFailed')}: ${data.error || t('editor.unknownError')}`);
               setExporting(false, 0);
             }
           } catch (e) {
@@ -431,7 +447,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
           eventSource.close();
           // Don't show error if already completed
           if (isExporting) {
-            alert('Lost connection to render server');
+            alert(t('editor.connectionLost'));
             setExporting(false, 0);
           }
         };
@@ -452,7 +468,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
       }
     } catch (error) {
       console.error('[Export] Error:', error);
-      alert(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(`${t('editor.exportFailed')}: ${error instanceof Error ? error.message : t('editor.unknownError')}`);
       setExporting(false, 0);
     }
   };
@@ -482,7 +498,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
             className="header-button undo-btn"
             onClick={undo}
             disabled={!canUndo()}
-            title="Undo (Cmd+Z)"
+            title={`${t('editor.undo')} (Cmd+Z)`}
           >
             <Undo2 size={16} />
           </button>
@@ -490,10 +506,22 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
             className="header-button redo-btn"
             onClick={redo}
             disabled={!canRedo()}
-            title="Redo (Cmd+Shift+Z)"
+            title={`${t('editor.redo')} (Cmd+Shift+Z)`}
           >
             <Redo2 size={16} />
           </button>
+        </div>
+
+        {/* Language Switcher */}
+        <div className="lang-switcher">
+          <button
+            className={`lang-btn ${lang === 'en' ? 'active' : ''}`}
+            onClick={() => setLang('en')}
+          >EN</button>
+          <button
+            className={`lang-btn ${lang === 'ru' ? 'active' : ''}`}
+            onClick={() => setLang('ru')}
+          >RU</button>
         </div>
 
         {/* WebSocket status indicator */}
@@ -501,8 +529,8 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
           <div
             className={`ws-status ${wsStatus}`}
             title={wsStatus === 'connected'
-              ? `Real-time sync active${wsClientId ? ` (${wsClientId.slice(0, 8)})` : ''}`
-              : 'Connecting to sync server...'}
+              ? `${t('ws.syncActive')}${wsClientId ? ` (${wsClientId.slice(0, 8)})` : ''}`
+              : t('ws.connecting')}
           >
             {wsStatus === 'connected' ? (
               <Wifi size={16} className="ws-icon connected" />
@@ -515,7 +543,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
         <button
           className="header-button"
           onClick={() => (isPlaying ? pause() : play())}
-          title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+          title={isPlaying ? `${t('player.pause')} (Space)` : `${t('player.play')} (Space)`}
         >
           {isPlaying ? <Pause size={18} /> : <Play size={18} />}
         </button>
@@ -524,7 +552,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
         <button
           className="header-button"
           onClick={handleProjectExport}
-          title="Save Project (.vibee.json)"
+          title={t('editor.save')}
         >
           <Save size={18} />
         </button>
@@ -538,7 +566,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
         <button
           className="header-button"
           onClick={() => projectImportRef.current?.click()}
-          title="Load Project"
+          title={t('editor.load')}
         >
           <Upload size={18} />
         </button>
@@ -546,18 +574,11 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
         <button
           className="header-button reset-btn"
           onClick={() => setShowResetConfirm(true)}
-          title="Reset to Defaults"
+          title={t('editor.reset')}
         >
           <RotateCcw size={18} />
         </button>
 
-        <button
-          className="header-button"
-          title="Settings"
-          onClick={() => setShowSettings(true)}
-        >
-          <Settings size={18} />
-        </button>
 
         {/* User login / Quota display */}
         {user ? (
@@ -578,9 +599,9 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
                 <span>
                   {quota.subscription
                     ? quota.subscription.remaining === null
-                      ? 'Unlimited'
-                      : `${quota.subscription.remaining} left`
-                    : `${quota.free_remaining}/3 free`}
+                      ? t('quota.unlimited')
+                      : `${quota.subscription.remaining} ${t('quota.left')}`
+                    : `${quota.free_remaining}/3 ${t('quota.free')}`}
                 </span>
               </div>
             )}
@@ -602,43 +623,74 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
             {isExporting
               ? exportProgress > 0
                 ? `${exportProgress}%`
-                : 'Rendering...'
-              : 'Export'}
+                : t('editor.exporting')
+              : t('editor.export')}
           </span>
         </button>
       </div>
 
-      {/* Blob URL Warning Dialog */}
+      {/* Critical Blob URL Error Dialog - blocks export */}
+      {showCriticalBlobError && (
+        <div className="blob-warning-overlay" onClick={() => setShowCriticalBlobError(false)}>
+          <div className="blob-warning-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="blob-warning-header">
+              <X size={24} className="warning-icon" style={{ color: '#ef4444' }} />
+              <h3>{t('blob.criticalTitle')}</h3>
+            </div>
+            <p className="blob-warning-text">
+              {t('blob.criticalText')}
+            </p>
+            <ul className="blob-warning-list">
+              {blobAssets.critical.map((name, i) => (
+                <li key={i} style={{ color: '#ef4444' }}>{name}</li>
+              ))}
+            </ul>
+            <p className="blob-warning-hint">
+              {t('blob.criticalHint')}
+            </p>
+            <div className="blob-warning-actions">
+              <button
+                className="blob-warning-btn primary"
+                onClick={() => setShowCriticalBlobError(false)}
+              >
+                {t('dialog.ok')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Blob URL Warning Dialog - optional assets */}
       {showBlobWarning && (
         <div className="blob-warning-overlay" onClick={() => setShowBlobWarning(false)}>
           <div className="blob-warning-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="blob-warning-header">
               <AlertTriangle size={24} className="warning-icon" />
-              <h3>Local Files Detected</h3>
+              <h3>{t('blob.title')}</h3>
             </div>
             <p className="blob-warning-text">
-              The following files are stored locally and will be <strong>skipped</strong> during export:
+              {t('blob.text')}
             </p>
             <ul className="blob-warning-list">
-              {blobAssets.map((name, i) => (
+              {blobAssets.optional.map((name, i) => (
                 <li key={i}>{name}</li>
               ))}
             </ul>
             <p className="blob-warning-hint">
-              To include these files, delete and re-upload them. They will be stored in the cloud.
+              {t('blob.hint')}
             </p>
             <div className="blob-warning-actions">
               <button
                 className="blob-warning-btn secondary"
                 onClick={() => setShowBlobWarning(false)}
               >
-                Cancel
+                {t('dialog.cancel')}
               </button>
               <button
                 className="blob-warning-btn primary"
                 onClick={handleExport}
               >
-                Export Anyway
+                {t('dialog.exportAnyway')}
               </button>
             </div>
           </div>
@@ -651,20 +703,20 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
           <div className="reset-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="reset-header">
               <RotateCcw size={24} className="reset-icon" />
-              <h3>Reset to Defaults?</h3>
+              <h3>{t('dialog.reset.title')}</h3>
             </div>
             <p className="reset-text">
-              All changes will be lost. Timeline, assets, and settings will be restored to their original state.
+              {t('dialog.reset.text')}
             </p>
             <p className="reset-warning">
-              This action cannot be undone.
+              {t('dialog.reset.warning')}
             </p>
             <div className="reset-actions">
               <button
                 className="reset-btn-secondary"
                 onClick={() => setShowResetConfirm(false)}
               >
-                Cancel
+                {t('dialog.cancel')}
               </button>
               <button
                 className="reset-btn-danger"
@@ -673,7 +725,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
                   setShowResetConfirm(false);
                 }}
               >
-                Reset
+                {t('dialog.reset')}
               </button>
             </div>
           </div>
@@ -685,7 +737,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
         <div className="settings-overlay" onClick={() => setShowSettings(false)}>
           <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
             <div className="settings-header">
-              <h2>Settings</h2>
+              <h2>{t('settings.title')}</h2>
               <button className="settings-close" onClick={() => setShowSettings(false)}>
                 <X size={20} />
               </button>
@@ -694,109 +746,109 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
             <div className="settings-content">
               {/* Export Settings */}
               <div className="settings-section">
-                <h3>Export</h3>
+                <h3>{t('settings.export')}</h3>
                 <div className="settings-row">
-                  <label>Codec</label>
+                  <label>{t('settings.codec')}</label>
                   <select
                     value={exportSettings.codec}
                     onChange={(e) => handleSettingsChange('codec', e.target.value)}
                   >
-                    <option value="h264">H.264 (MP4) - Best compatibility</option>
-                    <option value="h265">H.265 (HEVC) - Smaller size</option>
-                    <option value="vp9">VP9 (WebM) - Web optimized</option>
-                    <option value="prores">ProRes - Professional</option>
+                    <option value="h264">{t('codec.h264')}</option>
+                    <option value="h265">{t('codec.h265')}</option>
+                    <option value="vp9">{t('codec.vp9')}</option>
+                    <option value="prores">{t('codec.prores')}</option>
                   </select>
                 </div>
                 <div className="settings-row">
-                  <label>Quality</label>
+                  <label>{t('settings.quality')}</label>
                   <select
                     value={exportSettings.quality}
                     onChange={(e) => handleSettingsChange('quality', e.target.value)}
                   >
-                    <option value="high">High (1080p)</option>
-                    <option value="medium">Medium (720p)</option>
-                    <option value="low">Low (480p)</option>
+                    <option value="high">{t('quality.high')}</option>
+                    <option value="medium">{t('quality.medium')}</option>
+                    <option value="low">{t('quality.low')}</option>
                   </select>
                 </div>
               </div>
 
               {/* Keyboard Shortcuts */}
               <div className="settings-section">
-                <h3><Keyboard size={16} /> Keyboard Shortcuts</h3>
+                <h3><Keyboard size={16} /> {t('settings.shortcuts')}</h3>
                 <div className="shortcuts-grid">
                   <div className="shortcut-item">
                     <kbd>Space</kbd>
-                    <span>Play / Pause</span>
+                    <span>{t('shortcut.playPause')}</span>
                   </div>
                   <div className="shortcut-item">
                     <kbd>J / K / L</kbd>
-                    <span>-1s / Pause / +1s</span>
+                    <span>{t('shortcut.jkl')}</span>
                   </div>
                   <div className="shortcut-item">
                     <kbd>Cmd/Ctrl + Z</kbd>
-                    <span>Undo</span>
+                    <span>{t('shortcut.undo')}</span>
                   </div>
                   <div className="shortcut-item">
                     <kbd>Cmd/Ctrl + Shift + Z</kbd>
-                    <span>Redo</span>
+                    <span>{t('shortcut.redo')}</span>
                   </div>
                   <div className="shortcut-item">
                     <kbd>Cmd/Ctrl + A</kbd>
-                    <span>Select All</span>
+                    <span>{t('shortcut.selectAll')}</span>
                   </div>
                   <div className="shortcut-item">
                     <kbd>Cmd/Ctrl + C</kbd>
-                    <span>Copy</span>
+                    <span>{t('shortcut.copy')}</span>
                   </div>
                   <div className="shortcut-item">
                     <kbd>Cmd/Ctrl + V</kbd>
-                    <span>Paste</span>
+                    <span>{t('shortcut.paste')}</span>
                   </div>
                   <div className="shortcut-item">
                     <kbd>Cmd/Ctrl + D</kbd>
-                    <span>Duplicate</span>
+                    <span>{t('shortcut.duplicate')}</span>
                   </div>
                   <div className="shortcut-item">
                     <kbd>Delete / Backspace</kbd>
-                    <span>Delete Selected</span>
+                    <span>{t('shortcut.delete')}</span>
                   </div>
                   <div className="shortcut-item">
                     <kbd>Escape</kbd>
-                    <span>Clear Selection</span>
+                    <span>{t('shortcut.clearSelection')}</span>
                   </div>
                   <div className="shortcut-item">
                     <kbd>Arrow Left/Right</kbd>
-                    <span>Move 1 Frame</span>
+                    <span>{t('shortcut.move1Frame')}</span>
                   </div>
                   <div className="shortcut-item">
                     <kbd>Shift + Arrow</kbd>
-                    <span>Move 10 Frames</span>
+                    <span>{t('shortcut.move10Frames')}</span>
                   </div>
                   <div className="shortcut-item">
                     <kbd>Home / End</kbd>
-                    <span>Go to Start / End</span>
+                    <span>{t('shortcut.goToStartEnd')}</span>
                   </div>
                 </div>
               </div>
 
               {/* Project Info */}
               <div className="settings-section">
-                <h3>Project</h3>
+                <h3>{t('settings.project')}</h3>
                 <div className="project-info">
                   <div className="info-row">
-                    <span>Name:</span>
+                    <span>{t('settings.name')}:</span>
                     <span>{project.name}</span>
                   </div>
                   <div className="info-row">
-                    <span>Resolution:</span>
+                    <span>{t('settings.resolution')}:</span>
                     <span>{project.width} x {project.height}</span>
                   </div>
                   <div className="info-row">
-                    <span>FPS:</span>
+                    <span>{t('settings.fps')}:</span>
                     <span>{project.fps}</span>
                   </div>
                   <div className="info-row">
-                    <span>Duration:</span>
+                    <span>{t('settings.duration')}:</span>
                     <span>{(project.durationInFrames / project.fps).toFixed(1)}s ({project.durationInFrames} frames)</span>
                   </div>
                 </div>
@@ -813,12 +865,13 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
       {showLoginModal && (
         <div className="login-modal-overlay" onClick={() => setShowLoginModal(false)}>
           <div className="login-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Login to Export</h2>
-            <p>Sign in with Telegram to get 3 free video renders!</p>
+            <h2>{t('login.title')}</h2>
+            <p>{t('login.subtitle')}</p>
             <div className="login-modal-widget">
               <TelegramLoginButton
                 onSuccess={() => setShowLoginModal(false)}
                 size="large"
+                showFallback={true}
               />
             </div>
           </div>

@@ -53,6 +53,7 @@ func NewRouter(cfg *config.Config, db *sql.DB) *Router {
 			Token:      cfg.BotToken,
 			WebhookURL: cfg.BotWebhookURL,
 			GleamURL:   cfg.GleamURL,
+			ApiKey:     cfg.ApiKey,
 		}
 		botClient, err := botapi.NewBotClient(botCfg)
 		if err != nil {

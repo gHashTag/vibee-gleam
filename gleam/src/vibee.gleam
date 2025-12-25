@@ -178,8 +178,8 @@ fn run_telegram_agent() {
           llm_model: "x-ai/grok-4.1-fast",
           auto_reply_enabled: True,
           cooldown_ms: 30_000,
-          // Digital Twin enabled for ALL sessions from DB
-          digital_twin_enabled: True,
+          // Digital Twin DISABLED - observation mode only
+          digital_twin_enabled: False,
           owner_id: owner_id,
         )
 

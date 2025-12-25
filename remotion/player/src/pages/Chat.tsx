@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLanguage } from '@/hooks/useLanguage';
 import './Chat.css';
 
 interface Message {
@@ -17,6 +18,7 @@ interface UploadedFiles {
 type ChatState = 'initial' | 'composition_selected' | 'cloning_video' | 'cloning_photo' | 'cloning_text' | 'rendering';
 
 export function ChatPage() {
+  const { t } = useLanguage();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -382,14 +384,14 @@ export function ChatPage() {
           <input
             type="text"
             className="chat-input"
-            placeholder="Напиши сообщение или загрузи файл..."
+            placeholder={t('chat.messagePlaceholder')}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
           />
-          
+
           <button className="send-btn" onClick={handleSend}>
-            Отправить
+            {t('chat.send')}
           </button>
         </div>
       </div>

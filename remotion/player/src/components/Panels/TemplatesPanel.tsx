@@ -1,9 +1,11 @@
 import { useAtomValue, useSetAtom } from 'jotai';
 import { templatesAtom, selectedTemplateIdAtom, selectTemplateAtom } from '@/atoms';
+import { useLanguage } from '@/hooks/useLanguage';
 import { LayoutTemplate, Check } from 'lucide-react';
 import './TemplatesPanel.css';
 
 export function TemplatesPanel() {
+  const { t } = useLanguage();
   const templates = useAtomValue(templatesAtom);
   const selectedTemplateId = useAtomValue(selectedTemplateIdAtom);
   const selectTemplate = useSetAtom(selectTemplateAtom);
@@ -12,7 +14,7 @@ export function TemplatesPanel() {
     <div className="templates-panel">
       <div className="panel-header">
         <LayoutTemplate size={14} />
-        <span>Templates</span>
+        <span>{t('templates.title')}</span>
       </div>
 
       <div className="template-list">

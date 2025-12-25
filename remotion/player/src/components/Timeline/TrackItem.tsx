@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { selectItemsAtom, selectRangeAtom, moveItemAtom, resizeItemAtom, getAssetByIdAtom, volumePopupItemIdAtom } from '@/atoms';
+import { useLanguage } from '@/hooks/useLanguage';
 import { ContextMenu } from './ContextMenu';
 import type { TrackItem as TrackItemType } from '@/store/types';
 
@@ -13,6 +14,7 @@ interface TrackItemProps {
 }
 
 export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected, isLocked = false }: TrackItemProps) {
+  const { t } = useLanguage();
   const selectItems = useSetAtom(selectItemsAtom);
   const selectRange = useSetAtom(selectRangeAtom);
   const moveItem = useSetAtom(moveItemAtom);
@@ -208,7 +210,7 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
           <span
             className={`track-badge volume clickable ${volume === 0 ? 'muted' : ''}`}
             onClick={handleVolumeClick}
-            title="Click to adjust volume"
+            title={t('track.clickToAdjustVolume')}
           >
             {volume === 0 ? '🔇' : `${Math.round(volume * 100)}%`}
           </span>

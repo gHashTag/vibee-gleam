@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { Player } from '@remotion/player';
 import type { PlayerRef } from '@remotion/player';
 import { useAtomValue, useSetAtom } from 'jotai';
+import { useLanguage } from '@/hooks/useLanguage';
 import {
   projectAtom,
   currentFrameAtom,
@@ -129,6 +130,8 @@ export function InteractiveCanvas() {
   const assets = useAtomValue(assetsAtom);
   const isTranscribing = useAtomValue(transcribingAtom);
   const captionsLoading = useAtomValue(captionsLoadingAtom);
+
+  const { t } = useLanguage();
 
   const setCurrentFrame = useSetAtom(currentFrameAtom);
   const setIsPlaying = useSetAtom(isPlayingAtom);
@@ -296,12 +299,12 @@ export function InteractiveCanvas() {
     if (!document.fullscreenElement) {
       container.requestFullscreen().catch((err) => {
         console.error('Fullscreen error:', err);
-        alert('Fullscreen not supported or blocked');
+        alert(t('canvas.fullscreenNotSupported'));
       });
     } else {
       document.exitFullscreen();
     }
-  }, []);
+  }, [t]);
 
   // Listen for fullscreen changes and calculate zoom
   useEffect(() => {
@@ -326,14 +329,14 @@ export function InteractiveCanvas() {
     <div className="canvas-container" onClick={handleCanvasClick} ref={containerRef}>
       {/* Zoom Controls */}
       <div className="canvas-controls" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="canvas-control-btn" onClick={handleZoomOut} title="Zoom out">
+        <button type="button" className="canvas-control-btn" onClick={handleZoomOut} title={t('canvas.zoomOut')}>
           <ZoomOut size={16} />
         </button>
         <span className="canvas-zoom-label">{Math.round(effectiveZoom * 100)}%</span>
-        <button type="button" className="canvas-control-btn" onClick={handleZoomIn} title="Zoom in">
+        <button type="button" className="canvas-control-btn" onClick={handleZoomIn} title={t('canvas.zoomIn')}>
           <ZoomIn size={16} />
         </button>
-        <button type="button" className="canvas-control-btn" onClick={handleFullscreen} title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
+        <button type="button" className="canvas-control-btn" onClick={handleFullscreen} title={isFullscreen ? t('canvas.exitFullscreen') : t('canvas.fullscreen')}>
           {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
         </button>
       </div>
@@ -344,7 +347,7 @@ export function InteractiveCanvas() {
           <div className="transcribing-indicator">
             <Mic size={24} className="transcribing-icon" />
             <Loader2 size={20} className="transcribing-spinner" />
-            <span>{isTranscribing ? 'Transcribing audio...' : 'Loading captions...'}</span>
+            <span>{isTranscribing ? t('canvas.transcribingAudio') : t('canvas.loadingCaptions')}</span>
           </div>
         </div>
       )}

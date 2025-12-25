@@ -231,6 +231,9 @@ export function useAutoRecordHistory() {
   const canvasZoom = useAtomValue(canvasZoomAtom);
   const recordSnapshot = useSetAtom(recordSnapshotAtom);
 
+  // Use JSON.stringify for stable comparison - templatePropsAtom returns new object reference every render!
+  const templatePropsString = useMemo(() => JSON.stringify(templateProps), [templateProps]);
+
   // Record initial snapshot on mount (so first undo has something to undo to)
   useEffect(() => {
     console.log('[History] Recording initial snapshot on mount');
@@ -239,9 +242,10 @@ export function useAutoRecordHistory() {
   }, []);
 
   // Record snapshot on state changes (NOT currentFrame - it changes too frequently)
+  // Using templatePropsString instead of templateProps to avoid new object reference triggering effect
   useEffect(() => {
     recordSnapshot();
-  }, [tracks, assets, project, templateProps, timelineZoom, canvasZoom, recordSnapshot]);
+  }, [tracks, assets, project, templatePropsString, timelineZoom, canvasZoom, recordSnapshot]);
 }
 
 // ===============================

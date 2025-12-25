@@ -2,6 +2,7 @@
 // OTP Actor для polling сообщений из Telegram через Go Bridge
 // With Agent Registry integration for observability
 
+import gleam/dict.{type Dict}
 import gleam/erlang/process.{type Subject}
 import gleam/http
 import gleam/http/request
@@ -38,6 +39,9 @@ pub type PollingState {
     /// Флаг: первый poll выполнен (seen_ids заполнен)
     /// При первом poll мы только заполняем seen_ids, не обрабатываем сообщения
     initial_poll_done: Bool,
+    /// Последний обработанный msg_id для каждого private чата
+    /// Используется для определения новых сообщений после рестарта
+    last_processed_per_chat: Dict(String, Int),
   )
 }
 
@@ -80,6 +84,7 @@ fn init_state(config: telegram_agent.TelegramAgentConfig) -> PollingState {
     agent_id: agent_id,
     logger: logger,
     initial_poll_done: False,
+    last_processed_per_chat: dict.new(),
   )
 }
 
@@ -119,6 +124,7 @@ fn init_state_with_events(
     agent_id: agent_id,
     logger: logger,
     initial_poll_done: False,
+    last_processed_per_chat: dict.new(),
   )
 }
 
@@ -257,12 +263,13 @@ fn do_poll(state: PollingState) -> PollingState {
       // Это предотвращает ответы на старые сообщения после деплоя
       case state.initial_poll_done {
         False -> {
-          // Первый poll - только заполнить seen_ids
+          // Первый poll - только заполнить seen_ids и last_processed
           vibe_logger.info(log, "Initial poll: populating seen_ids without processing")
-          let new_seen_ids = populate_seen_ids(
+          let #(new_seen_ids, new_last_processed) = populate_seen_ids(
             dialogs_json,
             state.config,
             state.seen_ids,
+            state.last_processed_per_chat,
             state.agent_id,
             log,
           )
@@ -273,9 +280,16 @@ fn do_poll(state: PollingState) -> PollingState {
           case seen_count > 0 {
             True -> {
               vibe_logger.info(log
-                |> vibe_logger.with_data("seen_count", json.int(seen_count)),
+                |> vibe_logger.with_data("seen_count", json.int(seen_count))
+                |> vibe_logger.with_data("private_chats_tracked", json.int(dict.size(new_last_processed))),
                 "Initial poll complete, ready for new messages")
-              PollingState(..state, poll_count: poll_num, seen_ids: new_seen_ids, initial_poll_done: True)
+              PollingState(
+                ..state,
+                poll_count: poll_num,
+                seen_ids: new_seen_ids,
+                initial_poll_done: True,
+                last_processed_per_chat: new_last_processed,
+              )
             }
             False -> {
               vibe_logger.warn(log, "Initial poll FAILED: seen_ids is empty, will retry next poll")
@@ -285,15 +299,22 @@ fn do_poll(state: PollingState) -> PollingState {
         }
         True -> {
           // Обычный poll - обрабатываем новые сообщения
-          let #(new_agent_state, new_seen_ids) = process_dialogs_with_events(
+          let #(new_agent_state, new_seen_ids, new_last_processed) = process_dialogs_with_events(
             state.agent_state,
             dialogs_json,
             state.event_bus,
             state.seen_ids,
+            state.last_processed_per_chat,
             state.agent_id,
             log,
           )
-          PollingState(..state, agent_state: new_agent_state, poll_count: poll_num, seen_ids: new_seen_ids)
+          PollingState(
+            ..state,
+            agent_state: new_agent_state,
+            poll_count: poll_num,
+            seen_ids: new_seen_ids,
+            last_processed_per_chat: new_last_processed,
+          )
         }
       }
     }
@@ -414,13 +435,15 @@ fn get_history(config: telegram_agent.TelegramAgentConfig, chat_id: String) -> R
 /// Заполнить seen_ids для всех существующих сообщений БЕЗ обработки
 /// Вызывается при первом poll после старта/рестарта актора
 /// Предотвращает ответы на старые сообщения после деплоя
+/// Возвращает: #(seen_ids, last_processed_per_chat)
 fn populate_seen_ids(
   dialogs_json: String,
   config: telegram_agent.TelegramAgentConfig,
   seen_ids: Set(String),
+  last_processed: Dict(String, Int),
   _agent_id: String,
   logger: vibe_logger.VibeLogger,
-) -> Set(String) {
+) -> #(Set(String), Dict(String, Int)) {
   // Находим все ID чатов
   let group_ids = extract_group_ids(dialogs_json, logger)
   let target_ids = target_chats.target_chats()
@@ -430,45 +453,64 @@ fn populate_seen_ids(
     |> vibe_logger.with_data("chat_count", json.int(list.length(all_ids))),
     "Populating seen_ids from existing chats")
 
-  // Получаем текущий timestamp для проверки свежести сообщений
-  let current_time = get_timestamp()
-  // Grace period: сообщения моложе 2 минут не добавляем в seen_ids
-  // чтобы они были обработаны на следующем poll
-  let grace_period_seconds = 120
-
-  // Обходим все чаты и добавляем их сообщения в seen_ids
-  list.fold(all_ids, seen_ids, fn(acc_seen, chat_id) {
+  // Обходим все чаты и:
+  // 1. Добавляем ВСЕ сообщения в seen_ids
+  // 2. Для личных чатов сохраняем max incoming msg_id в last_processed
+  // После рестарта обрабатываются только сообщения с msg_id > last_processed
+  list.fold(all_ids, #(seen_ids, last_processed), fn(acc, chat_id) {
+    let #(acc_seen, acc_last) = acc
     case get_history(config, chat_id) {
-      Error(_) -> acc_seen
+      Error(_) -> acc
       Ok(history_json) -> {
-        let messages = extract_messages_with_date(history_json)
-        // Добавляем сообщения в seen_ids, НО пропускаем свежие (< grace_period)
-        list.fold(messages, acc_seen, fn(acc, msg) {
-          let #(msg_id, _, _, _, _, _, _, _, is_outgoing, _, msg_timestamp) = msg
-          let unique_id = chat_id <> ":" <> int.to_string(msg_id)
-          let age_seconds = current_time - msg_timestamp
+        let messages = extract_messages(history_json)
 
-          // Для личных чатов (положительный chat_id) и ВХОДЯЩИХ сообщений:
-          // не добавляем в seen_ids если сообщение свежее (< grace_period)
-          let is_private = case int.parse(chat_id) {
-            Ok(id) -> id > 0
-            Error(_) -> False
+        // Проверяем, является ли чат личным (положительный ID)
+        let is_private = case int.parse(chat_id) {
+          Ok(id) -> id > 0
+          Error(_) -> False
+        }
+
+        // Для личных чатов находим max msg_id среди ВХОДЯЩИХ сообщений
+        let max_incoming_id = case is_private {
+          False -> -1
+          True -> {
+            list.fold(messages, -1, fn(max_id, msg) {
+              let #(msg_id, _, _, _, _, _, _, _, is_outgoing, _) = msg
+              case !is_outgoing && msg_id > max_id {
+                True -> msg_id
+                False -> max_id
+              }
+            })
           }
+        }
 
-          case is_private && !is_outgoing && age_seconds < grace_period_seconds {
-            True -> {
-              // Свежее входящее сообщение в личном чате - НЕ добавляем в seen
-              // Оно будет обработано на следующем poll
-              vibe_logger.info(logger
-                |> vibe_logger.with_data("chat_id", json.string(chat_id))
-                |> vibe_logger.with_data("msg_id", json.int(msg_id))
-                |> vibe_logger.with_data("age_seconds", json.int(age_seconds)),
-                "Initial poll: SKIPPING fresh message for later processing")
-              acc
-            }
-            False -> set.insert(acc, unique_id)
+        // Добавляем сообщения в seen_ids:
+        // - Для private чатов: ТОЛЬКО outgoing (свои) сообщения
+        // - Для групп: ВСЕ сообщения
+        // Входящие в private чатах обрабатываются через last_processed
+        let new_seen = list.fold(messages, acc_seen, fn(s, msg) {
+          let #(msg_id, _, _, _, _, _, _, _, is_outgoing, _) = msg
+          let unique_id = chat_id <> ":" <> int.to_string(msg_id)
+          // Для private чатов пропускаем incoming - они будут обработаны через last_processed
+          case is_private && !is_outgoing {
+            True -> s  // НЕ добавляем incoming в seen для private чатов
+            False -> set.insert(s, unique_id)
           }
         })
+
+        // Сохраняем last_processed для личных чатов
+        let new_last = case is_private && max_incoming_id > 0 {
+          True -> {
+            vibe_logger.info(logger
+              |> vibe_logger.with_data("chat_id", json.string(chat_id))
+              |> vibe_logger.with_data("last_processed_id", json.int(max_incoming_id)),
+              "Initial poll: set last_processed for private chat")
+            dict.insert(acc_last, chat_id, max_incoming_id)
+          }
+          False -> acc_last
+        }
+
+        #(new_seen, new_last)
       }
     }
   })
@@ -480,9 +522,10 @@ fn process_dialogs_with_events(
   dialogs_json: String,
   bus: Option(Subject(event_bus.PubSubMessage)),
   seen_ids: Set(String),
+  last_processed: Dict(String, Int),
   agent_id: String,
   logger: vibe_logger.VibeLogger,
-) -> #(telegram_agent.AgentState, Set(String)) {
+) -> #(telegram_agent.AgentState, Set(String), Dict(String, Int)) {
   // Находим все ID групп из JSON (диалоги из MTProto)
   let group_ids = extract_group_ids(dialogs_json, logger)
 
@@ -542,11 +585,11 @@ fn process_dialogs_with_events(
   }
 
   // Обрабатываем только отфильтрованные чаты
-  list.fold(filtered_ids, #(state, seen_ids), fn(acc, group_id) {
-    let #(acc_state, acc_seen) = acc
+  list.fold(filtered_ids, #(state, seen_ids, last_processed), fn(acc, group_id) {
+    let #(acc_state, acc_seen, acc_last) = acc
 
     // Получаем историю для этого чата
-    process_chat_messages_with_events(acc_state, group_id, bus, acc_seen, agent_id, logger)
+    process_chat_messages_with_events(acc_state, group_id, bus, acc_seen, acc_last, agent_id, logger)
   })
 }
 
@@ -650,9 +693,10 @@ fn process_chat_messages_with_events(
   chat_id: String,
   bus: Option(Subject(event_bus.PubSubMessage)),
   seen_ids: Set(String),
+  last_processed: Dict(String, Int),
   agent_id: String,
   logger: vibe_logger.VibeLogger,
-) -> #(telegram_agent.AgentState, Set(String)) {
+) -> #(telegram_agent.AgentState, Set(String), Dict(String, Int)) {
   let chat_log = logger
     |> vibe_logger.with_data("chat_id", json.string(chat_id))
 
@@ -686,7 +730,7 @@ fn process_chat_messages_with_events(
           |> vibe_logger.with_data("error", json.string(err)),
           "History error")
       }
-      #(state, seen_ids)
+      #(state, seen_ids, last_processed)
     }
     Ok(history_json) -> {
       // Парсим сообщения
@@ -712,8 +756,8 @@ fn process_chat_messages_with_events(
       }
 
       // Обрабатываем каждое ВХОДЯЩЕЕ сообщение с дедупликацией
-      list.fold(sorted_messages, #(state, seen_ids), fn(acc, msg) {
-        let #(acc_state, acc_seen) = acc
+      list.fold(sorted_messages, #(state, seen_ids, last_processed), fn(acc, msg) {
+        let #(acc_state, acc_seen, acc_last) = acc
         let #(msg_id, from_id, from_name, username, text, phone, lang_code, is_premium, is_outgoing, reply_to_id) = msg
         let unique_id = chat_id <> ":" <> int.to_string(msg_id)
 
@@ -730,7 +774,7 @@ fn process_chat_messages_with_events(
                 "Skipping OUTGOING message")
               False -> Nil
             }
-            #(acc_state, set.insert(acc_seen, unique_id))
+            #(acc_state, set.insert(acc_seen, unique_id), acc_last)
           }
           False -> {
             // Проверяем, видели ли мы это сообщение
@@ -749,79 +793,107 @@ fn process_chat_messages_with_events(
                 acc
               }
               False -> {
-                // Новое входящее сообщение
-                let msg_log = chat_log
-                  |> vibe_logger.with_data("msg_id", json.int(msg_id))
-                  |> vibe_logger.with_data("from_id", json.int(from_id))
-                  |> vibe_logger.with_data("from_name", json.string(from_name))
-                  |> vibe_logger.with_data("username", json.string(username))
-                  |> vibe_logger.with_data("reply_to_id", json.int(reply_to_id))
-
-                // Логируем как REPLY если это ответ на сообщение
-                case reply_to_id > 0 {
-                  True -> vibe_logger.info(msg_log, "New REPLY message")
-                  False -> vibe_logger.info(msg_log, "New incoming message")
-                }
-                vibe_logger.debug(msg_log
-                  |> vibe_logger.with_data("text_preview", json.string(string.slice(text, 0, 100))),
-                  "Message content")
-
-                // Increment message count in registry
-                agent_registry.increment_messages(agent_id)
-
-                // Publish telegram message event
-                publish_event(bus, event_bus.telegram_message(
-                  chat_id,
-                  msg_id,
-                  from_name,
-                  text,
-                  get_timestamp(),
-                ))
-
-                // Обрабатываем через telegram_agent
-                let new_state = telegram_agent.handle_incoming_message(
-                  acc_state,
-                  chat_id,
-                  from_id,
-                  from_name,
-                  username,
-                  phone,
-                  lang_code,
-                  is_premium,
-                  text,
-                  msg_id,
-                  reply_to_id,
-                )
-
-                // Сохраняем входящее сообщение в БД для RAG памяти
-                let dialog_id = case int.parse(chat_id) {
+                // Новое входящее сообщение (не в seen_ids)
+                // Для приватных чатов: проверяем msg_id > last_processed
+                let last_id = case dict.get(acc_last, chat_id) {
                   Ok(id) -> id
                   Error(_) -> 0
                 }
-                case postgres.insert_message_simple(dialog_id, msg_id, from_id, from_name, text) {
-                  Ok(_) -> vibe_logger.trace(msg_log, "Message saved to DB")
-                  Error(e) -> {
-                    vibe_logger.error(msg_log
-                      |> vibe_logger.with_data("error", json.string(e)),
-                      "Failed to save message to DB")
-                    agent_registry.increment_errors(agent_id)
-                  }
-                }
 
-                // Check if agent replied
-                case new_state.total_messages > acc_state.total_messages {
+                // Для приватных чатов: пропускаем если msg_id <= last_processed
+                // Это предотвращает ответы на старые сообщения после рестарта
+                case is_private && msg_id <= last_id {
                   True -> {
-                    publish_event(bus, event_bus.trigger_detected(
+                    // Сообщение уже было обработано до рестарта
+                    vibe_logger.info(chat_log
+                      |> vibe_logger.with_data("msg_id", json.int(msg_id))
+                      |> vibe_logger.with_data("last_processed_id", json.int(last_id))
+                      |> vibe_logger.with_data("from_name", json.string(from_name)),
+                      "Skipping OLD message (msg_id <= last_processed)")
+                    #(acc_state, set.insert(acc_seen, unique_id), acc_last)
+                  }
+                  False -> {
+                    // Действительно новое сообщение - обрабатываем
+                    let msg_log = chat_log
+                      |> vibe_logger.with_data("msg_id", json.int(msg_id))
+                      |> vibe_logger.with_data("from_id", json.int(from_id))
+                      |> vibe_logger.with_data("from_name", json.string(from_name))
+                      |> vibe_logger.with_data("username", json.string(username))
+                      |> vibe_logger.with_data("reply_to_id", json.int(reply_to_id))
+
+                    // Логируем как REPLY если это ответ на сообщение
+                    case reply_to_id > 0 {
+                      True -> vibe_logger.info(msg_log, "New REPLY message")
+                      False -> vibe_logger.info(msg_log, "New incoming message")
+                    }
+                    vibe_logger.debug(msg_log
+                      |> vibe_logger.with_data("text_preview", json.string(string.slice(text, 0, 100))),
+                      "Message content")
+
+                    // Increment message count in registry
+                    agent_registry.increment_messages(agent_id)
+
+                    // Publish telegram message event
+                    publish_event(bus, event_bus.telegram_message(
                       chat_id,
-                      "trigger_found",
+                      msg_id,
+                      from_name,
+                      text,
                       get_timestamp(),
                     ))
-                  }
-                  False -> Nil
-                }
 
-                // Возвращаем обновлённое состояние и seen_ids
-                #(new_state, set.insert(acc_seen, unique_id))
+                    // Обрабатываем через telegram_agent
+                    let new_state = telegram_agent.handle_incoming_message(
+                      acc_state,
+                      chat_id,
+                      from_id,
+                      from_name,
+                      username,
+                      phone,
+                      lang_code,
+                      is_premium,
+                      text,
+                      msg_id,
+                      reply_to_id,
+                    )
+
+                    // Сохраняем входящее сообщение в БД для RAG памяти
+                    let dialog_id = case int.parse(chat_id) {
+                      Ok(id) -> id
+                      Error(_) -> 0
+                    }
+                    case postgres.insert_message_simple(dialog_id, msg_id, from_id, from_name, text) {
+                      Ok(_) -> vibe_logger.trace(msg_log, "Message saved to DB")
+                      Error(e) -> {
+                        vibe_logger.error(msg_log
+                          |> vibe_logger.with_data("error", json.string(e)),
+                          "Failed to save message to DB")
+                        agent_registry.increment_errors(agent_id)
+                      }
+                    }
+
+                    // Check if agent replied
+                    case new_state.total_messages > acc_state.total_messages {
+                      True -> {
+                        publish_event(bus, event_bus.trigger_detected(
+                          chat_id,
+                          "trigger_found",
+                          get_timestamp(),
+                        ))
+                      }
+                      False -> Nil
+                    }
+
+                    // Для приватных чатов: обновляем last_processed
+                    let new_last = case is_private {
+                      True -> dict.insert(acc_last, chat_id, msg_id)
+                      False -> acc_last
+                    }
+
+                    // Возвращаем обновлённое состояние, seen_ids и last_processed
+                    #(new_state, set.insert(acc_seen, unique_id), new_last)
+                  }
+                }
               }
             }
           }

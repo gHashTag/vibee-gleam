@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useChatStore, initLogCapture } from '@/store/chatStore';
 import { useAtomValue } from 'jotai';
 import { templatePropsAtom, selectedItemIdsAtom } from '@/atoms';
+import { useLanguage } from '@/hooks/useLanguage';
 import {
   initAgentConnection,
   disconnectAgent,
@@ -37,6 +38,7 @@ interface ChatPanelProps {
 type Tab = 'chat' | 'logs';
 
 export function ChatPanel({ wsConnected, wsSend }: ChatPanelProps) {
+  const { t, lang } = useLanguage();
   const [input, setInput] = useState('');
   const [activeTab, setActiveTab] = useState<Tab>('chat');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -46,6 +48,12 @@ export function ChatPanel({ wsConnected, wsSend }: ChatPanelProps) {
   const messages = useChatStore((s) => s.messages);
   const isStreaming = useChatStore((s) => s.isStreaming);
   const agentConnected = useChatStore((s) => s.isConnected);
+  const refreshWelcomeMessage = useChatStore((s) => s.refreshWelcomeMessage);
+
+  // Refresh welcome message when language changes
+  useEffect(() => {
+    refreshWelcomeMessage();
+  }, [lang, refreshWelcomeMessage]);
   const context = useChatStore((s) => s.context);
   const addMessage = useChatStore((s) => s.addMessage);
   const clearMessages = useChatStore((s) => s.clearMessages);
@@ -113,7 +121,7 @@ export function ChatPanel({ wsConnected, wsSend }: ChatPanelProps) {
         setTimeout(() => {
           addMessage(
             'assistant',
-            'I\'m currently offline. The AI server will connect automatically when available. In the meantime, you can explore the template properties in the left panel.',
+            t('chat.offlineMessage'),
           );
           setStreaming(false);
         }, 500);
@@ -143,10 +151,10 @@ export function ChatPanel({ wsConnected, wsSend }: ChatPanelProps) {
         await applyAgentAction(action);
         // Mark as applied in store
         applyAction(messageId, actionId);
-        addMessage('system', `Applied: ${action.label}`);
+        addMessage('system', `${t('chat.applied')} ${action.label}`);
       } catch (error) {
         console.error('[ChatPanel] Apply action error:', error);
-        addMessage('system', `Failed to apply action: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        addMessage('system', `${t('chat.failedToApply')} ${error instanceof Error ? error.message : t('chat.unknownError')}`);
       }
     }
   };
@@ -172,21 +180,21 @@ export function ChatPanel({ wsConnected, wsSend }: ChatPanelProps) {
             <Sparkles size={18} />
           </div>
           <div className="agent-header-info">
-            <span className="agent-title">VIBEE Agent</span>
+            <span className="agent-title">{t('chat.agent')}</span>
             <span className={`agent-status ${isConnected ? 'connected' : 'disconnected'}`}>
               {isConnected ? (
                 <>
-                  <Wifi size={10} /> Connected
+                  <Wifi size={10} /> {t('chat.connected')}
                 </>
               ) : (
                 <>
-                  <WifiOff size={10} /> Offline
+                  <WifiOff size={10} /> {t('chat.offline')}
                 </>
               )}
             </span>
           </div>
         </div>
-        <button className="agent-clear-btn" onClick={clearMessages} title="Clear chat">
+        <button className="agent-clear-btn" onClick={clearMessages} title={t('chat.clearChat')}>
           <Trash2 size={14} />
         </button>
       </div>
@@ -198,32 +206,32 @@ export function ChatPanel({ wsConnected, wsSend }: ChatPanelProps) {
           onClick={() => setActiveTab('chat')}
         >
           <MessageSquare size={14} />
-          <span>Chat</span>
+          <span>{t('chat.chat')}</span>
         </button>
         <button
           className={`chat-tab ${activeTab === 'logs' ? 'active' : ''}`}
           onClick={() => setActiveTab('logs')}
         >
           <Terminal size={14} />
-          <span>Logs</span>
+          <span>{t('chat.logs')}</span>
         </button>
       </div>
 
       {/* Context badges - only show in chat tab */}
       {activeTab === 'chat' && (
         <div className="chat-context">
-          <div className="context-badge" title={`${logCount} captured logs`}>
+          <div className="context-badge" title={`${logCount} ${t('chat.capturedLogs')}`}>
             <FileText size={12} />
             <span>{logCount} logs</span>
           </div>
-          <div className="context-badge" title={`${propsCount} template properties`}>
+          <div className="context-badge" title={`${propsCount} ${t('chat.templateProps')}`}>
             <Code size={12} />
             <span>{propsCount} props</span>
           </div>
           {errorCount > 0 && (
-            <div className="context-badge error" title={`${errorCount} errors`}>
+            <div className="context-badge error" title={`${errorCount} ${t('chat.errors')}`}>
               <AlertCircle size={12} />
-              <span>{errorCount} errors</span>
+              <span>{errorCount} {t('chat.errors')}</span>
             </div>
           )}
         </div>
@@ -312,7 +320,7 @@ export function ChatPanel({ wsConnected, wsSend }: ChatPanelProps) {
             <textarea
               ref={inputRef}
               className="chat-input"
-              placeholder="Describe what you want to create..."
+              placeholder={t('chat.placeholder')}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}

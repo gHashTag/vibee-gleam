@@ -4,6 +4,7 @@
 import { useEffect, useRef } from 'react';
 import { useSetAtom } from 'jotai';
 import { userAtom, fetchQuotaAtom } from '@/atoms';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { TelegramUser } from '@/atoms';
 import { RENDER_SERVER_URL } from '@/lib/mediaUrl';
 
@@ -43,6 +44,7 @@ export function TelegramLoginButton({
   onSuccess,
   showFallback = false,
 }: TelegramLoginButtonProps) {
+  const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const setUser = useSetAtom(userAtom);
   const fetchQuota = useSetAtom(fetchQuotaAtom);
@@ -115,7 +117,7 @@ export function TelegramLoginButton({
           type="button"
         >
           <TelegramIcon />
-          <span>{size === 'small' ? 'Login' : 'Sign in with Telegram'}</span>
+          <span>{size === 'small' ? t('login.button') : t('login.buttonFull')}</span>
         </button>
       ) : (
         /* Native Telegram widget for header */
@@ -133,6 +135,7 @@ export function UserAvatar({
   user: TelegramUser;
   onLogout: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="user-avatar-container">
       {user.photo_url ? (
@@ -150,7 +153,7 @@ export function UserAvatar({
       <button
         onClick={onLogout}
         className="logout-btn"
-        title="Logout"
+        title={t('auth.logout')}
       >
         &times;
       </button>

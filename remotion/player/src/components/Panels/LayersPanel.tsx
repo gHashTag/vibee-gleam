@@ -1,4 +1,5 @@
 import { useAtomValue, useSetAtom } from 'jotai';
+import { useLanguage } from '@/hooks/useLanguage';
 import {
   tracksAtom,
   selectedItemIdsAtom,
@@ -62,6 +63,7 @@ const TRACK_COLORS: Record<TrackType, string> = {
 };
 
 export function LayersPanel() {
+  const { t } = useLanguage();
   const tracks = useAtomValue(tracksAtom);
   const selectedItemIds = useAtomValue(selectedItemIdsAtom);
   const currentFrame = useAtomValue(currentFrameAtom);
@@ -157,7 +159,7 @@ export function LayersPanel() {
         height: 100,
         rotation: 0,
         opacity: 1,
-        text: 'New Text',
+        text: t('layers.newText'),
         fontSize: 48,
         fontFamily: 'Inter, sans-serif',
         fontWeight: 700,
@@ -175,7 +177,7 @@ export function LayersPanel() {
       {/* Add Text Button */}
       <button className="add-text-btn" onClick={handleAddText}>
         <Plus size={16} />
-        <span>Add Text</span>
+        <span>{t('layers.addText')}</span>
       </button>
 
       {/* Track List */}
@@ -207,14 +209,14 @@ export function LayersPanel() {
                   <button
                     className={`track-action ${track.visible ? '' : 'inactive'}`}
                     onClick={() => toggleVisibility(track.id, track.visible)}
-                    title={track.visible ? 'Hide track' : 'Show track'}
+                    title={track.visible ? t('layers.hideTrack') : t('layers.showTrack')}
                   >
                     {track.visible ? <Eye size={14} /> : <EyeOff size={14} />}
                   </button>
                   <button
                     className={`track-action ${track.locked ? 'active' : ''}`}
                     onClick={() => toggleLock(track.id, track.locked)}
-                    title={track.locked ? 'Unlock track' : 'Lock track'}
+                    title={track.locked ? t('layers.unlockTrack') : t('layers.lockTrack')}
                   >
                     {track.locked ? <Lock size={14} /> : <Unlock size={14} />}
                   </button>
@@ -261,10 +263,10 @@ export function LayersPanel() {
       {selectedItemIds.length > 0 && (
         <div className="layers-selection-bar">
           <span className="selection-count">
-            {selectedItemIds.length} selected
+            {selectedItemIds.length} {t('layers.selected')}
           </span>
           <button className="selection-delete" onClick={handleDeleteSelected}>
-            Delete
+            {t('layers.delete')}
           </button>
         </div>
       )}

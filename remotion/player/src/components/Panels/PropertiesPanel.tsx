@@ -1,9 +1,11 @@
 import { useAtomValue, useSetAtom } from 'jotai';
 import { templatePropsAtom, updateTemplatePropAtom, selectedItemIdsAtom, updateItemAtom, projectAtom, getSelectedItemsAtom } from '@/atoms';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { LipSyncMainProps, TrackItem, TextItemProps } from '@/store/types';
 import './PropertiesPanel.css';
 
 export function PropertiesPanel() {
+  const { t } = useLanguage();
   const templateProps = useAtomValue(templatePropsAtom);
   const updateTemplateProp = useSetAtom(updateTemplatePropAtom);
   const selectedItemIds = useAtomValue(selectedItemIdsAtom);
@@ -50,30 +52,30 @@ export function PropertiesPanel() {
     return (
       <div className="properties-panel">
         <div className="properties-section">
-          <h3 className="properties-section-title">📦 Batch Edit ({selectedItems.length} items)</h3>
+          <h3 className="properties-section-title">📦 {t('props.batchEdit')} ({selectedItems.length} {t('props.items')})</h3>
 
           <div className="batch-duration">
-            <label className="property-label">Adjust Duration</label>
+            <label className="property-label">{t('props.adjustDuration')}</label>
             <div className="batch-buttons">
-              <button onClick={() => adjustDuration(-fps)} title="-1 second">-1s</button>
-              <button onClick={() => adjustDuration(Math.round(-fps / 2))} title="-0.5 second">-0.5s</button>
-              <button onClick={() => adjustDuration(Math.round(fps / 2))} title="+0.5 second">+0.5s</button>
-              <button onClick={() => adjustDuration(fps)} title="+1 second">+1s</button>
+              <button onClick={() => adjustDuration(-fps)} title={t('props.minus1s')}>-1s</button>
+              <button onClick={() => adjustDuration(Math.round(-fps / 2))} title={t('props.minus05s')}>-0.5s</button>
+              <button onClick={() => adjustDuration(Math.round(fps / 2))} title={t('props.plus05s')}>+0.5s</button>
+              <button onClick={() => adjustDuration(fps)} title={t('props.plus1s')}>+1s</button>
             </div>
           </div>
 
           <div className="batch-uniform">
             <button className="batch-uniform-btn" onClick={setUniformDuration}>
-              Make Same Duration
+              {t('props.makeSameDuration')}
             </button>
             <span className="batch-hint">
-              Sets all to shortest: {Math.min(...selectedItems.map((i) => i.durationInFrames))}f
+              {t('props.setsAllToShortest')}: {Math.min(...selectedItems.map((i) => i.durationInFrames))}f
             </span>
           </div>
         </div>
 
         <div className="properties-section">
-          <h3 className="properties-section-title">📊 Selection Info</h3>
+          <h3 className="properties-section-title">📊 {t('props.selectionInfo')}</h3>
           <div className="selection-info">
             {['video', 'audio', 'avatar', 'text', 'image'].map((type) => {
               const count = selectedItems.filter((i) => i.type === type).length;
@@ -96,18 +98,19 @@ export function PropertiesPanel() {
     return (
       <div className="properties-panel">
         <div className="properties-section">
-          <h3 className="properties-section-title">✏️ Text</h3>
+          <h3 className="properties-section-title">✏️ {t('section.text')}</h3>
           <PropertyTextArea
-            label="Content"
+            label={t('props.content')}
             value={(selectedTextItem as any).text || ''}
             onChange={(v) => handleTextChange('text', v)}
+            placeholder={t('props.enterText')}
           />
         </div>
 
         <div className="properties-section">
-          <h3 className="properties-section-title">🎨 Style</h3>
+          <h3 className="properties-section-title">🎨 {t('section.style')}</h3>
           <PropertyInput
-            label="Font Size"
+            label={t('props.fontSize')}
             value={(selectedTextItem as any).fontSize || 48}
             onChange={(v) => handleTextChange('fontSize', v)}
             min={12}
@@ -116,37 +119,37 @@ export function PropertiesPanel() {
             suffix="px"
           />
           <PropertyColor
-            label="Color"
+            label={t('props.color')}
             value={(selectedTextItem as any).color || '#ffffff'}
             onChange={(v) => handleTextChange('color', v)}
           />
           <PropertySelect
-            label="Weight"
+            label={t('props.weight')}
             value={String((selectedTextItem as any).fontWeight || 400)}
             onChange={(v) => handleTextChange('fontWeight', Number(v))}
             options={[
-              { value: '300', label: 'Light' },
-              { value: '400', label: 'Regular' },
-              { value: '500', label: 'Medium' },
-              { value: '600', label: 'SemiBold' },
-              { value: '700', label: 'Bold' },
-              { value: '800', label: 'ExtraBold' },
+              { value: '300', label: t('font.light') },
+              { value: '400', label: t('font.regular') },
+              { value: '500', label: t('font.medium') },
+              { value: '600', label: t('font.semibold') },
+              { value: '700', label: t('font.bold') },
+              { value: '800', label: t('font.extrabold') },
             ]}
           />
           <PropertySelect
-            label="Align"
+            label={t('props.align')}
             value={(selectedTextItem as any).textAlign || 'center'}
             onChange={(v) => handleTextChange('textAlign', v)}
             options={[
-              { value: 'left', label: 'Left' },
-              { value: 'center', label: 'Center' },
-              { value: 'right', label: 'Right' },
+              { value: 'left', label: t('props.left') },
+              { value: 'center', label: t('props.center') },
+              { value: 'right', label: t('props.right') },
             ]}
           />
         </div>
 
         <div className="properties-section">
-          <h3 className="properties-section-title">📍 Position</h3>
+          <h3 className="properties-section-title">📍 {t('section.position')}</h3>
           <div className="properties-grid">
             <PropertyInput
               label="X"
@@ -168,7 +171,7 @@ export function PropertiesPanel() {
             />
           </div>
           <PropertySlider
-            label="Opacity"
+            label={t('props.opacity')}
             value={selectedTextItem.opacity}
             onChange={(v) => handleTextChange('opacity', v)}
             min={0}
@@ -178,10 +181,10 @@ export function PropertiesPanel() {
         </div>
 
         <div className="properties-section">
-          <h3 className="properties-section-title">⏱️ Timing</h3>
+          <h3 className="properties-section-title">⏱️ {t('section.timing')}</h3>
           <div className="properties-grid">
             <PropertyInput
-              label="Start"
+              label={t('props.start')}
               value={selectedTextItem.startFrame}
               onChange={(v) => handleTextChange('startFrame', v)}
               min={0}
@@ -189,7 +192,7 @@ export function PropertiesPanel() {
               suffix="f"
             />
             <PropertyInput
-              label="Duration"
+              label={t('props.duration')}
               value={selectedTextItem.durationInFrames}
               onChange={(v) => handleTextChange('durationInFrames', v)}
               min={1}
@@ -206,29 +209,32 @@ export function PropertiesPanel() {
     <div className="properties-panel">
       {/* Media Section */}
       <div className="properties-section">
-        <h3 className="properties-section-title">📁 Media</h3>
+        <h3 className="properties-section-title">📁 {t('section.media')}</h3>
         <PropertyFileInput
-          label="Lipsync Video"
+          label={t('props.lipsyncVideo')}
           value={templateProps.lipSyncVideo}
           onChange={(v) => handleChange('lipSyncVideo', v)}
+          placeholder={t('props.pathPlaceholder')}
         />
         <PropertyFileInput
-          label="Cover Image"
+          label={t('props.coverImage')}
           value={templateProps.coverImage}
           onChange={(v) => handleChange('coverImage', v)}
+          placeholder={t('props.pathPlaceholder')}
         />
         <PropertyFileInput
-          label="Background Music"
+          label={t('props.backgroundMusic')}
           value={templateProps.backgroundMusic}
           onChange={(v) => handleChange('backgroundMusic', v)}
+          placeholder={t('props.pathPlaceholder')}
         />
       </div>
 
       {/* Effects Section */}
       <div className="properties-section">
-        <h3 className="properties-section-title">🎚️ Effects</h3>
+        <h3 className="properties-section-title">🎚️ {t('section.effects')}</h3>
         <PropertySlider
-          label="Music Volume"
+          label={t('props.musicVolume')}
           value={templateProps.musicVolume}
           onChange={(v) => handleChange('musicVolume', v)}
           min={0}
@@ -236,7 +242,7 @@ export function PropertiesPanel() {
           step={0.05}
         />
         <PropertyInput
-          label="Cover Duration"
+          label={t('props.coverDuration')}
           value={templateProps.coverDuration}
           onChange={(v) => handleChange('coverDuration', v)}
           min={0}
@@ -245,7 +251,7 @@ export function PropertiesPanel() {
           suffix="s"
         />
         <PropertySlider
-          label="Vignette"
+          label={t('props.vignette')}
           value={templateProps.vignetteStrength}
           onChange={(v) => handleChange('vignetteStrength', v)}
           min={0}
@@ -253,7 +259,7 @@ export function PropertiesPanel() {
           step={0.05}
         />
         <PropertySlider
-          label="Color Correction"
+          label={t('props.colorCorrection')}
           value={templateProps.colorCorrection}
           onChange={(v) => handleChange('colorCorrection', v)}
           min={0.8}
@@ -264,10 +270,10 @@ export function PropertiesPanel() {
 
       {/* Avatar Circle Section */}
       <div className="properties-section">
-        <h3 className="properties-section-title">🎯 Avatar Circle</h3>
+        <h3 className="properties-section-title">🎯 {t('section.avatar')}</h3>
         <div className="properties-grid">
           <PropertyInput
-            label="Size"
+            label={t('props.size')}
             value={templateProps.circleSizePercent}
             onChange={(v) => handleChange('circleSizePercent', v)}
             min={10}
@@ -276,7 +282,7 @@ export function PropertiesPanel() {
             suffix="%"
           />
           <PropertyInput
-            label="Bottom"
+            label={t('props.bottom')}
             value={templateProps.circleBottomPercent}
             onChange={(v) => handleChange('circleBottomPercent', v)}
             min={0}
@@ -285,7 +291,7 @@ export function PropertiesPanel() {
             suffix="%"
           />
           <PropertyInput
-            label="Left"
+            label={t('props.left')}
             value={templateProps.circleLeftPx}
             onChange={(v) => handleChange('circleLeftPx', v)}
             min={0}
@@ -298,13 +304,13 @@ export function PropertiesPanel() {
 
       {/* Backgrounds Info */}
       <div className="properties-section">
-        <h3 className="properties-section-title">🎬 Backgrounds</h3>
+        <h3 className="properties-section-title">🎬 {t('section.backgrounds')}</h3>
         <div className="backgrounds-info">
           <p className="info-text">
-            {templateProps.backgroundVideos.length} videos
+            {templateProps.backgroundVideos.length} {t('props.videos')}
           </p>
           <p className="info-hint">
-            Drag videos to Video track to change backgrounds
+            {t('props.dragVideosHint')}
           </p>
         </div>
       </div>
@@ -392,9 +398,10 @@ interface PropertyFileInputProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  placeholder?: string;
 }
 
-function PropertyFileInput({ label, value, onChange }: PropertyFileInputProps) {
+function PropertyFileInput({ label, value, onChange, placeholder }: PropertyFileInputProps) {
   const fileName = value.split('/').pop() || 'None';
 
   return (
@@ -408,7 +415,7 @@ function PropertyFileInput({ label, value, onChange }: PropertyFileInputProps) {
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="/path/to/file"
+          placeholder={placeholder}
           className="property-file-input"
         />
       </div>
@@ -420,9 +427,10 @@ interface PropertyTextAreaProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  placeholder?: string;
 }
 
-function PropertyTextArea({ label, value, onChange }: PropertyTextAreaProps) {
+function PropertyTextArea({ label, value, onChange, placeholder }: PropertyTextAreaProps) {
   return (
     <div className="property-textarea">
       <label className="property-label">{label}</label>
@@ -430,7 +438,7 @@ function PropertyTextArea({ label, value, onChange }: PropertyTextAreaProps) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={3}
-        placeholder="Enter text..."
+        placeholder={placeholder}
       />
     </div>
   );

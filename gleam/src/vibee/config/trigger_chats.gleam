@@ -26,6 +26,59 @@ pub type TriggerChatConfig {
   )
 }
 
+/// Триггеры для AI/контент тематики (нейрофункции @neuro_blogger_bot)
+fn ai_content_triggers() -> List(String) {
+  [
+    // Усталость от контента
+    "устал снимать",
+    "нет времени на контент",
+    "выгорание от блога",
+    "не успеваю снимать",
+    "как делать рилсы быстро",
+    "надоело снимать",
+    "контент отнимает время",
+
+    // AI интерес
+    "нейросеть для видео",
+    "ai аватар",
+    "цифровой клон",
+    "говорящая голова",
+    "нейроконтент",
+    "ai для блогера",
+    "автоматизация контента",
+    "synthetic media",
+    "digital twin",
+    "talking head",
+
+    // Конкретные функции
+    "lip sync",
+    "лип синк",
+    "озвучка видео",
+    "генерация видео",
+    "text to video",
+    "клонирование голоса",
+    "voice clone",
+    "голосовой клон",
+    "нейрофото",
+    "ai фото",
+
+    // Монетизация
+    "монетизация знаний",
+    "пассивный доход с контента",
+    "как продавать курсы",
+    "инфобизнес",
+    "онлайн-курс",
+
+    // Вопросы
+    "как масштабировать контент",
+    "где найти ai для видео",
+    "посоветуйте нейросеть",
+    "какой ai для видео лучше",
+    "как создать аватар",
+    "бот для генерации",
+  ]
+}
+
 /// Общий список триггерных слов для крипто-групп
 fn crypto_triggers() -> List(String) {
   [
@@ -85,10 +138,15 @@ fn crypto_triggers() -> List(String) {
   ]
 }
 
+/// Объединяет все триггеры (крипто + AI контент)
+fn all_triggers() -> List(String) {
+  list.append(crypto_triggers(), ai_content_triggers())
+}
+
 /// Все чаты с триггерами
 pub fn get_trigger_chats() -> List(TriggerChatConfig) {
   [
-    // Крипто Группа 1 (Aimly.io dev) - OBSERVE ONLY
+    // Aimly.io dev - OBSERVE ONLY (крипто + AI контент триггеры)
     // ВАЖНО: Это обычная группа (Chat), НЕ Channel! Формат: -chatID (без -100)
     TriggerChatConfig(
       chat_id: "-5082217642",
@@ -97,13 +155,13 @@ pub fn get_trigger_chats() -> List(TriggerChatConfig) {
       is_active: True,
       can_write: True,
       response_probability: 0.0,
-      custom_triggers: crypto_triggers(),
+      custom_triggers: all_triggers(),  // Крипто + AI контент
       forward_chat_id: "-1002737186844",
       allow_images: False,
-      response_template: "Напиши мне в личку, помогу разобраться",
+      response_template: "",
       observe_only: True,  // Только сохранять лид, НЕ отвечать
       expected_response_pattern: "",
-      expected_forward_pattern: "ЛИД|Клиент|крипт",
+      expected_forward_pattern: "ЛИД|Клиент|крипт|нейро|AI",
     ),
     // Крипто Группа 2 - SNIPER MODE (отвечает)
     TriggerChatConfig(
