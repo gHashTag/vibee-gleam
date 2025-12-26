@@ -34,7 +34,7 @@
 }
 
 .sidebar-left {
-  width: 360px;
+  width: 320px;
   flex-shrink: 0;
   border-right: 1px solid #1a1a1a;
 }
@@ -104,6 +104,64 @@
   .sidebar-tab span {
     display: inline;
   }
+}
+
+/* ===============================
+   Vertical Tabs (full height column)
+   =============================== */
+
+.vertical-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: #0d0d0d;
+  border-right: 1px solid #1a1a1a;
+  flex-shrink: 0;
+}
+
+.vertical-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 4px;
+  min-width: 64px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.vertical-tab:hover {
+  background: #1a1a1a;
+}
+
+.vertical-tab.active {
+  background: #f59e0b;
+}
+
+.vertical-tab .tab-emoji {
+  font-size: 20px;
+}
+
+.vertical-tab .tab-label {
+  font-size: 9px;
+  font-weight: 500;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.vertical-tab:hover .tab-label {
+  color: #999;
+}
+
+.vertical-tab.active .tab-label {
+  color: #000;
 }
 
 .sidebar-content {
@@ -210,4 +268,92 @@
 
 .gap-4 {
   gap: 16px;
+}
+
+/* ===============================
+   Avatar Border Effect Animations
+   =============================== */
+
+@keyframes avatar-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 10px var(--pulse-color, #FFD700))
+            drop-shadow(0 0 20px var(--pulse-color, #FFD700));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px var(--pulse-color, #FFD700))
+            drop-shadow(0 0 40px var(--pulse-color, #FFD700))
+            drop-shadow(0 0 60px var(--pulse-color, #FFD700));
+  }
+}
+
+@keyframes avatar-rainbow {
+  from { filter: hue-rotate(0deg); }
+  to { filter: hue-rotate(360deg); }
+}
+
+.avatar-border-pulse {
+  animation: avatar-pulse 2s ease-in-out infinite;
+}
+
+.avatar-border-rainbow {
+  animation: avatar-rainbow 3s linear infinite;
+}
+
+/* Fire animation - warm colors shifting */
+@keyframes avatar-fire {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.avatar-border-fire {
+  animation: avatar-fire 2s ease-in-out infinite;
+}
+
+/* Ocean animation - cool blue wave */
+@keyframes avatar-ocean {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.avatar-border-ocean {
+  animation: avatar-ocean 3s ease-in-out infinite;
+}
+
+/* Sunset animation - warm gradient */
+@keyframes avatar-sunset {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.avatar-border-sunset {
+  animation: avatar-sunset 4s ease-in-out infinite;
+}
+
+/* Electric animation - flickering glow */
+@keyframes avatar-electric {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px #00ffff)
+            drop-shadow(0 0 16px #0080ff);
+  }
+  25% {
+    filter: drop-shadow(0 0 12px #00ffff)
+            drop-shadow(0 0 24px #ffffff)
+            drop-shadow(0 0 36px #0080ff);
+  }
+  50% {
+    filter: drop-shadow(0 0 6px #00ffff)
+            drop-shadow(0 0 12px #0080ff);
+  }
+  75% {
+    filter: drop-shadow(0 0 16px #00ffff)
+            drop-shadow(0 0 32px #ffffff)
+            drop-shadow(0 0 48px #0080ff);
+  }
+}
+
+.avatar-border-electric {
+  animation: avatar-electric 0.5s ease-in-out infinite;
 }

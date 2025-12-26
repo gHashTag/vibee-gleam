@@ -8,6 +8,7 @@ import { atomWithStorage } from 'jotai/utils';
 import { backgroundVideosAtom } from './backgroundVideos';
 import { CAPTION_DEFAULTS } from '@/constants/captions';
 import type { CaptionItem, CaptionStyle, LipSyncMainProps } from '@/store/types';
+import type { AvatarAnimation, AvatarBorderEffect } from '@/shared/types';
 
 // ===============================
 // Primitive Template Props Atoms
@@ -80,8 +81,8 @@ export const avatarBorderRadiusAtom = atomWithStorage('vibee-avatar-border-radiu
 export const avatarSettingsTabAtom = atom<'split' | 'fullscreen'>('fullscreen');
 
 // Split mode settings (when video background is shown)
-// NOTE: -v2 keys to reset old localStorage values
-export const splitCircleSizeAtom = atomWithStorage('vibee-split-circle-size-v2', 25);
+// NOTE: -v3 keys to reset old localStorage values (formula changed from size*4 to size)
+export const splitCircleSizeAtom = atomWithStorage('vibee-split-circle-size-v3', 100);
 export const splitPositionXAtom = atomWithStorage('vibee-split-position-x-v2', 0);
 export const splitPositionYAtom = atomWithStorage('vibee-split-position-y-v2', 0);
 export const splitFaceScaleAtom = atomWithStorage('vibee-split-face-scale-v2', 1.0);
@@ -89,13 +90,51 @@ export const splitIsCircleAtom = atomWithStorage('vibee-split-is-circle-v2', fal
 export const splitBorderRadiusAtom = atomWithStorage('vibee-split-border-radius-v2', 50);
 
 // Fullscreen mode settings (avatar fills screen)
-// NOTE: -v2 keys to reset old localStorage values
-export const fullscreenCircleSizeAtom = atomWithStorage('vibee-fullscreen-circle-size-v2', 50);
+// NOTE: -v3 keys to reset old localStorage values (formula changed from size*4 to size)
+export const fullscreenCircleSizeAtom = atomWithStorage('vibee-fullscreen-circle-size-v3', 100);
 export const fullscreenPositionXAtom = atomWithStorage('vibee-fullscreen-position-x-v2', 0);
 export const fullscreenPositionYAtom = atomWithStorage('vibee-fullscreen-position-y-v2', 0);
 export const fullscreenFaceScaleAtom = atomWithStorage('vibee-fullscreen-face-scale-v2', 1.0);
 export const fullscreenIsCircleAtom = atomWithStorage('vibee-fullscreen-is-circle-v2', false);
 export const fullscreenBorderRadiusAtom = atomWithStorage('vibee-fullscreen-border-radius-v2', 50);
+
+// ===============================
+// Animation Settings
+// ===============================
+
+export const avatarAnimationAtom = atomWithStorage<AvatarAnimation>(
+  'vibee-avatar-animation',
+  'pop' // Default: spring pop-in effect
+);
+
+// ===============================
+// Avatar Border Effect Settings
+// ===============================
+
+export const avatarBorderEffectAtom = atomWithStorage<AvatarBorderEffect>(
+  'vibee-avatar-border-effect',
+  'none' // Default: no border effect
+);
+
+export const avatarBorderColorAtom = atomWithStorage(
+  'vibee-avatar-border-color',
+  '#FFD700' // Gold by default
+);
+
+export const avatarBorderColor2Atom = atomWithStorage(
+  'vibee-avatar-border-color2',
+  '#FF6B6B' // Coral for gradient
+);
+
+export const avatarBorderWidthAtom = atomWithStorage(
+  'vibee-avatar-border-width',
+  4 // 4px default
+);
+
+export const avatarBorderIntensityAtom = atomWithStorage(
+  'vibee-avatar-border-intensity',
+  1.0 // 1x default
+);
 
 // ===============================
 // Captions Atoms
@@ -105,8 +144,9 @@ export const fullscreenBorderRadiusAtom = atomWithStorage('vibee-fullscreen-bord
 export const captionsAtom = atomWithStorage<CaptionItem[]>('vibee-captions-v2', []);
 
 // Caption style (persisted)
+// NOTE: Changed key to -v2 to reset old localStorage with fontId -> fontFamily
 export const captionStyleAtom = atomWithStorage<CaptionStyle>(
-  'vibee-caption-style',
+  'vibee-caption-style-v3', // v3 to reset with animation default
   {
     fontSize: CAPTION_DEFAULTS.fontSize,
     textColor: CAPTION_DEFAULTS.textColor,
@@ -116,7 +156,8 @@ export const captionStyleAtom = atomWithStorage<CaptionStyle>(
     maxWidthPercent: CAPTION_DEFAULTS.maxWidthPercent,
     fontWeight: CAPTION_DEFAULTS.fontWeight,
     showShadow: CAPTION_DEFAULTS.showShadow,
-    fontId: 'Montserrat', // Default font ID
+    fontFamily: 'Montserrat',
+    animation: 'pop', // Default caption animation
   }
 );
 
@@ -179,6 +220,14 @@ export const templatePropsAtom = atom((get): LipSyncMainProps => {
     fullscreenFaceScale: get(fullscreenFaceScaleAtom),
     fullscreenIsCircle: get(fullscreenIsCircleAtom),
     fullscreenBorderRadius: get(fullscreenBorderRadiusAtom),
+    // Avatar animation
+    avatarAnimation: get(avatarAnimationAtom),
+    // Avatar border effect
+    avatarBorderEffect: get(avatarBorderEffectAtom),
+    avatarBorderColor: get(avatarBorderColorAtom),
+    avatarBorderColor2: get(avatarBorderColor2Atom),
+    avatarBorderWidth: get(avatarBorderWidthAtom),
+    avatarBorderIntensity: get(avatarBorderIntensityAtom),
   };
 });
 
@@ -221,6 +270,14 @@ const propAtomMap: Record<string, any> = {
   fullscreenFaceScale: fullscreenFaceScaleAtom,
   fullscreenIsCircle: fullscreenIsCircleAtom,
   fullscreenBorderRadius: fullscreenBorderRadiusAtom,
+  // Animation
+  avatarAnimation: avatarAnimationAtom,
+  // Border effect
+  avatarBorderEffect: avatarBorderEffectAtom,
+  avatarBorderColor: avatarBorderColorAtom,
+  avatarBorderColor2: avatarBorderColor2Atom,
+  avatarBorderWidth: avatarBorderWidthAtom,
+  avatarBorderIntensity: avatarBorderIntensityAtom,
 };
 
 export const updateTemplatePropAtom = atom(

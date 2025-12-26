@@ -8,6 +8,35 @@
 import type { Caption } from '@remotion/captions';
 
 // ============================================================
+// Animation Types
+// ============================================================
+
+export type AvatarAnimation = 'fade' | 'scale' | 'pop' | 'slide' | 'bounce' | 'none';
+export type CaptionAnimation = 'pop' | 'fade' | 'slide' | 'bounce' | 'scaleRotate';
+
+// ============================================================
+// Avatar Border Effect Types
+// ============================================================
+
+export type AvatarBorderEffect =
+  | 'none'
+  | 'solid'
+  | 'neon'
+  | 'rainbow'
+  | 'glass'
+  | 'gradient'
+  | 'pulse'
+  // New effects
+  | 'glow'
+  | 'double'
+  | 'neonPulse'
+  | 'fire'
+  | 'ocean'
+  | 'sunset'
+  | 'electric'
+  | 'holographic';
+
+// ============================================================
 // Caption Types
 // ============================================================
 
@@ -22,6 +51,7 @@ export interface CaptionStyle {
   fontFamily?: string;
   fontWeight?: number;
   showShadow?: boolean;
+  animation?: CaptionAnimation;
 }
 
 // ============================================================
@@ -41,10 +71,45 @@ export interface LipSyncMainProps {
   vignetteStrength?: number;
   colorCorrection?: number;
 
-  // Avatar circle position
+  // Avatar circle position (legacy)
   circleSizePercent?: number;
   circleBottomPercent?: number;
-  circleLeftPx?: number;
+  circleLeftPercent?: number;
+
+  // Face centering
+  faceOffsetX?: number;
+  faceOffsetY?: number;
+  faceScale?: number;
+
+  // Circle avatar (legacy)
+  isCircleAvatar?: boolean;
+  avatarBorderRadius?: number;
+
+  // Split mode settings
+  splitCircleSize?: number;
+  splitPositionX?: number;
+  splitPositionY?: number;
+  splitFaceScale?: number;
+  splitIsCircle?: boolean;
+  splitBorderRadius?: number;
+
+  // Fullscreen mode settings
+  fullscreenCircleSize?: number;
+  fullscreenPositionX?: number;
+  fullscreenPositionY?: number;
+  fullscreenFaceScale?: number;
+  fullscreenIsCircle?: boolean;
+  fullscreenBorderRadius?: number;
+
+  // Avatar animation
+  avatarAnimation?: AvatarAnimation;
+
+  // Avatar border effect
+  avatarBorderEffect?: AvatarBorderEffect;
+  avatarBorderColor?: string;
+  avatarBorderColor2?: string;
+  avatarBorderWidth?: number;
+  avatarBorderIntensity?: number;
 
   // Captions
   showCaptions?: boolean;

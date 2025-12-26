@@ -11,11 +11,12 @@ export {
   videoTrackAtom,
   avatarTrackAtom,
   audioTrackAtom,
-  textTrackAtom,
+  imageTrackAtom,
   getTrackByIdAtom,
   getItemByIdAtom,
   // Track Migration
   ensureAudioTrackAtom,
+  ensureImageTrackAtom,
   // Track Actions
   addTrackAtom,
   removeTrackAtom,
@@ -32,6 +33,7 @@ export {
   rippleDeleteAtom,
   reorderItemsAtom,
   resetTracksAtom,
+  updateItemLayoutAtom,
 } from './tracks';
 
 export {
@@ -76,6 +78,7 @@ export {
 // UI Atoms
 export {
   sidebarTabAtom,
+  type SidebarTab,
   canvasZoomAtom,
   timelineZoomAtom,
   snapSettingsAtom,
@@ -102,6 +105,7 @@ export {
   segmentsAtom,
   templatePropsAtom,
   updateTemplatePropAtom,
+  forceRefreshAtom, // Force re-render when agent updates props
   // Primitive template props
   lipSyncVideoAtom,
   coverImageAtom,
@@ -112,10 +116,35 @@ export {
   colorCorrectionAtom,
   circleSizePercentAtom,
   circleBottomPercentAtom,
-  circleLeftPxAtom,
+  circleLeftPercentAtom,
   faceOffsetXAtom,
   faceOffsetYAtom,
   faceScaleAtom,
+  // Circle avatar
+  isCircleAvatarAtom,
+  avatarBorderRadiusAtom,
+  // Split/Fullscreen mode settings
+  avatarSettingsTabAtom,
+  splitCircleSizeAtom,
+  splitPositionXAtom,
+  splitPositionYAtom,
+  splitFaceScaleAtom,
+  splitIsCircleAtom,
+  splitBorderRadiusAtom,
+  fullscreenCircleSizeAtom,
+  fullscreenPositionXAtom,
+  fullscreenPositionYAtom,
+  fullscreenFaceScaleAtom,
+  fullscreenIsCircleAtom,
+  fullscreenBorderRadiusAtom,
+  // Animation
+  avatarAnimationAtom,
+  // Border effect
+  avatarBorderEffectAtom,
+  avatarBorderColorAtom,
+  avatarBorderColor2Atom,
+  avatarBorderWidthAtom,
+  avatarBorderIntensityAtom,
   // Captions
   captionsAtom,
   captionStyleAtom,
