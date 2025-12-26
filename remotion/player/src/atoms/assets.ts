@@ -7,6 +7,7 @@ import { atomWithStorage } from 'jotai/utils';
 import { produce } from 'immer';
 import { nanoid } from 'nanoid';
 import type { Asset } from '@/store/types';
+import { STORAGE_KEYS } from './storageKeys';
 
 // Default assets (pre-loaded)
 const DEFAULT_ASSETS: Asset[] = [
@@ -92,7 +93,7 @@ const DEFAULT_ASSETS: Asset[] = [
 
 // Core assets atom
 export const assetsAtom = atomWithStorage<Asset[]>(
-  'vibee-assets-v14',
+  STORAGE_KEYS.assets,
   DEFAULT_ASSETS
 );
 

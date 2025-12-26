@@ -4,6 +4,7 @@
 
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
+import { STORAGE_KEYS } from './storageKeys';
 
 export type Language = 'ru' | 'en';
 
@@ -112,6 +113,7 @@ const en: Translations = {
   "editor.exporting": "Rendering...",
   "editor.settings": "Settings",
   "editor.save": "Save Project",
+  "editor.saveTemplate": "Save as Template",
   "editor.load": "Load Project",
   "editor.reset": "Reset to Defaults",
   "editor.undo": "Undo",
@@ -317,6 +319,12 @@ const en: Translations = {
 
   // Templates Panel
   "templates.title": "Templates",
+  "templates.saveTitle": "Save as Template",
+  "templates.saveDescription": "Save current settings with all assets as a reusable template.",
+  "templates.namePlaceholder": "Template name",
+  "templates.save": "Save Template",
+  "templates.delete": "Delete template",
+  "templates.confirmDelete": "Are you sure you want to delete this template?",
 
   // Timeline
   "timeline.skipToStart": "Skip to start",
@@ -402,6 +410,7 @@ const en: Translations = {
   "editor.unknownError": "Unknown error",
 
   // Tab Tooltips
+  "tabs.feed": "Feed",
   "tabs.templates": "Templates",
   "tabs.assets": "Assets",
   "tabs.player": "Player",
@@ -409,6 +418,45 @@ const en: Translations = {
   "tabs.layers": "Layers",
   "tabs.properties": "Properties",
   "tabs.captions": "Captions",
+
+  // Feed
+  "feed.title": "Community Feed",
+  "feed.recent": "Recent",
+  "feed.popular": "Popular",
+  "feed.refresh": "Refresh",
+  "feed.loading": "Loading...",
+  "feed.empty": "No templates yet",
+  "feed.loadMore": "Load More",
+  "feed.retry": "Retry",
+  "feed.useTemplate": "Use Template",
+  "feed.using": "Loading...",
+  "feed.like": "Like",
+  "feed.today": "Today",
+  "feed.yesterday": "Yesterday",
+  "feed.remixing": "Remixing template...",
+  "feed.remixHint": "Record your own voice & cameo to make it yours!",
+
+  // Publish Modal
+  "publish.title": "Share to Feed",
+  "publish.subtitle": "Publish your creation to the community feed",
+  "publish.name": "Name",
+  "publish.namePlaceholder": "Enter a name for your video",
+  "publish.nameRequired": "Please enter a name",
+  "publish.description": "Description",
+  "publish.descPlaceholder": "Tell others about your creation...",
+  "publish.share": "Share to Feed",
+  "publish.publishing": "Publishing...",
+  "publish.success": "Published!",
+  "publish.successDesc": "Your creation is now live in the community feed",
+  "publish.failed": "Failed to publish. Please try again.",
+  "publish.noVideo": "No video to publish",
+  "publish.remixOf": "Remix of",
+
+  // Remix Badge
+  "remix.badge": "Remix",
+  "remix.of": "Remix of",
+  "remix.by": "by",
+  "remix.original": "Original by",
 
   // Player
   "player.pause": "Pause",
@@ -537,7 +585,7 @@ const en: Translations = {
 
   // Generate Panel
   "generate.title": "Generate",
-  "generate.image": "Photo",
+  "generate.image": "Image",
   "generate.video": "Video",
   "generate.audio": "Voice",
   "generate.lipsync": "Lipsync",
@@ -670,6 +718,7 @@ const ru: Translations = {
   "editor.exporting": "Рендеринг...",
   "editor.settings": "Настройки",
   "editor.save": "Сохранить проект",
+  "editor.saveTemplate": "Сохранить как шаблон",
   "editor.load": "Загрузить проект",
   "editor.reset": "Сбросить настройки",
   "editor.undo": "Отменить",
@@ -875,6 +924,12 @@ const ru: Translations = {
 
   // Templates Panel
   "templates.title": "Шаблоны",
+  "templates.saveTitle": "Сохранить как шаблон",
+  "templates.saveDescription": "Сохранить текущие настройки со всеми ассетами как шаблон.",
+  "templates.namePlaceholder": "Название шаблона",
+  "templates.save": "Сохранить",
+  "templates.delete": "Удалить шаблон",
+  "templates.confirmDelete": "Вы уверены, что хотите удалить этот шаблон?",
 
   // Timeline
   "timeline.skipToStart": "В начало",
@@ -960,6 +1015,7 @@ const ru: Translations = {
   "editor.unknownError": "Неизвестная ошибка",
 
   // Tab Tooltips
+  "tabs.feed": "Лента",
   "tabs.templates": "Шаблоны",
   "tabs.assets": "Ассеты",
   "tabs.player": "Плеер",
@@ -967,6 +1023,45 @@ const ru: Translations = {
   "tabs.layers": "Слои",
   "tabs.properties": "Свойства",
   "tabs.captions": "Субтитры",
+
+  // Feed
+  "feed.title": "Лента сообщества",
+  "feed.recent": "Новые",
+  "feed.popular": "Популярные",
+  "feed.refresh": "Обновить",
+  "feed.loading": "Загрузка...",
+  "feed.empty": "Пока нет шаблонов",
+  "feed.loadMore": "Загрузить ещё",
+  "feed.retry": "Повторить",
+  "feed.useTemplate": "Использовать",
+  "feed.using": "Загрузка...",
+  "feed.like": "Нравится",
+  "feed.today": "Сегодня",
+  "feed.yesterday": "Вчера",
+  "feed.remixing": "Загрузка шаблона...",
+  "feed.remixHint": "Запишите свой голос и камео, чтобы сделать видео своим!",
+
+  // Publish Modal
+  "publish.title": "Поделиться в ленте",
+  "publish.subtitle": "Опубликуйте своё творение в ленте сообщества",
+  "publish.name": "Название",
+  "publish.namePlaceholder": "Введите название видео",
+  "publish.nameRequired": "Введите название",
+  "publish.description": "Описание",
+  "publish.descPlaceholder": "Расскажите о своём творении...",
+  "publish.share": "Опубликовать",
+  "publish.publishing": "Публикация...",
+  "publish.success": "Опубликовано!",
+  "publish.successDesc": "Ваше творение теперь в ленте сообщества",
+  "publish.failed": "Не удалось опубликовать. Попробуйте ещё раз.",
+  "publish.noVideo": "Нет видео для публикации",
+  "publish.remixOf": "Ремикс",
+
+  // Remix Badge
+  "remix.badge": "Ремикс",
+  "remix.of": "Ремикс",
+  "remix.by": "от",
+  "remix.original": "Оригинал от",
 
   // Player
   "player.pause": "Пауза",
@@ -1152,7 +1247,7 @@ function detectBrowserLanguage(): Language {
 
 // Language atom with localStorage persistence
 export const languageAtom = atomWithStorage<Language>(
-  'vibee-lang',
+  STORAGE_KEYS.language,
   detectBrowserLanguage()
 );
 

@@ -6,6 +6,7 @@ import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import type { PlayerRef } from '@remotion/player';
 import type React from 'react';
+import { STORAGE_KEYS } from './storageKeys';
 
 // Current frame position
 export const currentFrameAtom = atom(0);
@@ -18,7 +19,7 @@ export const isMutedAtom = atom(false);
 export const volumeAtom = atom(1); // 0-1
 
 // Playback rate (persisted)
-export const playbackRateAtom = atomWithStorage('vibee-playback-rate', 1);
+export const playbackRateAtom = atomWithStorage(STORAGE_KEYS.playbackRate, 1);
 
 // Player ref for direct control
 export const playerRefAtom = atom<React.RefObject<PlayerRef | null> | null>(null);

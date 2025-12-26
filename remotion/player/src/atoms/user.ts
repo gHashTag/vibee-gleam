@@ -5,6 +5,7 @@
 
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
+import { STORAGE_KEYS } from './storageKeys';
 
 // Telegram user from Login Widget
 export interface TelegramUser {
@@ -34,7 +35,7 @@ export interface SubscriptionInfo {
 
 // Persisted user state
 export const userAtom = atomWithStorage<TelegramUser | null>(
-  'vibee-user',
+  STORAGE_KEYS.user,
   null
 );
 

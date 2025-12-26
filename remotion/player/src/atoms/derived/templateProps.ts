@@ -7,6 +7,7 @@ import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import { backgroundVideosAtom } from './backgroundVideos';
 import { CAPTION_DEFAULTS } from '@/constants/captions';
+import { STORAGE_KEYS } from '../storageKeys';
 import type { CaptionItem, CaptionStyle, LipSyncMainProps } from '@/store/types';
 import type { AvatarAnimation, AvatarBorderEffect } from '@/shared/types';
 
@@ -15,95 +16,145 @@ import type { AvatarAnimation, AvatarBorderEffect } from '@/shared/types';
 // ===============================
 
 export const lipSyncVideoAtom = atomWithStorage(
-  'vibee-lipsync-video',
+  STORAGE_KEYS.lipSyncVideo,
   '/lipsync/lipsync.mp4'
 );
 
 export const coverImageAtom = atomWithStorage(
-  'vibee-cover-image',
+  STORAGE_KEYS.coverImage,
   '/covers/cover.jpeg'
 );
 
 export const backgroundMusicAtom = atomWithStorage(
-  'vibee-background-music',
+  STORAGE_KEYS.backgroundMusic,
   '/audio/music/phonk_01.mp3'
 );
 
 export const musicVolumeAtom = atomWithStorage(
-  'vibee-music-volume',
+  STORAGE_KEYS.musicVolume,
   0.06
 );
 
 export const coverDurationAtom = atomWithStorage(
-  'vibee-cover-duration',
+  STORAGE_KEYS.coverDuration,
   0.5
 );
 
 export const vignetteStrengthAtom = atomWithStorage(
-  'vibee-vignette-strength',
+  STORAGE_KEYS.vignetteStrength,
   0.7
 );
 
 export const colorCorrectionAtom = atomWithStorage(
-  'vibee-color-correction',
+  STORAGE_KEYS.colorCorrection,
   1.2
 );
 
 export const circleSizePercentAtom = atomWithStorage(
-  'vibee-circle-size',
+  STORAGE_KEYS.circleSize,
   25.2
 );
 
 export const circleBottomPercentAtom = atomWithStorage(
-  'vibee-circle-bottom-v2',  // New key to reset old values
+  STORAGE_KEYS.circleBottom,
   0  // Center by default
 );
 
 export const circleLeftPercentAtom = atomWithStorage(
-  'vibee-circle-left-percent',
+  STORAGE_KEYS.circleLeft,
   0  // Center by default (0 = centered)
 );
 
 // Face centering (from /analyze-face endpoint or manual adjustment)
-export const faceOffsetXAtom = atomWithStorage('vibee-face-offset-x', 0);
-export const faceOffsetYAtom = atomWithStorage('vibee-face-offset-y', 0);
-export const faceScaleAtom = atomWithStorage('vibee-face-scale', 1.0);
+export const faceOffsetXAtom = atomWithStorage(STORAGE_KEYS.faceOffsetX, 0);
+export const faceOffsetYAtom = atomWithStorage(STORAGE_KEYS.faceOffsetY, 0);
+export const faceScaleAtom = atomWithStorage(STORAGE_KEYS.faceScale, 1.0);
 
 // Circle avatar mode (legacy - kept for compatibility)
-export const isCircleAvatarAtom = atomWithStorage('vibee-is-circle-avatar', false);
-export const avatarBorderRadiusAtom = atomWithStorage('vibee-avatar-border-radius', 50); // 0-50%
+export const isCircleAvatarAtom = atomWithStorage(STORAGE_KEYS.isCircleAvatar, false);
+export const avatarBorderRadiusAtom = atomWithStorage(STORAGE_KEYS.avatarBorderRadius, 50); // 0-50%
 
 // ===============================
 // Split/Fullscreen Mode Settings
 // ===============================
 
+/**
+ * AvatarModeSettings - Consolidated avatar settings for a mode
+ * Reduces 12 atoms to 2 objects
+ */
+export interface AvatarModeSettings {
+  circleSize: number;     // 10-100%
+  positionX: number;      // -50 to 50%
+  positionY: number;      // -50 to 50%
+  faceScale: number;      // 0.5-2x
+  isCircle: boolean;      // Circle mask toggle
+  borderRadius: number;   // 0-100% (when isCircle=true)
+}
+
+// Default settings for both modes
+const DEFAULT_AVATAR_SETTINGS: AvatarModeSettings = {
+  circleSize: 100,
+  positionX: 0,
+  positionY: 0,
+  faceScale: 1.0,
+  isCircle: false,
+  borderRadius: 50,
+};
+
 // Tab selection in UI
 export const avatarSettingsTabAtom = atom<'split' | 'fullscreen'>('fullscreen');
 
-// Split mode settings (when video background is shown)
-// NOTE: -v3 keys to reset old localStorage values (formula changed from size*4 to size)
-export const splitCircleSizeAtom = atomWithStorage('vibee-split-circle-size-v3', 100);
-export const splitPositionXAtom = atomWithStorage('vibee-split-position-x-v2', 0);
-export const splitPositionYAtom = atomWithStorage('vibee-split-position-y-v2', 0);
-export const splitFaceScaleAtom = atomWithStorage('vibee-split-face-scale-v2', 1.0);
-export const splitIsCircleAtom = atomWithStorage('vibee-split-is-circle-v2', false);
-export const splitBorderRadiusAtom = atomWithStorage('vibee-split-border-radius-v2', 50);
+// Consolidated avatar settings atoms
+export const splitAvatarSettingsAtom = atomWithStorage<AvatarModeSettings>(
+  STORAGE_KEYS.splitAvatarSettings,
+  DEFAULT_AVATAR_SETTINGS
+);
 
-// Fullscreen mode settings (avatar fills screen)
-// NOTE: -v3 keys to reset old localStorage values (formula changed from size*4 to size)
-export const fullscreenCircleSizeAtom = atomWithStorage('vibee-fullscreen-circle-size-v3', 100);
-export const fullscreenPositionXAtom = atomWithStorage('vibee-fullscreen-position-x-v2', 0);
-export const fullscreenPositionYAtom = atomWithStorage('vibee-fullscreen-position-y-v2', 0);
-export const fullscreenFaceScaleAtom = atomWithStorage('vibee-fullscreen-face-scale-v2', 1.0);
-export const fullscreenIsCircleAtom = atomWithStorage('vibee-fullscreen-is-circle-v2', false);
-export const fullscreenBorderRadiusAtom = atomWithStorage('vibee-fullscreen-border-radius-v2', 50);
+export const fullscreenAvatarSettingsAtom = atomWithStorage<AvatarModeSettings>(
+  STORAGE_KEYS.fullscreenAvatarSettings,
+  DEFAULT_AVATAR_SETTINGS
+);
+
+// ===============================
+// Derived Selector Atoms (for UI compatibility)
+// ===============================
+
+// Helper to create getter/setter atoms for a specific property
+function createAvatarPropAtom<K extends keyof AvatarModeSettings>(
+  settingsAtom: typeof splitAvatarSettingsAtom,
+  key: K
+) {
+  return atom(
+    (get) => get(settingsAtom)[key],
+    (get, set, value: AvatarModeSettings[K]) => {
+      const current = get(settingsAtom);
+      set(settingsAtom, { ...current, [key]: value });
+    }
+  );
+}
+
+// Split mode derived atoms
+export const splitCircleSizeAtom = createAvatarPropAtom(splitAvatarSettingsAtom, 'circleSize');
+export const splitPositionXAtom = createAvatarPropAtom(splitAvatarSettingsAtom, 'positionX');
+export const splitPositionYAtom = createAvatarPropAtom(splitAvatarSettingsAtom, 'positionY');
+export const splitFaceScaleAtom = createAvatarPropAtom(splitAvatarSettingsAtom, 'faceScale');
+export const splitIsCircleAtom = createAvatarPropAtom(splitAvatarSettingsAtom, 'isCircle');
+export const splitBorderRadiusAtom = createAvatarPropAtom(splitAvatarSettingsAtom, 'borderRadius');
+
+// Fullscreen mode derived atoms
+export const fullscreenCircleSizeAtom = createAvatarPropAtom(fullscreenAvatarSettingsAtom, 'circleSize');
+export const fullscreenPositionXAtom = createAvatarPropAtom(fullscreenAvatarSettingsAtom, 'positionX');
+export const fullscreenPositionYAtom = createAvatarPropAtom(fullscreenAvatarSettingsAtom, 'positionY');
+export const fullscreenFaceScaleAtom = createAvatarPropAtom(fullscreenAvatarSettingsAtom, 'faceScale');
+export const fullscreenIsCircleAtom = createAvatarPropAtom(fullscreenAvatarSettingsAtom, 'isCircle');
+export const fullscreenBorderRadiusAtom = createAvatarPropAtom(fullscreenAvatarSettingsAtom, 'borderRadius');
 
 // ===============================
 // Animation Settings
 // ===============================
 
 export const avatarAnimationAtom = atomWithStorage<AvatarAnimation>(
-  'vibee-avatar-animation',
+  STORAGE_KEYS.avatarAnimation,
   'pop' // Default: spring pop-in effect
 );
 
@@ -112,27 +163,27 @@ export const avatarAnimationAtom = atomWithStorage<AvatarAnimation>(
 // ===============================
 
 export const avatarBorderEffectAtom = atomWithStorage<AvatarBorderEffect>(
-  'vibee-avatar-border-effect',
+  STORAGE_KEYS.avatarBorderEffect,
   'none' // Default: no border effect
 );
 
 export const avatarBorderColorAtom = atomWithStorage(
-  'vibee-avatar-border-color',
+  STORAGE_KEYS.avatarBorderColor,
   '#FFD700' // Gold by default
 );
 
 export const avatarBorderColor2Atom = atomWithStorage(
-  'vibee-avatar-border-color2',
+  STORAGE_KEYS.avatarBorderColor2,
   '#FF6B6B' // Coral for gradient
 );
 
 export const avatarBorderWidthAtom = atomWithStorage(
-  'vibee-avatar-border-width',
+  STORAGE_KEYS.avatarBorderWidth,
   4 // 4px default
 );
 
 export const avatarBorderIntensityAtom = atomWithStorage(
-  'vibee-avatar-border-intensity',
+  STORAGE_KEYS.avatarBorderIntensity,
   1.0 // 1x default
 );
 
@@ -141,12 +192,11 @@ export const avatarBorderIntensityAtom = atomWithStorage(
 // ===============================
 
 // Captions data - PERSISTED to survive page refresh
-export const captionsAtom = atomWithStorage<CaptionItem[]>('vibee-captions-v2', []);
+export const captionsAtom = atomWithStorage<CaptionItem[]>(STORAGE_KEYS.captions, []);
 
 // Caption style (persisted)
-// NOTE: Changed key to -v2 to reset old localStorage with fontId -> fontFamily
 export const captionStyleAtom = atomWithStorage<CaptionStyle>(
-  'vibee-caption-style-v3', // v3 to reset with animation default
+  STORAGE_KEYS.captionStyle,
   {
     fontSize: CAPTION_DEFAULTS.fontSize,
     textColor: CAPTION_DEFAULTS.textColor,
@@ -161,7 +211,7 @@ export const captionStyleAtom = atomWithStorage<CaptionStyle>(
   }
 );
 
-export const showCaptionsAtom = atomWithStorage('vibee-show-captions', true);
+export const showCaptionsAtom = atomWithStorage(STORAGE_KEYS.showCaptions, true);
 
 // ===============================
 // Force Refresh Atom
@@ -235,9 +285,8 @@ export const templatePropsAtom = atom((get): LipSyncMainProps => {
 // Update Template Prop Action
 // ===============================
 
-type TemplatePropKey = keyof Omit<LipSyncMainProps, 'backgroundVideos'>;
-
-const propAtomMap: Record<string, any> = {
+// Type-safe prop atom map - ensures keys match LipSyncMainProps
+const propAtomMap = {
   lipSyncVideo: lipSyncVideoAtom,
   coverImage: coverImageAtom,
   backgroundMusic: backgroundMusicAtom,
@@ -278,16 +327,24 @@ const propAtomMap: Record<string, any> = {
   avatarBorderColor2: avatarBorderColor2Atom,
   avatarBorderWidth: avatarBorderWidthAtom,
   avatarBorderIntensity: avatarBorderIntensityAtom,
-};
+} as const;
+
+// Extract valid keys from the map (type-safe)
+export type TemplatePropKey = keyof typeof propAtomMap;
 
 export const updateTemplatePropAtom = atom(
   null,
-  (get, set, { key, value }: { key: TemplatePropKey; value: any }) => {
+  (
+    _get,
+    set,
+    { key, value }: { key: TemplatePropKey; value: unknown }
+  ) => {
     const propAtom = propAtomMap[key];
     if (propAtom) {
-      set(propAtom, value);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      set(propAtom as any, value);
     } else {
-      console.warn(`[updateTemplateProp] Unknown key: ${key}`);
+      console.warn(`[updateTemplateProp] Unknown key: ${String(key)}`);
     }
   }
 );

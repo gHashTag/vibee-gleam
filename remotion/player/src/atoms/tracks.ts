@@ -6,7 +6,8 @@ import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import { produce } from 'immer';
 import { nanoid } from 'nanoid';
-import type { Track, TrackItem, TrackType, LipSyncMainProps } from '@/store/types';
+import type { Track, TrackItem, TrackType, LipSyncMainProps, VideoLayout } from '@/store/types';
+import { STORAGE_KEYS } from './storageKeys';
 import {
   lipSyncVideoAtom,
   captionsAtom,
@@ -18,7 +19,7 @@ import {
   colorCorrectionAtom,
   circleSizePercentAtom,
   circleBottomPercentAtom,
-  circleLeftPxAtom,
+  circleLeftPercentAtom,
   faceOffsetXAtom,
   faceOffsetYAtom,
   faceScaleAtom,
@@ -32,8 +33,8 @@ import { projectAtom } from './project';
 const DEFAULT_TEMPLATE: Partial<LipSyncMainProps> = {
   coverDuration: 0.5,
   circleSizePercent: 25.2,
-  circleBottomPercent: 15,
-  circleLeftPx: 40,
+  circleBottomPercent: 0,  // Center
+  circleLeftPercent: 0,    // Center
 };
 
 // Helper to create initial tracks
@@ -100,7 +101,7 @@ function createDefaultTracks(fps: number, durationInFrames: number): Track[] {
           volume: 1,
           circleSizePercent: DEFAULT_TEMPLATE.circleSizePercent || 25.2,
           circleBottomPercent: DEFAULT_TEMPLATE.circleBottomPercent || 15,
-          circleLeftPx: DEFAULT_TEMPLATE.circleLeftPx || 40,
+          circleLeftPercent: DEFAULT_TEMPLATE.circleLeftPercent || 0,
         },
       ],
       locked: false,
@@ -115,10 +116,11 @@ function createDefaultTracks(fps: number, durationInFrames: number): Track[] {
       locked: false,
       visible: true,
     },
+    // Image track for photos/stills
     {
-      id: 'track-text',
-      type: 'text',
-      name: 'Text',
+      id: 'track-image',
+      type: 'image',
+      name: 'Image',
       items: [],
       locked: false,
       visible: true,
@@ -157,7 +159,7 @@ const DEFAULT_TRACKS = createDefaultTracks(30, 825);
 // ===============================
 
 export const tracksAtom = atomWithStorage<Track[]>(
-  'vibee-tracks-v16',
+  STORAGE_KEYS.tracks,
   DEFAULT_TRACKS
 );
 
@@ -186,6 +188,32 @@ export const ensureAudioTrackAtom = atom(
   }
 );
 
+// Migration: Ensure Image Track Exists (for old users)
+export const ensureImageTrackAtom = atom(
+  null,
+  (get, set) => {
+    const tracks = get(tracksAtom);
+    const imageTrack = tracks.find(t => t.type === 'image');
+
+    if (!imageTrack) {
+      console.log('[Migration] Adding missing image track');
+      const newImageTrack: Track = {
+        id: 'track-image',
+        type: 'image',
+        name: 'Image',
+        items: [],
+        locked: false,
+        visible: true,
+      };
+      // Insert after video track
+      const videoIndex = tracks.findIndex(t => t.type === 'video');
+      const newTracks = [...tracks];
+      newTracks.splice(videoIndex + 1, 0, newImageTrack);
+      set(tracksAtom, newTracks);
+    }
+  }
+);
+
 // ===============================
 // Track Selectors
 // ===============================
@@ -202,8 +230,8 @@ export const audioTrackAtom = atom((get) =>
   get(tracksAtom).find((t) => t.type === 'audio')
 );
 
-export const textTrackAtom = atom((get) =>
-  get(tracksAtom).find((t) => t.type === 'text')
+export const imageTrackAtom = atom((get) =>
+  get(tracksAtom).find((t) => t.type === 'image')
 );
 
 // Get track by ID
@@ -301,6 +329,22 @@ export const updateItemAtom = atom(
       }
     }));
     // NO MANUAL backgroundVideos SYNC - it's derived automatically!
+  }
+);
+
+// Update video item layout
+export const updateItemLayoutAtom = atom(
+  null,
+  (get, set, { itemId, layout }: { itemId: string; layout: VideoLayout }) => {
+    set(tracksAtom, produce(get(tracksAtom), (draft) => {
+      for (const track of draft) {
+        const item = track.items.find((i) => i.id === itemId);
+        if (item && item.type === 'video') {
+          (item as any).layout = layout;
+          break;
+        }
+      }
+    }));
   }
 );
 
@@ -536,11 +580,11 @@ export const resetTracksAtom = atom(
     set(vignetteStrengthAtom, 0.7);
     set(colorCorrectionAtom, 1.2);
     set(circleSizePercentAtom, 25.2);
-    set(circleBottomPercentAtom, 15);
-    set(circleLeftPxAtom, 40);
-    set(faceOffsetXAtom, undefined);
-    set(faceOffsetYAtom, undefined);
-    set(faceScaleAtom, undefined);
+    set(circleBottomPercentAtom, 0);  // Center
+    set(circleLeftPercentAtom, 0);    // Center
+    set(faceOffsetXAtom, 0);
+    set(faceOffsetYAtom, 0);
+    set(faceScaleAtom, 1.0);
     set(showCaptionsAtom, true);
     set(captionStyleAtom, {
       fontSize: CAPTION_DEFAULTS.fontSize,

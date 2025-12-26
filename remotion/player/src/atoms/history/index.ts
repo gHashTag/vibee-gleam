@@ -4,6 +4,7 @@
 
 import { atom } from 'jotai';
 import { produce } from 'immer';
+import equal from 'fast-deep-equal';
 import { tracksAtom } from '../tracks';
 import { assetsAtom } from '../assets';
 import { projectAtom } from '../project';
@@ -22,10 +23,14 @@ import {
   colorCorrectionAtom,
   circleSizePercentAtom,
   circleBottomPercentAtom,
-  circleLeftPxAtom,
+  circleLeftPercentAtom,
   faceOffsetXAtom,
   faceOffsetYAtom,
   faceScaleAtom,
+  // Consolidated avatar settings
+  type AvatarModeSettings,
+  splitAvatarSettingsAtom,
+  fullscreenAvatarSettingsAtom,
 } from '../derived/templateProps';
 import type { Track, Asset, Project, CaptionItem, CaptionStyle } from '@/store/types';
 
@@ -46,10 +51,13 @@ interface TemplatePropsSnapshot {
   colorCorrection: number;
   circleSizePercent: number;
   circleBottomPercent: number;
-  circleLeftPx: number;
+  circleLeftPercent: number;
   faceOffsetX: number | undefined;
   faceOffsetY: number | undefined;
   faceScale: number | undefined;
+  // Consolidated avatar settings
+  splitAvatarSettings: AvatarModeSettings;
+  fullscreenAvatarSettings: AvatarModeSettings;
 }
 
 interface UIStateSnapshot {
@@ -95,10 +103,13 @@ function createTemplatePropsSnapshot(get: any): TemplatePropsSnapshot {
     colorCorrection: get(colorCorrectionAtom),
     circleSizePercent: get(circleSizePercentAtom),
     circleBottomPercent: get(circleBottomPercentAtom),
-    circleLeftPx: get(circleLeftPxAtom),
+    circleLeftPercent: get(circleLeftPercentAtom),
     faceOffsetX: get(faceOffsetXAtom),
     faceOffsetY: get(faceOffsetYAtom),
     faceScale: get(faceScaleAtom),
+    // Consolidated avatar settings
+    splitAvatarSettings: { ...get(splitAvatarSettingsAtom) },
+    fullscreenAvatarSettings: { ...get(fullscreenAvatarSettingsAtom) },
   };
 }
 
@@ -122,10 +133,13 @@ function applyTemplatePropsSnapshot(set: any, templateProps: TemplatePropsSnapsh
   set(colorCorrectionAtom, templateProps.colorCorrection);
   set(circleSizePercentAtom, templateProps.circleSizePercent);
   set(circleBottomPercentAtom, templateProps.circleBottomPercent);
-  set(circleLeftPxAtom, templateProps.circleLeftPx);
+  set(circleLeftPercentAtom, templateProps.circleLeftPercent);
   set(faceOffsetXAtom, templateProps.faceOffsetX);
   set(faceOffsetYAtom, templateProps.faceOffsetY);
   set(faceScaleAtom, templateProps.faceScale);
+  // Consolidated avatar settings
+  if (templateProps.splitAvatarSettings) set(splitAvatarSettingsAtom, templateProps.splitAvatarSettings);
+  if (templateProps.fullscreenAvatarSettings) set(fullscreenAvatarSettingsAtom, templateProps.fullscreenAvatarSettings);
 }
 
 function applyUIStateSnapshot(set: any, uiState: UIStateSnapshot) {
@@ -134,11 +148,12 @@ function applyUIStateSnapshot(set: any, uiState: UIStateSnapshot) {
 }
 
 // Check if snapshots are identical (for skip logic)
+// Uses fast-deep-equal for efficient structural comparison
 function isSnapshotIdentical(a: HistorySnapshot, b: HistorySnapshot): boolean {
-  return JSON.stringify(a.tracks) === JSON.stringify(b.tracks) &&
-         JSON.stringify(a.assets) === JSON.stringify(b.assets) &&
-         JSON.stringify(a.project) === JSON.stringify(b.project) &&
-         JSON.stringify(a.templateProps) === JSON.stringify(b.templateProps);
+  return equal(a.tracks, b.tracks) &&
+         equal(a.assets, b.assets) &&
+         equal(a.project, b.project) &&
+         equal(a.templateProps, b.templateProps);
 }
 
 // ===============================
@@ -334,4 +349,4 @@ export const clearHistoryAtom = atom(
   }
 );
 
-export { isApplyingAtom };
+// Note: isApplyingAtom is internal - not exported

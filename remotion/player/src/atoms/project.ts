@@ -4,6 +4,7 @@
 
 import { atomWithStorage } from 'jotai/utils';
 import type { Project } from '@/store/types';
+import { STORAGE_KEYS } from './storageKeys';
 
 const DEFAULT_PROJECT: Project = {
   id: '',
@@ -15,6 +16,6 @@ const DEFAULT_PROJECT: Project = {
 };
 
 export const projectAtom = atomWithStorage<Project>(
-  'vibee-project-v15',
+  STORAGE_KEYS.project,
   DEFAULT_PROJECT
 );

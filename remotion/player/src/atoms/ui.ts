@@ -7,18 +7,20 @@ import { atomWithStorage } from 'jotai/utils';
 import type { SnapSettings, Marker, MarkerColor } from '@/store/types';
 import { nanoid } from 'nanoid';
 import { produce } from 'immer';
+import { STORAGE_KEYS } from './storageKeys';
 
-// Sidebar tab
-export const sidebarTabAtom = atom<'assets' | 'properties'>('assets');
+// Unified sidebar tab (7 tabs in single row + feed)
+export type SidebarTab = 'feed' | 'templates' | 'image' | 'video' | 'audio' | 'lipsync' | 'player';
+export const sidebarTabAtom = atom<SidebarTab>('feed'); // Default to feed tab
 
 // Canvas zoom (0 = auto fit to height)
 export const canvasZoomAtom = atom(0);
 
 // Timeline zoom (persisted)
-export const timelineZoomAtom = atomWithStorage('vibee-timeline-zoom', 1);
+export const timelineZoomAtom = atomWithStorage(STORAGE_KEYS.timelineZoom, 1);
 
 // Snap settings (persisted)
-export const snapSettingsAtom = atomWithStorage<SnapSettings>('vibee-snap-settings', {
+export const snapSettingsAtom = atomWithStorage<SnapSettings>(STORAGE_KEYS.snapSettings, {
   enabled: false,
   interval: 15, // 0.5s at 30fps
 });

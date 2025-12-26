@@ -2,8 +2,25 @@
 // VIBEE Editor - Jotai Atoms
 // Single Source of Truth Architecture
 // ===============================
+//
+// 📁 Structure:
+// ├── Core: project, tracks, assets, playback
+// ├── UI: sidebar, selection, zoom, markers
+// ├── Template: media, effects, avatar, captions
+// ├── History: undo/redo
+// ├── User: auth, quota
+// └── Features: templates, feed, voices
+//
+// 🔧 Key patterns:
+// - atomWithStorage for persistence
+// - Derived atoms for computed values
+// - Action atoms for complex updates
+// ===============================
 
-// Core Atoms
+// ===============================
+// 🎬 CORE - Editor fundamentals
+// ===============================
+
 export { projectAtom } from './project';
 
 export {
@@ -45,7 +62,10 @@ export {
   DEFAULT_ASSET_IDS,
 } from './assets';
 
-// Playback Atoms
+// ===============================
+// ▶️ PLAYBACK - Player controls
+// ===============================
+
 export {
   currentFrameAtom,
   isPlayingAtom,
@@ -60,7 +80,10 @@ export {
   togglePlayAtom,
 } from './playback';
 
-// Selection Atoms
+// ===============================
+// 🎯 SELECTION - Item selection
+// ===============================
+
 export {
   selectedItemIdsAtom,
   selectionAnchorAtom,
@@ -75,7 +98,10 @@ export {
   pasteItemsAtom,
 } from './selection';
 
-// UI Atoms
+// ===============================
+// 🖥️ UI - Interface state
+// ===============================
+
 export {
   sidebarTabAtom,
   type SidebarTab,
@@ -99,12 +125,17 @@ export {
   goToPrevMarkerAtom,
 } from './ui';
 
-// Derived Atoms (THE KEY INNOVATION)
+// ===============================
+// 🎨 TEMPLATE - Video composition props
+// (Auto-derived from atoms, passed to Remotion)
+// ===============================
+
 export {
   backgroundVideosAtom,
   segmentsAtom,
   templatePropsAtom,
   updateTemplatePropAtom,
+  type TemplatePropKey, // Type-safe keys for updateTemplatePropAtom
   forceRefreshAtom, // Force re-render when agent updates props
   // Primitive template props
   lipSyncVideoAtom,
@@ -123,8 +154,12 @@ export {
   // Circle avatar
   isCircleAvatarAtom,
   avatarBorderRadiusAtom,
-  // Split/Fullscreen mode settings
+  // Split/Fullscreen mode settings (CONSOLIDATED)
   avatarSettingsTabAtom,
+  type AvatarModeSettings,
+  splitAvatarSettingsAtom,
+  fullscreenAvatarSettingsAtom,
+  // Derived selector atoms (for UI compatibility)
   splitCircleSizeAtom,
   splitPositionXAtom,
   splitPositionYAtom,
@@ -151,7 +186,10 @@ export {
   showCaptionsAtom,
 } from './derived';
 
-// History Atoms
+// ===============================
+// ↩️ HISTORY - Undo/Redo
+// ===============================
+
 export {
   undoAtom,
   redoAtom,
@@ -161,7 +199,10 @@ export {
   clearHistoryAtom,
 } from './history';
 
-// Caption Loading (with AbortController fix)
+// ===============================
+// 💬 CAPTIONS - Transcription & loading
+// ===============================
+
 export {
   loadCaptionsAtom,
   captionsLoadingAtom,
@@ -171,16 +212,28 @@ export {
   transcribingAtom,
 } from './captions';
 
-// Templates Atoms
+// ===============================
+// 📋 TEMPLATES - Saved presets
+// ===============================
+
 export {
   templatesAtom,
   selectedTemplateIdAtom,
   selectedTemplateAtom,
   selectTemplateAtom,
+  addTemplateAtom,
+  removeTemplateAtom,
+  // Per-template settings
+  templateSettingsAtom,
+  saveCurrentSettingsAtom,
   type Template,
+  type TemplateSettings,
 } from './templates';
 
-// User & Auth Atoms (Freemium)
+// ===============================
+// 👤 USER - Auth & subscription
+// ===============================
+
 export {
   userAtom,
   renderQuotaAtom,
@@ -195,3 +248,27 @@ export {
   type RenderQuota,
   type SubscriptionInfo,
 } from './user';
+
+// ===============================
+// 📱 FEED - Social templates
+// ===============================
+
+export {
+  feedTemplatesAtom,
+  feedLoadingAtom,
+  feedErrorAtom,
+  feedPageAtom,
+  feedHasMoreAtom,
+  feedSortAtom,
+  loadFeedAtom,
+  loadMoreFeedAtom,
+  changeFeedSortAtom,
+  likeTemplateAtom,
+  useTemplateAtom,
+  publishToFeedAtom,
+  currentRemixSourceAtom,
+  type FeedTemplate,
+  type FeedSort,
+  type PublishData,
+  type RemixSource,
+} from './feed';
