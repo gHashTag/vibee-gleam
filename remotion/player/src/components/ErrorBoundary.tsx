@@ -69,96 +69,227 @@ interface ErrorFallbackProps {
 }
 
 function ErrorFallback({ error, errorInfo, onReset, onReload, onClearStorage }: ErrorFallbackProps) {
-  // Don't use useLanguage() here - it might not be available if error is in providers
   const [showDetails, setShowDetails] = React.useState(false);
 
-  // Hardcoded translations for error boundary (safe fallback)
-  const t = (key: string) => {
-    const translations: Record<string, string> = {
-      'errors.title': 'Something went wrong',
-      'errors.subtitle': 'An error occurred in the application',
-      'errors.tryAgain': 'Try Again',
-      'errors.reload': 'Reload Page',
-      'errors.clearAndReload': 'Clear Data & Reload',
-      'errors.showDetails': 'Show Details',
-      'errors.support': 'If the problem persists, please contact support',
-    };
-    return translations[key] || key;
+  // Inline styles as fallback when Tailwind CSS fails to load
+  const styles = {
+    container: {
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 50%, #0f0f0f 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '16px',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    },
+    card: {
+      maxWidth: '420px',
+      width: '100%',
+      background: 'rgba(26, 26, 46, 0.9)',
+      borderRadius: '20px',
+      padding: '32px',
+      border: '1px solid rgba(245, 158, 11, 0.2)',
+      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(245, 158, 11, 0.1)',
+      backdropFilter: 'blur(10px)',
+    },
+    iconContainer: {
+      width: '72px',
+      height: '72px',
+      borderRadius: '50%',
+      background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(251, 191, 36, 0.1))',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      margin: '0 auto 20px',
+      border: '2px solid rgba(245, 158, 11, 0.3)',
+    },
+    title: {
+      fontSize: '24px',
+      fontWeight: '700',
+      color: '#ffffff',
+      textAlign: 'center' as const,
+      marginBottom: '8px',
+    },
+    subtitle: {
+      fontSize: '14px',
+      color: '#9ca3af',
+      textAlign: 'center' as const,
+      marginBottom: '28px',
+    },
+    buttonPrimary: {
+      width: '100%',
+      padding: '14px 24px',
+      background: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
+      color: '#000000',
+      fontWeight: '600',
+      fontSize: '15px',
+      borderRadius: '12px',
+      border: 'none',
+      cursor: 'pointer',
+      marginBottom: '12px',
+      transition: 'all 0.2s ease',
+      boxShadow: '0 4px 14px rgba(245, 158, 11, 0.3)',
+    },
+    buttonSecondary: {
+      width: '100%',
+      padding: '14px 24px',
+      background: 'rgba(55, 65, 81, 0.5)',
+      color: '#ffffff',
+      fontWeight: '500',
+      fontSize: '15px',
+      borderRadius: '12px',
+      border: '1px solid rgba(75, 85, 99, 0.5)',
+      cursor: 'pointer',
+      marginBottom: '12px',
+      transition: 'all 0.2s ease',
+    },
+    buttonDanger: {
+      width: '100%',
+      padding: '14px 24px',
+      background: 'rgba(239, 68, 68, 0.1)',
+      color: '#ef4444',
+      fontWeight: '500',
+      fontSize: '15px',
+      borderRadius: '12px',
+      border: '1px solid rgba(239, 68, 68, 0.3)',
+      cursor: 'pointer',
+      marginBottom: '16px',
+      transition: 'all 0.2s ease',
+    },
+    detailsToggle: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '6px',
+      fontSize: '13px',
+      color: '#6b7280',
+      background: 'transparent',
+      border: 'none',
+      cursor: 'pointer',
+      padding: '8px',
+      margin: '0 auto',
+    },
+    detailsBox: {
+      marginTop: '16px',
+      padding: '16px',
+      background: 'rgba(0, 0, 0, 0.4)',
+      borderRadius: '12px',
+      fontSize: '12px',
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+      color: '#9ca3af',
+      maxHeight: '200px',
+      overflow: 'auto',
+      border: '1px solid rgba(75, 85, 99, 0.3)',
+    },
+    errorName: {
+      color: '#f87171',
+      marginBottom: '8px',
+      fontWeight: '600',
+    },
+    footer: {
+      marginTop: '20px',
+      fontSize: '12px',
+      color: '#4b5563',
+      textAlign: 'center' as const,
+    },
+    beeEmoji: {
+      fontSize: '32px',
+      marginBottom: '8px',
+      display: 'block',
+      textAlign: 'center' as const,
+    },
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-      <div className="max-w-lg w-full bg-gray-800 rounded-lg shadow-xl p-6 border border-gray-700">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
-            <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-white">
-              {t('errors.title')}
-            </h2>
-            <p className="text-sm text-gray-400">
-              {t('errors.subtitle')}
-            </p>
-          </div>
+    <div style={styles.container}>
+      <div style={styles.card}>
+        <div style={styles.iconContainer}>
+          <span style={styles.beeEmoji}>🐝</span>
         </div>
 
-        <div className="space-y-3">
-          <button
-            onClick={onReset}
-            className="w-full px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-lg transition-colors"
-          >
-            {t('errors.tryAgain')}
-          </button>
+        <h2 style={styles.title}>Oops! Something went wrong</h2>
+        <p style={styles.subtitle}>Don't worry, our bees are working on it!</p>
 
-          <button
-            onClick={onReload}
-            className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-          >
-            {t('errors.reload')}
-          </button>
+        <button
+          onClick={onReset}
+          style={styles.buttonPrimary}
+          onMouseOver={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 6px 20px rgba(245, 158, 11, 0.4)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 4px 14px rgba(245, 158, 11, 0.3)';
+          }}
+        >
+          🔄 Try Again
+        </button>
 
-          <button
-            onClick={onClearStorage}
-            className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-          >
-            {t('errors.clearAndReload')}
-          </button>
-        </div>
+        <button
+          onClick={onReload}
+          style={styles.buttonSecondary}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = 'rgba(75, 85, 99, 0.5)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = 'rgba(55, 65, 81, 0.5)';
+          }}
+        >
+          🔃 Reload Page
+        </button>
+
+        <button
+          onClick={onClearStorage}
+          style={styles.buttonDanger}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+          }}
+        >
+          🗑️ Clear Data & Reload
+        </button>
 
         <button
           onClick={() => setShowDetails(!showDetails)}
-          className="mt-4 text-sm text-gray-400 hover:text-gray-300 flex items-center gap-1"
+          style={styles.detailsToggle}
         >
           <svg
-            className={`w-4 h-4 transition-transform ${showDetails ? 'rotate-90' : ''}`}
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            viewBox="0 0 24 24"
+            strokeWidth="2"
+            style={{
+              transform: showDetails ? 'rotate(90deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+            }}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            <path d="M9 5l7 7-7 7" />
           </svg>
-          {t('errors.showDetails')}
+          {showDetails ? 'Hide Details' : 'Show Details'}
         </button>
 
         {showDetails && (
-          <div className="mt-3 p-3 bg-gray-900 rounded-lg text-xs font-mono text-gray-400 overflow-auto max-h-48">
-            <div className="text-red-400 mb-2">
+          <div style={styles.detailsBox}>
+            <div style={styles.errorName}>
               {error?.name}: {error?.message}
             </div>
             {errorInfo?.componentStack && (
-              <pre className="whitespace-pre-wrap">
+              <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
                 {errorInfo.componentStack}
               </pre>
             )}
           </div>
         )}
 
-        <p className="mt-4 text-xs text-gray-500 text-center">
-          {t('errors.support')}
+        <p style={styles.footer}>
+          If the problem persists, contact us at{' '}
+          <a href="https://t.me/vibee_super_agent" style={{ color: '#f59e0b', textDecoration: 'none' }}>
+            @vibee_super_agent
+          </a>
         </p>
       </div>
     </div>
