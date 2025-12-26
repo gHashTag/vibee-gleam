@@ -346,6 +346,11 @@ export function CaptionsPanel() {
 
   return (
     <div className="captions-panel">
+      <div className="panel-header">
+        <Type size={14} />
+        <span>{t('tabs.captions')}</span>
+      </div>
+
       {/* Header */}
       <div className="captions-header">
         <div className="captions-tabs">

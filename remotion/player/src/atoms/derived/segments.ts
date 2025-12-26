@@ -7,7 +7,7 @@ import { atom } from 'jotai';
 import { videoTrackAtom, tracksAtom } from '../tracks';
 import { assetsAtom } from '../assets';
 import { projectAtom } from '../project';
-import type { Segment } from '@/store/types';
+import type { Segment, VideoLayout } from '@/store/types';
 
 /**
  * segmentsAtom - Derived atom that automatically computes
@@ -46,12 +46,15 @@ export const segmentsAtom = atom((get): Segment[] => {
 
     // Add split segment for B-roll
     const asset = item.assetId ? assets.find((a) => a.id === item.assetId) : null;
+    // Get layout from video item (default: 'top-half')
+    const layout = (item.type === 'video' && (item as any).layout) || 'top-half';
     segments.push({
       type: 'split',
       startFrame: item.startFrame,
       durationFrames: item.durationInFrames,
       bRollUrl: asset?.url,
       bRollType: asset?.type === 'image' ? 'image' : 'video',
+      layout: layout as VideoLayout,
     });
 
     lastEndFrame = item.startFrame + item.durationInFrames;

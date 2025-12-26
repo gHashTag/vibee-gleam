@@ -1,26 +1,35 @@
-import { useEffect, useState, Suspense, useRef } from 'react';
-import { useSetAtom, useAtomValue } from 'jotai';
-import { loadCaptionsAtom, updateDurationFromLipSyncAtom, lipSyncVideoAtom, transcribeVideoAtom, ensureAudioTrackAtom } from '@/atoms';
+import { useEffect, useState, Suspense, useRef, useMemo } from 'react';
+import { useSetAtom, useAtomValue, useAtom } from 'jotai';
+import { loadCaptionsAtom, updateDurationFromLipSyncAtom, lipSyncVideoAtom, transcribeVideoAtom, ensureAudioTrackAtom, ensureImageTrackAtom, selectedItemIdsAtom, sidebarTabAtom, type SidebarTab } from '@/atoms';
 import { useAutoRecordHistory } from '@/atoms/hooks';
 import { Header } from '@/components/Header';
 import { AssetsPanel } from '@/components/Panels/AssetsPanel';
-import { LayersPanel } from '@/components/Panels/LayersPanel';
-import { CaptionsPanel } from '@/components/Panels/CaptionsPanel';
-import { ChatPanel } from '@/components/Panels/ChatPanel';
+import { PropertiesPanel } from '@/components/Panels/PropertiesPanel';
 import { TemplatesPanel } from '@/components/Panels/TemplatesPanel';
+import { GeneratePanel, type GenerateTab } from '@/components/Panels/GeneratePanel';
+import { FeedPanel } from '@/components/Panels/FeedPanel';
 import { InteractiveCanvas } from '@/components/Canvas/InteractiveCanvas';
+import { ResultsGallery } from '@/components/Results/ResultsGallery';
 import { Timeline } from '@/components/Timeline/Timeline';
 import { ShortcutsModal } from '@/components/Modals/ShortcutsModal';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboard';
 import { useWebSocket, setGlobalWsSend } from '@/lib/websocket';
 import { useLanguage } from '@/hooks/useLanguage';
-import { Film, Layers, Subtitles, LayoutTemplate } from 'lucide-react';
 
-type LeftPanelTab = 'templates' | 'assets' | 'layers' | 'captions';
+// Unified sidebar tabs configuration (8 tabs - vertical layout)
+const SIDEBAR_TABS: { id: SidebarTab; emoji: string; labelKey: string }[] = [
+  { id: 'feed', emoji: '🌐', labelKey: 'tabs.feed' },
+  { id: 'templates', emoji: '📋', labelKey: 'tabs.templates' },
+  { id: 'player', emoji: '▶️', labelKey: 'tabs.player' },
+  { id: 'lipsync', emoji: '👄', labelKey: 'tabs.avatar' },
+  { id: 'video', emoji: '🎬', labelKey: 'generate.video' },
+  { id: 'image', emoji: '📷', labelKey: 'generate.image' },
+  { id: 'audio', emoji: '🎤', labelKey: 'generate.audio' },
+];
 
 function EditorContent() {
   const { t } = useLanguage();
-  const [leftTab, setLeftTab] = useState<LeftPanelTab>('templates');
+  const [sidebarTab, setSidebarTab] = useAtom(sidebarTabAtom);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
   // Use atoms directly instead of bridge
@@ -29,6 +38,8 @@ function EditorContent() {
   const lipSyncVideo = useAtomValue(lipSyncVideoAtom);
   const transcribeVideo = useSetAtom(transcribeVideoAtom);
   const ensureAudioTrack = useSetAtom(ensureAudioTrackAtom);
+  const ensureImageTrack = useSetAtom(ensureImageTrackAtom);
+  const selectedItemIds = useAtomValue(selectedItemIdsAtom);
   const prevLipSyncRef = useRef<string | null>(null);
 
   // Enable keyboard shortcuts
@@ -40,9 +51,10 @@ function EditorContent() {
   // Run migrations and load initial data on mount
   useEffect(() => {
     ensureAudioTrack(); // Migration: ensure audio track exists for old users
+    ensureImageTrack(); // Migration: ensure image track exists for old users
     updateDurationFromLipSync();
     loadCaptions();
-  }, [ensureAudioTrack, updateDurationFromLipSync, loadCaptions]);
+  }, [ensureAudioTrack, ensureImageTrack, updateDurationFromLipSync, loadCaptions]);
 
   // Auto-transcribe when lipSyncVideo changes (not on mount)
   useEffect(() => {
@@ -108,57 +120,57 @@ function EditorContent() {
       />
 
       <main className="editor-main">
-        <aside className="sidebar sidebar-left">
-          <div className="sidebar-header sidebar-tabs">
+        {/* Vertical tabs - separate column */}
+        <nav className="vertical-tabs">
+          {SIDEBAR_TABS.map((tab) => (
             <button
-              className={`sidebar-tab ${leftTab === 'templates' ? 'active' : ''}`}
-              onClick={() => setLeftTab('templates')}
-              title={t('tabs.templates')}
+              key={tab.id}
+              className={`vertical-tab ${sidebarTab === tab.id ? 'active' : ''}`}
+              onClick={() => setSidebarTab(tab.id)}
+              title={t(tab.labelKey)}
             >
-              <LayoutTemplate size={16} />
+              <span className="tab-emoji">{tab.emoji}</span>
+              <span className="tab-label">{t(tab.labelKey)}</span>
             </button>
-            <button
-              className={`sidebar-tab ${leftTab === 'assets' ? 'active' : ''}`}
-              onClick={() => setLeftTab('assets')}
-              title={t('tabs.assets')}
-            >
-              <Film size={16} />
-            </button>
-            <button
-              className={`sidebar-tab ${leftTab === 'layers' ? 'active' : ''}`}
-              onClick={() => setLeftTab('layers')}
-              title={t('tabs.layers')}
-            >
-              <Layers size={16} />
-            </button>
-            <button
-              className={`sidebar-tab ${leftTab === 'captions' ? 'active' : ''}`}
-              onClick={() => setLeftTab('captions')}
-              title={t('tabs.captions')}
-            >
-              <Subtitles size={16} />
-            </button>
-          </div>
-          <div className="sidebar-content">
-            {leftTab === 'templates' && <TemplatesPanel />}
-            {leftTab === 'assets' && <AssetsPanel />}
-            {leftTab === 'layers' && <LayersPanel />}
-            {leftTab === 'captions' && <CaptionsPanel />}
-          </div>
-        </aside>
+          ))}
+        </nav>
+
+        {/* Hide sidebar when Feed is active - Feed goes fullscreen */}
+        {sidebarTab !== 'feed' && (
+          <aside className="sidebar sidebar-left">
+            <div className="sidebar-content">
+              {sidebarTab === 'templates' && <TemplatesPanel />}
+              {sidebarTab === 'player' && <AssetsPanel />}
+              {['image', 'video', 'audio', 'lipsync'].includes(sidebarTab) && (
+                <GeneratePanel activeTab={sidebarTab as GenerateTab} />
+              )}
+            </div>
+          </aside>
+        )}
 
         <section className="canvas-area">
-          <InteractiveCanvas />
+          {sidebarTab === 'feed' ? (
+            <FeedPanel fullscreen />
+          ) : ['templates', 'player'].includes(sidebarTab) ? (
+            <InteractiveCanvas />
+          ) : (
+            <ResultsGallery tab={sidebarTab as 'image' | 'video' | 'audio' | 'lipsync'} />
+          )}
         </section>
 
-        <aside className="sidebar sidebar-right">
-          <ChatPanel wsConnected={isConnected} wsSend={send} />
-        </aside>
+        {selectedItemIds.length > 0 && (
+          <aside className="sidebar sidebar-right">
+            <PropertiesPanel />
+          </aside>
+        )}
       </main>
 
-      <footer className="timeline-area">
-        <Timeline />
-      </footer>
+      {/* Hide timeline when Feed is active */}
+      {sidebarTab !== 'feed' && (
+        <footer className="timeline-area">
+          <Timeline />
+        </footer>
+      )}
 
       <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>

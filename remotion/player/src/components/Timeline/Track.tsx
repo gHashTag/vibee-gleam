@@ -104,7 +104,7 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
           ...(itemType === 'avatar' && {
             circleSizePercent: 25.2,
             circleBottomPercent: 15,
-            circleLeftPx: 40,
+            circleLeftPercent: 0,
           }),
         },
       });

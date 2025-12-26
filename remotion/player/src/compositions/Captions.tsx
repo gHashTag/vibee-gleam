@@ -20,6 +20,7 @@ import {
   continueRender,
 } from 'remotion';
 import { CAPTION_DEFAULTS } from '@/constants/captions';
+import type { CaptionAnimation } from '@/shared/types';
 
 /**
  * Dynamic Google Font loader
@@ -89,6 +90,8 @@ export interface CaptionsProps {
   position?: 'bottom' | 'center';
   /** Not used anymore but kept for compatibility */
   bottomPercent?: number;
+  /** Animation effect for caption appearance */
+  animation?: CaptionAnimation;
 }
 
 /**
@@ -103,6 +106,7 @@ export const Captions: React.FC<CaptionsProps> = ({
   fontFamily = 'Inter', // Default font
   fontWeight = 900, // Default weight (bold)
   showShadow = true, // Show shadow by default
+  animation = 'pop', // Default animation
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -186,24 +190,70 @@ export const Captions: React.FC<CaptionsProps> = ({
     }
   }
 
-  // Animation - pop in effect
+  // Animation - based on animation prop
   const wordStartFrame = (currentCaption.startMs / 1000) * fps;
   const framesSinceStart = frame - wordStartFrame;
 
-  const scale = spring({
-    frame: framesSinceStart,
-    fps,
-    config: {
-      damping: 12,
-      stiffness: 180,
-      mass: 0.4,
-    },
-  });
+  // Calculate animation values based on animation type
+  const getAnimationStyle = (): { transform: string; opacity: number } => {
+    switch (animation) {
+      case 'fade':
+        return {
+          transform: 'translateY(-50%)',
+          opacity: interpolate(framesSinceStart, [0, 6], [0, 1], { extrapolateRight: 'clamp' }),
+        };
 
-  const opacity = interpolate(framesSinceStart, [0, 2], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+      case 'slide':
+        const slideProgress = spring({
+          frame: framesSinceStart,
+          fps,
+          config: { damping: 15, stiffness: 150 },
+        });
+        const slideX = interpolate(slideProgress, [0, 1], [-50, 0]);
+        return {
+          transform: `translateY(-50%) translateX(${slideX}px)`,
+          opacity: interpolate(framesSinceStart, [0, 3], [0, 1], { extrapolateRight: 'clamp' }),
+        };
+
+      case 'bounce':
+        const bounceScale = spring({
+          frame: framesSinceStart,
+          fps,
+          config: { damping: 8, stiffness: 200, mass: 0.3 },
+        });
+        return {
+          transform: `translateY(-50%) scale(${bounceScale})`,
+          opacity: interpolate(framesSinceStart, [0, 2], [0, 1], { extrapolateRight: 'clamp' }),
+        };
+
+      case 'scaleRotate':
+        const srProgress = spring({
+          frame: framesSinceStart,
+          fps,
+          config: { damping: 10, stiffness: 200, mass: 0.3 },
+        });
+        const scaleVal = interpolate(srProgress, [0, 1], [0.4, 1]);
+        const rotateVal = interpolate(srProgress, [0, 0.5], [15, 0], { extrapolateRight: 'clamp' });
+        return {
+          transform: `translateY(-50%) scale(${scaleVal}) rotate(${rotateVal}deg)`,
+          opacity: interpolate(framesSinceStart, [0, 3], [0, 1], { extrapolateRight: 'clamp' }),
+        };
+
+      case 'pop':
+      default:
+        const popScale = spring({
+          frame: framesSinceStart,
+          fps,
+          config: { damping: 12, stiffness: 180, mass: 0.4 },
+        });
+        return {
+          transform: `translateY(-50%) scale(${popScale})`,
+          opacity: interpolate(framesSinceStart, [0, 2], [0, 1], { extrapolateRight: 'clamp' }),
+        };
+    }
+  };
+
+  const animationStyle = getAnimationStyle();
 
   // Build caption text
   const captionText = visibleWords.map(w => w.text).join(' ').toUpperCase();
@@ -221,8 +271,8 @@ export const Captions: React.FC<CaptionsProps> = ({
           top: `${topPercent}%`,
           left: 0,
           right: 0,
-          transform: `translateY(-50%) scale(${scale})`,
-          opacity,
+          transform: animationStyle.transform,
+          opacity: animationStyle.opacity,
           display: 'flex',
           justifyContent: 'center',
           padding: '0 20px',

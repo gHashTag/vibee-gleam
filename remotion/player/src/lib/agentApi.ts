@@ -2,12 +2,12 @@
  * Agent API - Connection to Gleam MCP Server for AI template editing
  */
 
-import { useChatStore, type AgentAction } from '@/store/chatStore';
 import { editorStore } from '@/atoms/Provider';
 import {
   templatePropsAtom,
   selectedItemIdsAtom,
   updateTemplatePropAtom,
+  forceRefreshAtom,
   tracksAtom,
   assetsAtom,
   projectAtom,
@@ -16,6 +16,15 @@ import {
   deleteItemsAtom,
   selectItemsAtom,
 } from '@/atoms';
+import {
+  messagesAtom,
+  agentContextAtom,
+  addMessageAtom,
+  updateMessageAtom,
+  setStreamingAtom,
+  setChatConnectedAtom,
+  type AgentAction,
+} from '@/atoms/chat';
 import type { LipSyncMainProps, Track, Asset, Project, TrackItem } from '@/store/types';
 
 // Agent server URL - connects to Gleam MCP server via WebSocket
@@ -92,7 +101,7 @@ class AgentConnection {
 
       this.ws.onopen = () => {
         console.log('[Agent] Connected');
-        useChatStore.getState().setConnected(true);
+        editorStore.set(setChatConnectedAtom, true);
       };
 
       this.ws.onmessage = (event) => {
@@ -106,7 +115,7 @@ class AgentConnection {
 
       this.ws.onclose = () => {
         console.log('[Agent] Disconnected');
-        useChatStore.getState().setConnected(false);
+        editorStore.set(setChatConnectedAtom, false);
         this.ws = null;
 
         // Reconnect after 3 seconds
@@ -134,6 +143,8 @@ class AgentConnection {
   }
 
   private handleResponse(response: AgentResponse & { id?: number }): void {
+    console.log('[Agent] Raw response:', JSON.stringify(response, null, 2));
+
     // Parse actions with payloadJson into proper payload objects
     const parseActions = (actions?: AgentAction[]): AgentAction[] | undefined => {
       if (!actions) return undefined;
@@ -160,26 +171,30 @@ class AgentConnection {
       const parsedActions = parseActions(actions);
 
       // Get current message being streamed
-      const messages = useChatStore.getState().messages;
+      const messages = editorStore.get(messagesAtom);
       const lastMessage = messages[messages.length - 1];
 
       if (lastMessage?.role === 'assistant' && !isComplete) {
         // Update existing message with streamed content
-        useChatStore.getState().updateMessage(lastMessage.id, {
-          content: (lastMessage.content || '') + (content || ''),
-          codeBlock,
-          actions: parsedActions,
+        editorStore.set(updateMessageAtom, {
+          id: lastMessage.id,
+          updates: {
+            content: (lastMessage.content || '') + (content || ''),
+            codeBlock,
+            actions: parsedActions,
+          },
         });
       } else if (content) {
         // Add new assistant message
-        useChatStore.getState().addMessage('assistant', content, {
-          codeBlock,
-          actions: parsedActions,
+        editorStore.set(addMessageAtom, {
+          role: 'assistant',
+          content,
+          extras: { codeBlock, actions: parsedActions },
         });
       }
 
       if (isComplete) {
-        useChatStore.getState().setStreaming(false);
+        editorStore.set(setStreamingAtom, false);
       }
       return;
     }
@@ -189,13 +204,19 @@ class AgentConnection {
       const { content, codeBlock, actions } = response.payload;
       const parsedActions = parseActions(actions);
 
+      console.log('[Agent] Actions received:', actions?.length ?? 0, 'parsed:', parsedActions?.length ?? 0);
+      if (parsedActions?.length) {
+        console.log('[Agent] Parsed actions:', JSON.stringify(parsedActions, null, 2));
+      }
+
       if (content) {
-        useChatStore.getState().addMessage('assistant', content, {
-          codeBlock,
-          actions: parsedActions,
+        editorStore.set(addMessageAtom, {
+          role: 'assistant',
+          content,
+          extras: { codeBlock, actions: parsedActions },
         });
       }
-      useChatStore.getState().setStreaming(false);
+      editorStore.set(setStreamingAtom, false);
       return;
     }
 
@@ -203,9 +224,9 @@ class AgentConnection {
     if (response.type === 'action_result') {
       const { content, error } = response.payload;
       if (error) {
-        useChatStore.getState().addMessage('system', `Action failed: ${error}`);
+        editorStore.set(addMessageAtom, { role: 'system', content: `Action failed: ${error}` });
       } else if (content) {
-        useChatStore.getState().addMessage('assistant', content);
+        editorStore.set(addMessageAtom, { role: 'assistant', content });
       }
       return;
     }
@@ -213,8 +234,8 @@ class AgentConnection {
     // Handle errors
     if (response.type === 'error') {
       const { error } = response.payload;
-      useChatStore.getState().addMessage('system', `Error: ${error}`);
-      useChatStore.getState().setStreaming(false);
+      editorStore.set(addMessageAtom, { role: 'system', content: `Error: ${error}` });
+      editorStore.set(setStreamingAtom, false);
       return;
     }
 
@@ -260,14 +281,14 @@ export function isAgentConnected(): boolean {
 
 // Send chat message to agent
 export async function sendToAgent(message: string): Promise<void> {
-  const chatStore = useChatStore.getState();
+  const agentContext = editorStore.get(agentContextAtom);
 
   // Build context using Jotai store - includes full timeline state
   const context: AgentContext = {
-    logs: chatStore.context.logs.slice(-50),
+    logs: agentContext.logs.slice(-50),
     props: editorStore.get(templatePropsAtom) as unknown as Record<string, unknown>,
-    errors: chatStore.context.errors.map(e => e.message),
-    template: chatStore.context.currentTemplate,
+    errors: agentContext.errors.map(e => e.message),
+    template: agentContext.currentTemplate,
     selectedItems: editorStore.get(selectedItemIdsAtom),
     // Timeline context for full control
     tracks: editorStore.get(tracksAtom),
@@ -283,10 +304,31 @@ export async function sendToAgent(message: string): Promise<void> {
 
 // Apply agent action
 export async function applyAgentAction(action: AgentAction): Promise<void> {
+  console.log('[Agent] Applying action:', action.type);
+  console.log('[Agent] Action payload:', JSON.stringify(action.payload, null, 2));
+
   switch (action.type) {
     case 'update_prop': {
       const { key, value } = action.payload as { key: string; value: unknown };
-      editorStore.set(updateTemplatePropAtom, { key: key as any, value });
+      console.log('[Agent] update_prop:', key, '=', value, '(type:', typeof value, ')');
+
+      if (value !== undefined && value !== null) {
+        // Get current value before change
+        const propsBefore = editorStore.get(templatePropsAtom);
+        console.log('[Agent] Before:', key, '=', (propsBefore as any)[key]);
+
+        // Apply the change
+        editorStore.set(updateTemplatePropAtom, { key: key as any, value });
+
+        // Force re-render (atomWithStorage doesn't trigger React subscriptions via store.set)
+        editorStore.set(forceRefreshAtom, Date.now());
+
+        // Verify the change
+        const propsAfter = editorStore.get(templatePropsAtom);
+        console.log('[Agent] After:', key, '=', (propsAfter as any)[key]);
+      } else {
+        console.warn('[Agent] Skipping update_prop - value is null/undefined');
+      }
       break;
     }
 
@@ -295,6 +337,8 @@ export async function applyAgentAction(action: AgentAction): Promise<void> {
       Object.entries(updates).forEach(([key, value]) => {
         editorStore.set(updateTemplatePropAtom, { key: key as any, value });
       });
+      // Force re-render after all updates
+      editorStore.set(forceRefreshAtom, Date.now());
       break;
     }
 
@@ -357,3 +401,47 @@ export async function getTemplates(): Promise<void> {
 }
 
 export { agentConnection };
+
+// ===============================
+// Face Detection API
+// ===============================
+
+const RENDER_SERVER_URL = import.meta.env.VITE_RENDER_SERVER_URL || 'https://vibee-remotion.fly.dev';
+
+export interface FaceAnalysisResult {
+  success: boolean;
+  faceDetected: boolean;
+  faceBox?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    centerX: number;
+    centerY: number;
+    confidence: number;
+  };
+  cropSettings?: {
+    offsetX: number;
+    offsetY: number;
+    scale: number;
+  };
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Analyze face in video/image and get crop settings for centering
+ */
+export async function analyzeFace(videoUrl: string): Promise<FaceAnalysisResult> {
+  const response = await fetch(`${RENDER_SERVER_URL}/analyze-face`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ videoUrl, shape: 'portrait' }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Face analysis failed: ${response.statusText}`);
+  }
+
+  return response.json();
+}

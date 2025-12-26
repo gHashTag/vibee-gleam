@@ -204,6 +204,9 @@ fn handle_chat_request(
       let code_block = extract_code_block(content)
       let actions = extract_actions(content)
 
+      // Log extracted actions count for debugging
+      io.println("[Agent WS] 📦 Extracted " <> int.to_string(list.length(actions)) <> " actions")
+
       // Send response to client
       let response = encode_chat_response(content, code_block, actions)
       let _ = mist.send_text_frame(conn, response)
@@ -543,8 +546,104 @@ fn extract_code_block(content: String) -> Option(#(String, String)) {
 
 /// Extract action suggestions from content - parses JSON action blocks
 fn extract_actions(content: String) -> List(#(String, String, String, String)) {
-  // Find all ```json blocks and extract actions
-  extract_json_actions(content, [], 0)
+  // First try to find ```json blocks
+  let actions_from_blocks = extract_json_actions(content, [], 0)
+
+  // If no actions found in code blocks, try to find raw JSON in text
+  case actions_from_blocks {
+    [] -> extract_raw_json_actions(content, [], 0)
+    actions -> actions
+  }
+}
+
+/// Extract JSON actions from raw text (without code blocks)
+/// Looks for patterns like {"action": "..."}
+fn extract_raw_json_actions(
+  content: String,
+  acc: List(#(String, String, String, String)),
+  counter: Int,
+) -> List(#(String, String, String, String)) {
+  // Look for {"action": pattern
+  case string.split_once(content, "{\"action\"") {
+    Ok(#(_, rest)) -> {
+      // Reconstruct the JSON and find the closing brace
+      let json_start = "{\"action\"" <> rest
+      case find_json_end(json_start) {
+        Ok(#(json_str, remaining)) -> {
+          case parse_action_json(json_str, counter) {
+            Ok(action) ->
+              extract_raw_json_actions(remaining, list.append(acc, [action]), counter + 1)
+            Error(_) ->
+              extract_raw_json_actions(rest, acc, counter)
+          }
+        }
+        Error(_) -> acc
+      }
+    }
+    Error(_) -> acc
+  }
+}
+
+/// Find the end of a JSON object by counting braces
+fn find_json_end(content: String) -> Result(#(String, String), String) {
+  find_json_end_loop(content, "", 0, False)
+}
+
+fn find_json_end_loop(
+  remaining: String,
+  acc: String,
+  depth: Int,
+  started: Bool,
+) -> Result(#(String, String), String) {
+  case string.pop_grapheme(remaining) {
+    Ok(#("{", rest)) -> {
+      find_json_end_loop(rest, acc <> "{", depth + 1, True)
+    }
+    Ok(#("}", rest)) -> {
+      let new_depth = depth - 1
+      let new_acc = acc <> "}"
+      case new_depth == 0 && started {
+        True -> Ok(#(new_acc, rest))
+        False -> find_json_end_loop(rest, new_acc, new_depth, started)
+      }
+    }
+    Ok(#("\"", rest)) -> {
+      // Handle string - skip until closing quote (handling escapes)
+      case skip_json_string(rest) {
+        Ok(#(str_content, after_string)) ->
+          find_json_end_loop(after_string, acc <> "\"" <> str_content <> "\"", depth, started)
+        Error(_) -> Error("Unclosed string")
+      }
+    }
+    Ok(#(char, rest)) -> {
+      find_json_end_loop(rest, acc <> char, depth, started)
+    }
+    Error(_) -> Error("Unexpected end of input")
+  }
+}
+
+/// Skip a JSON string value (handling escaped quotes)
+fn skip_json_string(content: String) -> Result(#(String, String), String) {
+  skip_json_string_loop(content, "")
+}
+
+fn skip_json_string_loop(
+  remaining: String,
+  acc: String,
+) -> Result(#(String, String), String) {
+  case string.pop_grapheme(remaining) {
+    Ok(#("\\", rest)) -> {
+      // Escape sequence - take next char too
+      case string.pop_grapheme(rest) {
+        Ok(#(escaped, rest2)) ->
+          skip_json_string_loop(rest2, acc <> "\\" <> escaped)
+        Error(_) -> Error("Incomplete escape")
+      }
+    }
+    Ok(#("\"", rest)) -> Ok(#(acc, rest))
+    Ok(#(char, rest)) -> skip_json_string_loop(rest, acc <> char)
+    Error(_) -> Error("Unclosed string")
+  }
 }
 
 /// Recursively extract JSON action blocks from content
@@ -599,18 +698,9 @@ fn transform_action_to_payload(json_str: String, action_type: String) -> String 
   // and create a payload object without the "action" key
   case action_type {
     "update_prop" -> {
-      // Extract key and value
-      let decoder = {
-        use key <- decode.field("key", decode.string)
-        use value <- decode.field("value", decode.dynamic)
-        decode.success(#(key, value))
-      }
-      case json.parse(json_str, decoder) {
-        Ok(#(key, value)) -> {
-          "{\"key\":\"" <> key <> "\",\"value\":" <> dynamic_to_json_string(value) <> "}"
-        }
-        Error(_) -> "{}"
-      }
+      // Keep original JSON with all values intact
+      // Just mark "action" field as internal so frontend ignores it
+      string.replace(json_str, "\"action\":", "\"_action\":")
     }
     "add_track_item" -> {
       // Extract trackId and itemData
@@ -744,13 +834,37 @@ fn get_env_or(key: String, default: String) -> String
 
 fn editor_system_prompt() -> String {
   "You are VIBEE AI, an expert assistant for creating and editing Remotion video templates.
-Respond in the same language the user uses.
+
+## CRITICAL RULES:
+1. ALWAYS respond in the SAME LANGUAGE as the user (Russian, English, etc.)
+2. When user asks to change something, ALWAYS include JSON action blocks
+3. NEVER just describe what you would do - actually DO IT with JSON actions
 
 ## Your Capabilities
 - Help users create and modify video compositions (React/Remotion)
 - Manage timeline: add, update, delete video/audio items
 - Suggest property changes for existing templates
 - Explain video editing concepts
+
+## Examples of User Requests and Your Responses
+
+User: \"сделай аватар круглым\" or \"make avatar round\"
+Response: \"Сделаю аватар круглым, увеличив размер круга:
+```json
+{\"action\": \"update_prop\", \"key\": \"circleSizePercent\", \"value\": 40}
+```\"
+
+User: \"уменьши громкость музыки\" or \"lower music volume\"
+Response: \"Уменьшаю громкость музыки:
+```json
+{\"action\": \"update_prop\", \"key\": \"musicVolume\", \"value\": 0.03}
+```\"
+
+User: \"подними аватар выше\" or \"move avatar up\"
+Response: \"Поднимаю аватар выше:
+```json
+{\"action\": \"update_prop\", \"key\": \"circleBottomPercent\", \"value\": 25}
+```\"
 
 ## Available Actions (include as JSON in your response)
 

@@ -19,6 +19,7 @@ import vibee/config/dynamic_config
 import vibee/config/target_chats
 import vibee/config/telegram_config
 import vibee/config/trigger_chats
+import vibee/config/trigger_store
 import vibee/config/twin_config
 import vibee/config/chat_permissions
 import vibee/db/postgres
@@ -431,15 +432,33 @@ pub fn handle_incoming_message(
               }
               chat_permissions.log_unknown_chat(pool, chat_id_int, from_id, from_name, username_opt, text)
 
-              // === OWNER NOTIFICATION: новый неизвестный чат ===
-              let _ = owner_notifier.notify_new_chat(
-                chat_id_int,
-                "private",
-                from_id,
-                from_name,
-                username,
-                text,
-              )
+              // === OWNER NOTIFICATION: только если найден триггер ===
+              case trigger_store.find_matching_trigger(text) {
+                Ok(trigger) -> {
+                  vibe_logger.info(log
+                    |> vibe_logger.with_data("trigger", json.string(trigger))
+                    |> vibe_logger.with_data("action", json.string("notify")),
+                    "[OWNER_NOTIFY] Sending notification - trigger found in NotWhitelisted chat")
+
+                  let _ = owner_notifier.notify_new_chat(
+                    chat_id_int,
+                    "private",
+                    from_id,
+                    from_name,
+                    username,
+                    text,
+                    Some(trigger),
+                    message_id,  // ID сообщения для deep link
+                  )
+                  Nil
+                }
+                Error(_) -> {
+                  vibe_logger.debug(log
+                    |> vibe_logger.with_data("action", json.string("skip")),
+                    "[OWNER_NOTIFY] Skipping - no trigger found")
+                  Nil
+                }
+              }
 
               updated_state
             }
@@ -460,15 +479,33 @@ pub fn handle_incoming_message(
               }
               chat_permissions.log_unknown_chat(pool, chat_id_int, from_id, from_name, username_opt, text)
 
-              // === OWNER NOTIFICATION: новый неизвестный чат ===
-              let _ = owner_notifier.notify_new_chat(
-                chat_id_int,
-                "private",
-                from_id,
-                from_name,
-                username,
-                text,
-              )
+              // === OWNER NOTIFICATION: только если найден триггер ===
+              case trigger_store.find_matching_trigger(text) {
+                Ok(trigger) -> {
+                  vibe_logger.info(log
+                    |> vibe_logger.with_data("trigger", json.string(trigger))
+                    |> vibe_logger.with_data("action", json.string("notify")),
+                    "[OWNER_NOTIFY] Sending notification - trigger found in Unknown chat")
+
+                  let _ = owner_notifier.notify_new_chat(
+                    chat_id_int,
+                    "private",
+                    from_id,
+                    from_name,
+                    username,
+                    text,
+                    Some(trigger),
+                    message_id,  // ID сообщения для deep link
+                  )
+                  Nil
+                }
+                Error(_) -> {
+                  vibe_logger.debug(log
+                    |> vibe_logger.with_data("action", json.string("skip")),
+                    "[OWNER_NOTIFY] Skipping Unknown chat - no trigger found")
+                  Nil
+                }
+              }
 
               updated_state
             }
@@ -478,19 +515,10 @@ pub fn handle_incoming_message(
                 |> vibe_logger.with_data("permission_level", json.string(chat_permissions.level_to_string(permission.permission_level)))
                 |> vibe_logger.with_data("use_triggers", json.bool(permission.use_triggers)), "Chat allowed, processing")
 
-              // === OWNER NOTIFICATION: новое сообщение ===
-              let _notify_result = owner_notifier.notify(owner_notifier.OwnerEvent(
-                event_type: owner_notifier.NewMessage,
-                importance: owner_notifier.Medium,
-                chat_id: chat_id_int,
-                chat_name: permission.chat_name |> option.unwrap(""),
-                from_id: from_id,
-                from_name: from_name,
-                username: username,
-                text: text,
-                timestamp: get_current_timestamp(),
-                extra: [],
-              ))
+              // NOTE: NewMessage уведомления отключены - только по триггерам (notify_lead)
+              // Уведомления приходят только при:
+              // - Триггер найден → notify_lead()
+              // - Новый неизвестный чат → notify_new_chat()
 
               let action_log = vibe_logger.new("action")
                 |> vibe_logger.with_session_id(updated_state.config.session_id)
@@ -559,6 +587,18 @@ pub fn handle_incoming_message(
                   // Проверяем режим observe_only (только сохранять лид, не отвечать)
                   case trigger_chats.find_chat_config(chat_id) {
                     Ok(config) -> {
+                      // Найти какой именно триггер сработал (из БД)
+                      let matched_trigger = case trigger_store.find_matching_trigger(text) {
+                        Ok(trigger) -> trigger
+                        Error(_) -> {
+                          // Fallback: найти из хардкода (на время миграции)
+                          case trigger_chats.find_matching_trigger(text, config.custom_triggers) {
+                            Ok(t) -> t
+                            Error(_) -> "ai_trigger"
+                          }
+                        }
+                      }
+
                       // === OWNER NOTIFICATION: триггер найден ===
                       let _ = owner_notifier.notify_lead(
                         chat_id_int,
@@ -567,7 +607,8 @@ pub fn handle_incoming_message(
                         from_name,
                         username,
                         text,
-                        "crypto_trigger",
+                        matched_trigger,  // Реальный триггер!
+                        message_id,  // ID сообщения для deep link
                       )
 
                       case config.observe_only {

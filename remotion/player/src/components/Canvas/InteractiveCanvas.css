@@ -4,62 +4,19 @@
   height: 100%;
   overflow: hidden;
   background: #0a0a0a;
-}
-
-/* Zoom Controls */
-.canvas-controls {
-  position: absolute;
-  bottom: 12px;
-  left: 0;
-  right: 0;
-  margin: 0 auto;
-  width: fit-content;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background: rgba(0, 0, 0, 0.8);
-  border-radius: 6px;
-  z-index: 100;
-  pointer-events: auto;
-}
-
-.canvas-control-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: #888;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.canvas-control-btn:hover {
-  background: #2a2a2a;
-  color: #fff;
-}
-
-.canvas-zoom-label {
-  min-width: 48px;
-  text-align: center;
-  font-size: 12px;
-  color: #888;
-  font-family: monospace;
 }
 
 /* Player Wrapper */
 .canvas-player-wrapper {
-  position: absolute;
-  top: 50%;
-  left: 50%;
+  position: relative;
   transform-origin: center center;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   border-radius: 4px;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 /* Checkered background for transparency */
@@ -81,21 +38,10 @@
   background: #000;
 }
 
-.canvas-container:fullscreen .canvas-controls {
-  position: fixed;
-  bottom: 20px;
+.canvas-container:fullscreen .canvas-player-wrapper {
+  position: absolute;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-}
-
-/* Hide zoom controls in fullscreen - only show exit button */
-.canvas-container:fullscreen .canvas-control-btn:not(:last-child) {
-  display: none;
-}
-
-.canvas-container:fullscreen .canvas-zoom-label {
-  display: none;
 }
 
 /* Transcribing Overlay */

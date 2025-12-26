@@ -1,26 +1,89 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { assetsAtom, addAssetAtom, removeAssetAtom, addItemAtom } from '@/atoms';
 import { useLanguage } from '@/hooks/useLanguage';
-import { Film, Image, Music, Plus, Trash2, Upload, Loader2 } from 'lucide-react';
+import { Music, Trash2, Upload, Loader2, Play, Maximize, Minimize2, Film } from 'lucide-react';
 import type { Asset, AssetType } from '@/store/types';
 import { broadcastAssetAdded, broadcastAssetRemoved } from '@/lib/websocket';
+import { toAbsoluteUrl } from '@/lib/mediaUrl';
 import './AssetsPanel.css';
 
 // Render server URL (for S3 uploads)
 const RENDER_SERVER_URL = import.meta.env.VITE_RENDER_SERVER_URL || 'http://localhost:3333';
-
-const ASSET_ICONS: Record<AssetType, typeof Film> = {
-  video: Film,
-  image: Image,
-  audio: Music,
-};
 
 interface UploadProgress {
   fileName: string;
   progress: number;
   status: 'uploading' | 'done' | 'error';
   error?: string;
+}
+
+// Generate thumbnail from video (preserves aspect ratio)
+function generateVideoThumbnail(videoUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.muted = true;
+    video.preload = 'metadata';
+
+    video.onloadeddata = () => {
+      video.currentTime = 0.1; // Seek to 0.1s for thumbnail
+    };
+
+    video.onseeked = () => {
+      const canvas = document.createElement('canvas');
+      // Preserve original aspect ratio, max 300px on longest side for sharp thumbnails
+      const maxSize = 300;
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+
+      if (vw > vh) {
+        // Landscape
+        canvas.width = maxSize;
+        canvas.height = Math.round((vh / vw) * maxSize);
+      } else {
+        // Portrait or square
+        canvas.height = maxSize;
+        canvas.width = Math.round((vw / vh) * maxSize);
+      }
+
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      } else {
+        resolve('');
+      }
+    };
+
+    video.onerror = () => resolve('');
+    video.src = videoUrl;
+  });
+}
+
+// Get video duration
+function getVideoDuration(videoUrl: string): Promise<number> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => resolve(video.duration);
+    video.onerror = () => resolve(0);
+    video.src = videoUrl;
+  });
+}
+
+// Format duration as mm:ss
+function formatDuration(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Format file size
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function AssetsPanel() {
@@ -30,6 +93,25 @@ export function AssetsPanel() {
   const removeAsset = useSetAtom(removeAssetAtom);
   const addItem = useSetAtom(addItemAtom);
   const [uploads, setUploads] = useState<UploadProgress[]>([]);
+  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+  const [durations, setDurations] = useState<Record<string, number>>({});
+  const [viewMode, setViewMode] = useState<'fill' | 'fit'>('fill');
+
+  // Generate thumbnails for video assets
+  useEffect(() => {
+    assets.forEach(async (asset) => {
+      if (asset.type === 'video' && !thumbnails[asset.id]) {
+        const thumb = await generateVideoThumbnail(asset.url);
+        if (thumb) {
+          setThumbnails(prev => ({ ...prev, [asset.id]: thumb }));
+        }
+        const duration = await getVideoDuration(asset.url);
+        if (duration) {
+          setDurations(prev => ({ ...prev, [asset.id]: duration }));
+        }
+      }
+    });
+  }, [assets]);
 
   const uploadToS3 = async (file: File): Promise<string | null> => {
     try {
@@ -67,25 +149,21 @@ export function AssetsPanel() {
         } else if (file.type.startsWith('audio/')) {
           type = 'audio';
         } else {
-          continue; // Skip unsupported files
+          continue;
         }
 
-        // Add to upload progress
         setUploads((prev) => [
           ...prev,
           { fileName: file.name, progress: 0, status: 'uploading' },
         ]);
 
-        // Try S3 upload first, fallback to local blob
         let url = await uploadToS3(file);
 
         if (!url) {
-          // Fallback to local blob URL (for local dev without S3)
           url = URL.createObjectURL(file);
           console.warn(`S3 upload failed for ${file.name}, using local blob`);
         }
 
-        // Update upload status
         setUploads((prev) =>
           prev.map((u) =>
             u.fileName === file.name
@@ -94,7 +172,6 @@ export function AssetsPanel() {
           )
         );
 
-        // Add asset to store and get the generated ID
         const newAsset: Asset = {
           id: `asset-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
           type,
@@ -103,13 +180,9 @@ export function AssetsPanel() {
           fileSize: file.size,
         };
 
-        // Add to local store
         addAsset(newAsset);
-
-        // Broadcast to other clients via WebSocket
         broadcastAssetAdded(newAsset);
 
-        // Remove from upload list after delay
         setTimeout(() => {
           setUploads((prev) => prev.filter((u) => u.fileName !== file.name));
         }, 2000);
@@ -118,17 +191,18 @@ export function AssetsPanel() {
     []
   );
 
-  // Wrapper for removeAsset that also broadcasts and cleans up blob URLs
   const handleRemoveAsset = useCallback((id: string) => {
-    // Find asset before removing to check for blob URL
     const asset = assets.find((a) => a.id === id);
     if (asset?.url.startsWith('blob:')) {
-      // Revoke blob URL to free memory
       URL.revokeObjectURL(asset.url);
-      console.log('[Assets] Revoked blob URL:', asset.url);
     }
     removeAsset(id);
     broadcastAssetRemoved(id);
+    // Clean up thumbnail
+    setThumbnails(prev => {
+      const { [id]: _, ...rest } = prev;
+      return rest;
+    });
   }, [assets, removeAsset]);
 
   const handleDrop = useCallback(
@@ -145,7 +219,6 @@ export function AssetsPanel() {
   };
 
   const handleAddToTimeline = (asset: Asset) => {
-    // Determine which track based on asset type
     const trackId =
       asset.type === 'video'
         ? 'track-video'
@@ -172,13 +245,17 @@ export function AssetsPanel() {
     });
   };
 
-  // Group assets by type
   const videoAssets = assets.filter((a) => a.type === 'video');
   const imageAssets = assets.filter((a) => a.type === 'image');
   const audioAssets = assets.filter((a) => a.type === 'audio');
 
   return (
     <div className="assets-panel">
+      <div className="panel-header">
+        <Film size={14} />
+        <span>{t('tabs.assets')}</span>
+      </div>
+
       {/* Upload Zone */}
       <div
         className="upload-zone"
@@ -200,6 +277,24 @@ export function AssetsPanel() {
         </label>
       </div>
 
+      {/* View Mode Toggle */}
+      <div className="view-mode-toggle">
+        <button
+          className={`view-mode-btn ${viewMode === 'fill' ? 'active' : ''}`}
+          onClick={() => setViewMode('fill')}
+          title="Fill (crop to fit)"
+        >
+          <Maximize size={14} />
+        </button>
+        <button
+          className={`view-mode-btn ${viewMode === 'fit' ? 'active' : ''}`}
+          onClick={() => setViewMode('fit')}
+          title="Fit (show full)"
+        >
+          <Minimize2 size={14} />
+        </button>
+      </div>
+
       {/* Upload Progress */}
       {uploads.length > 0 && (
         <div className="upload-progress-list">
@@ -216,110 +311,241 @@ export function AssetsPanel() {
         </div>
       )}
 
-      {/* Videos */}
+      {/* Videos - Grid View */}
       {videoAssets.length > 0 && (
-        <AssetGroup
-          title={t('assets.videos')}
-          count={videoAssets.length}
-          assets={videoAssets}
-          onDragStart={handleDragStart}
-          onAddToTimeline={handleAddToTimeline}
-          onRemove={handleRemoveAsset}
-          t={t}
-        />
+        <div className="asset-group">
+          <h3 className="asset-group-title">
+            {t('assets.videos')}
+            <span className="asset-count">{videoAssets.length}</span>
+          </h3>
+          <div className={`asset-grid ${viewMode}-mode`}>
+            {videoAssets.map((asset) => (
+              <VideoAssetCard
+                key={asset.id}
+                asset={asset}
+                thumbnail={thumbnails[asset.id]}
+                duration={durations[asset.id]}
+                viewMode={viewMode}
+                onDragStart={handleDragStart}
+                onAddToTimeline={handleAddToTimeline}
+                onRemove={handleRemoveAsset}
+                t={t}
+              />
+            ))}
+          </div>
+        </div>
       )}
 
-      {/* Images */}
+      {/* Images - Grid View */}
       {imageAssets.length > 0 && (
-        <AssetGroup
-          title={t('assets.images')}
-          count={imageAssets.length}
-          assets={imageAssets}
-          onDragStart={handleDragStart}
-          onAddToTimeline={handleAddToTimeline}
-          onRemove={handleRemoveAsset}
-          t={t}
-        />
+        <div className="asset-group">
+          <h3 className="asset-group-title">
+            {t('assets.images')}
+            <span className="asset-count">{imageAssets.length}</span>
+          </h3>
+          <div className={`asset-grid ${viewMode}-mode`}>
+            {imageAssets.map((asset) => (
+              <ImageAssetCard
+                key={asset.id}
+                asset={asset}
+                viewMode={viewMode}
+                onDragStart={handleDragStart}
+                onAddToTimeline={handleAddToTimeline}
+                onRemove={handleRemoveAsset}
+                t={t}
+              />
+            ))}
+          </div>
+        </div>
       )}
 
-      {/* Audio */}
+      {/* Audio - List View */}
       {audioAssets.length > 0 && (
-        <AssetGroup
-          title={t('assets.audio')}
-          count={audioAssets.length}
-          assets={audioAssets}
-          onDragStart={handleDragStart}
-          onAddToTimeline={handleAddToTimeline}
-          onRemove={handleRemoveAsset}
-          t={t}
-        />
+        <div className="asset-group">
+          <h3 className="asset-group-title">
+            {t('assets.audio')}
+            <span className="asset-count">{audioAssets.length}</span>
+          </h3>
+          <div className="asset-list">
+            {audioAssets.map((asset) => (
+              <AudioAssetItem
+                key={asset.id}
+                asset={asset}
+                onDragStart={handleDragStart}
+                onAddToTimeline={handleAddToTimeline}
+                onRemove={handleRemoveAsset}
+                t={t}
+              />
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-interface AssetGroupProps {
-  title: string;
-  count: number;
-  assets: Asset[];
+// Video Card with thumbnail and hover preview
+interface VideoAssetCardProps {
+  asset: Asset;
+  thumbnail?: string;
+  duration?: number;
+  viewMode: 'fill' | 'fit';
   onDragStart: (e: React.DragEvent, asset: Asset) => void;
   onAddToTimeline: (asset: Asset) => void;
   onRemove: (id: string) => void;
   t: (key: string) => string;
 }
 
-function AssetGroup({
-  title,
-  count,
-  assets,
-  onDragStart,
-  onAddToTimeline,
-  onRemove,
-  t,
-}: AssetGroupProps) {
+function VideoAssetCard({ asset, thumbnail, duration, viewMode, onDragStart, onAddToTimeline, onRemove, t }: VideoAssetCardProps) {
+  const [isHovering, setIsHovering] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const isBlobUrl = asset.url.startsWith('blob:');
+  const videoUrl = toAbsoluteUrl(asset.url);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isHovering) {
+        videoRef.current.play().catch(() => {});
+      } else {
+        videoRef.current.pause();
+        videoRef.current.currentTime = 0;
+      }
+    }
+  }, [isHovering]);
+
   return (
-    <div className="asset-group">
-      <h3 className="asset-group-title">
-        {title}
-        <span className="asset-count">{count}</span>
-      </h3>
-      <div className="asset-list">
-        {assets.map((asset) => {
-          const Icon = ASSET_ICONS[asset.type];
-          const isBlobUrl = asset.url.startsWith('blob:');
-          return (
-            <div
-              key={asset.id}
-              className={`asset-item ${isBlobUrl ? 'blob-warning' : ''}`}
-              draggable
-              onDragStart={(e) => onDragStart(e, asset)}
-              onDoubleClick={() => onAddToTimeline(asset)}
-              title={isBlobUrl
-                ? `${asset.name}\n${t('assets.localWarning')}`
-                : `${asset.name}\n${t('assets.doubleClickHint')}`}
-            >
-              <div className="asset-icon">
-                <Icon size={16} />
-              </div>
-              <span className="asset-name">{asset.name}</span>
-              {isBlobUrl && (
-                <span className="blob-badge" title={t('assets.localNoExport')}>
-                  ⚠️
-                </span>
-              )}
-              <button
-                className="asset-remove"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemove(asset.id);
-                }}
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          );
-        })}
+    <div
+      className={`asset-card ${isBlobUrl ? 'blob-warning' : ''}`}
+      draggable
+      onDragStart={(e) => onDragStart(e, asset)}
+      onDoubleClick={() => onAddToTimeline(asset)}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+      title={asset.name}
+    >
+      <div className="asset-card-thumbnail">
+        {isHovering ? (
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            muted
+            loop
+            playsInline
+            className="asset-card-video"
+          />
+        ) : thumbnail ? (
+          <img src={thumbnail} alt={asset.name} className="asset-card-img" />
+        ) : (
+          <div className="asset-card-placeholder">
+            <Play size={16} />
+          </div>
+        )}
+        {duration && (
+          <span className="asset-card-duration">{formatDuration(duration)}</span>
+        )}
+        {isBlobUrl && <span className="asset-card-warning">⚠️</span>}
       </div>
+      <div className="asset-card-info">
+        <span className="asset-card-name">{asset.name}</span>
+        {asset.fileSize && (
+          <span className="asset-card-size">{formatFileSize(asset.fileSize)}</span>
+        )}
+      </div>
+      <button
+        className="asset-card-remove"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove(asset.id);
+        }}
+      >
+        <Trash2 size={10} />
+      </button>
+    </div>
+  );
+}
+
+// Image Card
+interface ImageAssetCardProps {
+  asset: Asset;
+  viewMode: 'fill' | 'fit';
+  onDragStart: (e: React.DragEvent, asset: Asset) => void;
+  onAddToTimeline: (asset: Asset) => void;
+  onRemove: (id: string) => void;
+  t: (key: string) => string;
+}
+
+function ImageAssetCard({ asset, viewMode, onDragStart, onAddToTimeline, onRemove, t }: ImageAssetCardProps) {
+  const isBlobUrl = asset.url.startsWith('blob:');
+  const imageUrl = toAbsoluteUrl(asset.url);
+
+  return (
+    <div
+      className={`asset-card ${isBlobUrl ? 'blob-warning' : ''}`}
+      draggable
+      onDragStart={(e) => onDragStart(e, asset)}
+      onDoubleClick={() => onAddToTimeline(asset)}
+      title={asset.name}
+    >
+      <div className="asset-card-thumbnail">
+        <img src={imageUrl} alt={asset.name} className="asset-card-img" />
+        {isBlobUrl && <span className="asset-card-warning">⚠️</span>}
+      </div>
+      <div className="asset-card-info">
+        <span className="asset-card-name">{asset.name}</span>
+        {asset.fileSize && (
+          <span className="asset-card-size">{formatFileSize(asset.fileSize)}</span>
+        )}
+      </div>
+      <button
+        className="asset-card-remove"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove(asset.id);
+        }}
+      >
+        <Trash2 size={10} />
+      </button>
+    </div>
+  );
+}
+
+// Audio Item (list view)
+interface AudioAssetItemProps {
+  asset: Asset;
+  onDragStart: (e: React.DragEvent, asset: Asset) => void;
+  onAddToTimeline: (asset: Asset) => void;
+  onRemove: (id: string) => void;
+  t: (key: string) => string;
+}
+
+function AudioAssetItem({ asset, onDragStart, onAddToTimeline, onRemove, t }: AudioAssetItemProps) {
+  const isBlobUrl = asset.url.startsWith('blob:');
+
+  return (
+    <div
+      className={`asset-item ${isBlobUrl ? 'blob-warning' : ''}`}
+      draggable
+      onDragStart={(e) => onDragStart(e, asset)}
+      onDoubleClick={() => onAddToTimeline(asset)}
+      title={asset.name}
+    >
+      <div className="asset-icon">
+        <Music size={16} />
+      </div>
+      <span className="asset-name">{asset.name}</span>
+      {asset.fileSize && (
+        <span className="asset-size">{formatFileSize(asset.fileSize)}</span>
+      )}
+      {isBlobUrl && <span className="blob-badge">⚠️</span>}
+      <button
+        className="asset-remove"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove(asset.id);
+        }}
+      >
+        <Trash2 size={12} />
+      </button>
     </div>
   );
 }

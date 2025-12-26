@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -59,23 +60,64 @@ func NewBotClient(cfg Config) (*BotClient, error) {
 
 // SetWebhook configures the webhook for receiving updates
 func (c *BotClient) SetWebhook(webhookURL string) error {
+	log.Printf("[BotAPI] Setting webhook to: %s", webhookURL)
+
+	// First delete existing webhook to clear any cached errors
+	log.Printf("[BotAPI] Deleting existing webhook first...")
+	delCfg := tgbotapi.DeleteWebhookConfig{DropPendingUpdates: true}
+	if _, err := c.api.Request(delCfg); err != nil {
+		log.Printf("[BotAPI] ⚠️ Delete webhook warning: %v", err)
+	}
+
 	wh, err := tgbotapi.NewWebhook(webhookURL)
 	if err != nil {
+		log.Printf("[BotAPI] ❌ Failed to create webhook config: %v", err)
 		return fmt.Errorf("failed to create webhook: %w", err)
 	}
 
-	_, err = c.api.Request(wh)
+	// Explicitly allow callback_query updates for inline buttons
+	wh.AllowedUpdates = []string{"callback_query", "message"}
+	log.Printf("[BotAPI] AllowedUpdates: %v", wh.AllowedUpdates)
+
+	resp, err := c.api.Request(wh)
 	if err != nil {
+		log.Printf("[BotAPI] ❌ Failed to set webhook: %v", err)
 		return fmt.Errorf("failed to set webhook: %w", err)
 	}
 
-	log.Printf("[BotAPI] Webhook set to: %s", webhookURL)
+	log.Printf("[BotAPI] ✅ Webhook set successfully: %s (response ok=%v)", webhookURL, resp.Ok)
+
+	// Verify webhook is set by getting info
+	info, err := c.api.GetWebhookInfo()
+	if err != nil {
+		log.Printf("[BotAPI] ⚠️ Could not verify webhook: %v", err)
+	} else {
+		log.Printf("[BotAPI] Webhook info: URL=%s, PendingUpdates=%d, LastError=%s",
+			info.URL, info.PendingUpdateCount, info.LastErrorMessage)
+	}
+
 	return nil
 }
 
 // GetWebhookInfo returns current webhook configuration
 func (c *BotClient) GetWebhookInfo() (tgbotapi.WebhookInfo, error) {
 	return c.api.GetWebhookInfo()
+}
+
+// DeleteWebhook removes the webhook configuration
+func (c *BotClient) DeleteWebhook() error {
+	log.Printf("[BotAPI] Deleting webhook...")
+
+	// Use deleteWebhook API call
+	cfg := tgbotapi.DeleteWebhookConfig{DropPendingUpdates: false}
+	_, err := c.api.Request(cfg)
+	if err != nil {
+		log.Printf("[BotAPI] ❌ Failed to delete webhook: %v", err)
+		return fmt.Errorf("failed to delete webhook: %w", err)
+	}
+
+	log.Printf("[BotAPI] ✅ Webhook deleted")
+	return nil
 }
 
 // SendMessage sends a plain text message via Bot API
@@ -95,7 +137,8 @@ func (c *BotClient) SendMessage(chatID int64, text string) (int, error) {
 // InlineButton represents a single inline keyboard button
 type InlineButton struct {
 	Text         string `json:"text"`
-	CallbackData string `json:"callback_data"`
+	CallbackData string `json:"callback_data,omitempty"`
+	URL          string `json:"url,omitempty"`
 }
 
 // SendWithButtons sends a message with inline keyboard
@@ -108,7 +151,12 @@ func (c *BotClient) SendWithButtons(chatID int64, text string, buttons [][]Inlin
 	for _, row := range buttons {
 		var keyboardRow []tgbotapi.InlineKeyboardButton
 		for _, btn := range row {
-			keyboardRow = append(keyboardRow, tgbotapi.NewInlineKeyboardButtonData(btn.Text, btn.CallbackData))
+			// Check if it's a URL button or callback button
+			if btn.URL != "" {
+				keyboardRow = append(keyboardRow, tgbotapi.NewInlineKeyboardButtonURL(btn.Text, btn.URL))
+			} else {
+				keyboardRow = append(keyboardRow, tgbotapi.NewInlineKeyboardButtonData(btn.Text, btn.CallbackData))
+			}
 		}
 		keyboard = append(keyboard, keyboardRow)
 	}
@@ -220,44 +268,70 @@ func (c *BotClient) HandleWebhook(r *http.Request) (*CallbackData, error) {
 }
 
 // ForwardCallbackToGleam forwards callback data to Gleam service
+// FULL DIAGNOSTIC LOGGING - 2025-12-26
 func (c *BotClient) ForwardCallbackToGleam(ctx context.Context, data *CallbackData) error {
+	fmt.Fprintf(os.Stderr, "\n--- ForwardCallbackToGleam START ---\n")
+	fmt.Fprintf(os.Stderr, "[FWD 1] gleamURL=%q\n", c.gleamURL)
+	fmt.Fprintf(os.Stderr, "[FWD 1] apiKey set=%v (len=%d)\n", c.apiKey != "", len(c.apiKey))
+
 	if c.gleamURL == "" {
+		fmt.Fprintf(os.Stderr, "[FWD 1] ❌ FAIL: gleamURL is empty!\n")
 		return fmt.Errorf("gleam URL not configured")
 	}
+	fmt.Fprintf(os.Stderr, "[FWD 1] ✅ gleamURL OK\n")
 
-	log.Printf("[BotAPI] Forwarding callback to Gleam: query_id=%s, data=%s", data.QueryID, data.Data)
-
+	// Marshal payload
+	fmt.Fprintf(os.Stderr, "[FWD 2] Marshaling data: query_id=%s, data=%s\n", data.QueryID, data.Data)
 	payload, err := json.Marshal(data)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "[FWD 2] ❌ FAIL: marshal error: %v\n", err)
 		return fmt.Errorf("marshal callback: %w", err)
 	}
+	fmt.Fprintf(os.Stderr, "[FWD 2] ✅ Marshaled: %s\n", string(payload))
 
+	// Build URL
 	url := c.gleamURL + "/api/v1/bot/callback"
+	fmt.Fprintf(os.Stderr, "[FWD 3] Target URL: %s\n", url)
+
+	// Create request
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "[FWD 3] ❌ FAIL: create request: %v\n", err)
 		return fmt.Errorf("create request: %w", err)
 	}
+	fmt.Fprintf(os.Stderr, "[FWD 3] ✅ Request created\n")
 
+	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+		fmt.Fprintf(os.Stderr, "[FWD 4] Authorization header set\n")
+	} else {
+		fmt.Fprintf(os.Stderr, "[FWD 4] ⚠️ No API key, no auth header\n")
 	}
 
+	// Send request
+	fmt.Fprintf(os.Stderr, "[FWD 5] Sending HTTP request...\n")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Printf("[BotAPI] ❌ Failed to forward callback: %v", err)
+		fmt.Fprintf(os.Stderr, "[FWD 5] ❌ FAIL: HTTP error: %v\n", err)
 		return fmt.Errorf("forward callback: %w", err)
 	}
 	defer resp.Body.Close()
+	fmt.Fprintf(os.Stderr, "[FWD 5] ✅ Got response: status=%d\n", resp.StatusCode)
 
+	// Read response
 	body, _ := io.ReadAll(resp.Body)
+	fmt.Fprintf(os.Stderr, "[FWD 6] Response body: %s\n", string(body))
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[BotAPI] ❌ Gleam returned %d: %s", resp.StatusCode, string(body))
+		fmt.Fprintf(os.Stderr, "[FWD 6] ❌ FAIL: non-200 status\n")
+		fmt.Fprintf(os.Stderr, "--- ForwardCallbackToGleam END (ERROR) ---\n\n")
 		return fmt.Errorf("gleam returned %d: %s", resp.StatusCode, string(body))
 	}
 
-	log.Printf("[BotAPI] ✅ Callback forwarded to Gleam: query_id=%s, response=%s", data.QueryID, string(body))
+	fmt.Fprintf(os.Stderr, "[FWD 6] ✅ SUCCESS\n")
+	fmt.Fprintf(os.Stderr, "--- ForwardCallbackToGleam END (OK) ---\n\n")
 	return nil
 }
 

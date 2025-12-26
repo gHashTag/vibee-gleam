@@ -17,8 +17,16 @@ var authWarningShown = false
 // AuthMiddleware wraps an http.Handler with API key authentication
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Skip auth for health checks and root
-		if r.URL.Path == "/health" || r.URL.Path == "/" {
+		// Skip auth for health checks, root, diagnostic endpoints, and Telegram webhook
+		// NOTE: /api/v1/bot/webhook MUST be public - Telegram sends callbacks without auth
+		// NOTE: /api/v1/bot/webhook-setup is public for diagnostics (temporary)
+		// NOTE: /api/v1/bot/answer is public because it's called from vibee-mcp (internal)
+		if r.URL.Path == "/health" || r.URL.Path == "/" ||
+		   r.URL.Path == "/api/v1/bot/webhook-info" ||
+		   r.URL.Path == "/api/v1/bot/webhook" ||
+		   r.URL.Path == "/api/v1/bot/webhook-setup" ||
+		   r.URL.Path == "/api/v1/bot/webhook-debug" ||
+		   r.URL.Path == "/api/v1/bot/answer" {
 			next.ServeHTTP(w, r)
 			return
 		}

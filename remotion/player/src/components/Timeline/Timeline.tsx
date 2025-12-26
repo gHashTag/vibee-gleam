@@ -19,12 +19,13 @@ import {
   pauseAtom,
   setSnapEnabledAtom,
   updateTrackAtom,
+  canvasZoomAtom,
 } from '@/atoms';
 import { TimeRuler } from './TimeRuler';
 import { Track } from './Track';
 import { Playhead } from './Playhead';
 import { VolumePopup } from './VolumePopup';
-import { Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, ChevronDown, ChevronUp, Magnet, Lock, Unlock, Maximize2, Volume2, VolumeX } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, ChevronDown, ChevronUp, Magnet, Lock, Unlock, Maximize2, Maximize, Minimize, Volume2, VolumeX } from 'lucide-react';
 import './Timeline.css';
 
 export function Timeline() {
@@ -55,6 +56,8 @@ export function Timeline() {
   const updateTrack = useSetAtom(updateTrackAtom);
   const setIsMuted = useSetAtom(isMutedAtom);
   const setVolume = useSetAtom(volumeAtom);
+  const canvasZoom = useAtomValue(canvasZoomAtom);
+  const setCanvasZoom = useSetAtom(canvasZoomAtom);
 
   // Handle mute toggle - uses both store state and player API
   const handleMuteToggle = useCallback(() => {
@@ -217,6 +220,11 @@ export function Timeline() {
     setPlaybackRate(speedPresets[prevIndex]);
   };
 
+  // Canvas zoom handlers
+  const effectiveCanvasZoom = canvasZoom || 0.3; // Default zoom
+  const handleCanvasZoomIn = () => setCanvasZoom(Math.min(effectiveCanvasZoom + 0.05, 1));
+  const handleCanvasZoomOut = () => setCanvasZoom(Math.max(effectiveCanvasZoom - 0.05, 0.1));
+
   return (
     <div className="timeline">
       {/* Transport Controls */}
@@ -303,6 +311,17 @@ export function Timeline() {
           </button>
           <button className="transport-btn" onClick={handleFitToView} title={`${t('timeline.fitToView')} (Shift+Z)`}>
             <Maximize2 size={14} />
+          </button>
+        </div>
+
+        {/* Canvas Zoom Controls */}
+        <div className="canvas-zoom-controls">
+          <button className="transport-btn" onClick={handleCanvasZoomOut} title={t('canvas.zoomOut')}>
+            <Minimize size={14} />
+          </button>
+          <span className="zoom-label">{Math.round(effectiveCanvasZoom * 100)}%</span>
+          <button className="transport-btn" onClick={handleCanvasZoomIn} title={t('canvas.zoomIn')}>
+            <Maximize size={14} />
           </button>
         </div>
       </div>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вайбкодинг - Carousel Preview</title>
+    <link href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #050505;
+            min-height: 100vh;
+            font-family: 'Russo One', sans-serif;
+            color: white;
+            padding: 40px 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            letter-spacing: 4px;
+        }
+
+        .header h1 span {
+            color: #ccff00;
+        }
+
+        .carousel-container {
+            display: flex;
+            gap: 20px;
+            overflow-x: auto;
+            padding: 20px 0;
+            scroll-snap-type: x mandatory;
+        }
+
+        .slide {
+            flex-shrink: 0;
+            width: 324px;
+            height: 405px;
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            scroll-snap-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
+        .slide-bg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .slide-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                to top,
+                rgba(0,0,0,0.85) 0%,
+                rgba(0,0,0,0.81) 20%,
+                rgba(0,0,0,0.51) 80%,
+                rgba(0,0,0,0) 100%
+            );
+        }
+
+        .slide-content {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 24px;
+            z-index: 10;
+        }
+
+        .slide-text {
+            font-size: 22px;
+            line-height: 1.2;
+            text-transform: uppercase;
+            color: #ffffff;
+            text-shadow: 0 4px 12px rgba(0,0,0,0.8);
+        }
+
+        .slide-text .highlight {
+            color: #ccff00;
+        }
+
+        .slide-number {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            font-size: 10px;
+            font-weight: bold;
+            color: #ccff00;
+            letter-spacing: 2px;
+            z-index: 20;
+        }
+
+        .swipe-arrow {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: white;
+            opacity: 0.7;
+            animation: pulse 2s infinite;
+            z-index: 20;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.7; transform: translateX(0); }
+            50% { opacity: 1; transform: translateX(5px); }
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: rgba(255,255,255,0.3);
+            font-size: 10px;
+            letter-spacing: 2px;
+        }
+
+        /* Scrollbar */
+        .carousel-container::-webkit-scrollbar {
+            height: 6px;
+        }
+        .carousel-container::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+        .carousel-container::-webkit-scrollbar-thumb {
+            background: #ccff00;
+            border-radius: 3px;
+        }
+
+        @media (min-width: 768px) {
+            .carousel-container {
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            .slide {
+                width: 270px;
+                height: 337px;
+            }
+            .slide-text {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><span>AI</span>CAROUSEL</h1>
+        <p style="color: rgba(255,255,255,0.5); margin-top: 10px; font-size: 12px; letter-spacing: 2px;">ВАЙБКОДИНГ</p>
+    </div>
+
+    <div class="carousel-container">
+        <!-- Slide 1 -->
+        <div class="slide">
+            <div class="slide-number">01</div>
+            <img class="slide-bg" src="https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=1080&h=1350&fit=crop" alt="Slide 1">
+            <div class="slide-overlay"></div>
+            <div class="slide-content">
+                <div class="slide-text">
+                    <span class="highlight">Вайбкодинг</span> — программирование нового поколения
+                </div>
+            </div>
+            <div class="swipe-arrow">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Slide 2 -->
+        <div class="slide">
+            <div class="slide-number">02</div>
+            <img class="slide-bg" src="https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1080&h=1350&fit=crop" alt="Slide 2">
+            <div class="slide-overlay"></div>
+            <div class="slide-content">
+                <div class="slide-text">
+                    AI пишет код <span class="highlight">за тебя</span>, ты только направляешь
+                </div>
+            </div>
+            <div class="swipe-arrow">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Slide 3 -->
+        <div class="slide">
+            <div class="slide-number">03</div>
+            <img class="slide-bg" src="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=1080&h=1350&fit=crop" alt="Slide 3">
+            <div class="slide-overlay"></div>
+            <div class="slide-content">
+                <div class="slide-text">
+                    Описываешь задачу словами → получаешь <span class="highlight">рабочий код</span>
+                </div>
+            </div>
+            <div class="swipe-arrow">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Slide 4 -->
+        <div class="slide">
+            <div class="slide-number">04</div>
+            <img class="slide-bg" src="https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=1080&h=1350&fit=crop" alt="Slide 4">
+            <div class="slide-overlay"></div>
+            <div class="slide-content">
+                <div class="slide-text">
+                    Экономишь <span class="highlight">80% времени</span> на рутине
+                </div>
+            </div>
+            <div class="swipe-arrow">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Slide 5 (CTA) -->
+        <div class="slide">
+            <div class="slide-number">05</div>
+            <img class="slide-bg" src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1080&h=1350&fit=crop" alt="Slide 5">
+            <div class="slide-overlay"></div>
+            <div class="slide-content">
+                <div class="slide-text">
+                    <span class="highlight">Сохрани</span> и начни вайбкодить уже сегодня! 🚀
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        GENERATED BY VIBEE AI CAROUSEL CREATOR
+    </div>
+</body>
+</html>

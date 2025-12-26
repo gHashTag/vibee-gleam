@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -48,7 +49,12 @@ func NewRouter(cfg *config.Config, db *sql.DB) *Router {
 	}
 
 	// Initialize Bot API client if token is configured
+	log.Printf("[INIT] BotToken set: %v (len=%d)", cfg.BotToken != "", len(cfg.BotToken))
+	log.Printf("[INIT] BotWebhookURL: %s", cfg.BotWebhookURL)
+	log.Printf("[INIT] GleamURL: %s", cfg.GleamURL)
+
 	if cfg.BotToken != "" {
+		log.Printf("[INIT] Creating Bot API client...")
 		botCfg := botapi.Config{
 			Token:      cfg.BotToken,
 			WebhookURL: cfg.BotWebhookURL,
@@ -57,20 +63,23 @@ func NewRouter(cfg *config.Config, db *sql.DB) *Router {
 		}
 		botClient, err := botapi.NewBotClient(botCfg)
 		if err != nil {
-			log.Printf("⚠️ Failed to create Bot API client: %v", err)
+			log.Printf("⚠️ [INIT] Failed to create Bot API client: %v", err)
 		} else {
 			r.botClient = botClient
-			log.Printf("✅ Bot API client initialized: @%s", botClient.GetBotUsername())
+			log.Printf("✅ [INIT] Bot API client initialized: @%s", botClient.GetBotUsername())
 
 			// Set webhook if URL is configured
 			if cfg.BotWebhookURL != "" {
+				log.Printf("[INIT] Setting webhook to: %s", cfg.BotWebhookURL)
 				if err := botClient.SetWebhook(cfg.BotWebhookURL); err != nil {
-					log.Printf("⚠️ Failed to set webhook: %v", err)
+					log.Printf("⚠️ [INIT] Failed to set webhook: %v", err)
+				} else {
+					log.Printf("✅ [INIT] Webhook set successfully")
 				}
 			}
 		}
 	} else {
-		log.Println("ℹ️ TELEGRAM_BOT_TOKEN not set, Bot API disabled")
+		log.Println("ℹ️ [INIT] TELEGRAM_BOT_TOKEN not set, Bot API disabled")
 	}
 
 	// Start WebSocket hub
@@ -205,6 +214,9 @@ func (r *Router) setupRoutes() {
 	r.mux.HandleFunc("/api/v1/bot/webhook", r.handleBotWebhook)
 	r.mux.HandleFunc("/api/v1/bot/answer", r.handleBotAnswer)
 	r.mux.HandleFunc("/api/v1/bot/status", r.handleBotStatus)
+	r.mux.HandleFunc("/api/v1/bot/webhook-info", r.handleBotWebhookInfo)
+	r.mux.HandleFunc("/api/v1/bot/webhook-debug", r.handleBotWebhookDebug)
+	r.mux.HandleFunc("/api/v1/bot/webhook-setup", r.handleBotWebhookSetup)
 
 	// WebSocket for updates
 	r.mux.HandleFunc("/api/v1/updates", r.handleWebSocket)
@@ -1095,45 +1107,137 @@ func (r *Router) handleBotSendButtons(w http.ResponseWriter, req *http.Request) 
 	})
 }
 
+// lastWebhookDebug stores debug info about last webhook call
+var lastWebhookDebug struct {
+	Time       string `json:"time"`
+	Method     string `json:"method"`
+	RemoteAddr string `json:"remote_addr"`
+	Error      string `json:"error,omitempty"`
+	CallbackID string `json:"callback_id,omitempty"`
+	Data       string `json:"data,omitempty"`
+}
+var webhookDebugMu sync.Mutex
+
 // handleBotWebhook receives callback queries from Telegram
 // POST /api/v1/bot/webhook
+// Updated: 2025-12-26 - FULL DIAGNOSTIC LOGGING
 func (r *Router) handleBotWebhook(w http.ResponseWriter, req *http.Request) {
+	startTime := time.Now()
+
+	// STEP 1: Log entry
+	fmt.Fprintf(os.Stderr, "\n\n========== WEBHOOK START ==========\n")
+	fmt.Fprintf(os.Stderr, "[STEP 1] WEBHOOK HIT: method=%s, path=%s, remote=%s, time=%s\n",
+		req.Method, req.URL.Path, req.RemoteAddr, startTime.Format(time.RFC3339))
+
+	// Store debug info
+	webhookDebugMu.Lock()
+	lastWebhookDebug.Time = startTime.Format(time.RFC3339)
+	lastWebhookDebug.Method = req.Method
+	lastWebhookDebug.RemoteAddr = req.RemoteAddr
+	lastWebhookDebug.Error = "processing..."
+	lastWebhookDebug.CallbackID = ""
+	lastWebhookDebug.Data = ""
+	webhookDebugMu.Unlock()
+
+	// STEP 2: Method check
+	fmt.Fprintf(os.Stderr, "[STEP 2] Checking method: %s\n", req.Method)
 	if req.Method != http.MethodPost {
+		webhookDebugMu.Lock()
+		lastWebhookDebug.Error = "wrong method: " + req.Method
+		webhookDebugMu.Unlock()
+		fmt.Fprintf(os.Stderr, "[STEP 2] ❌ FAILED: wrong method\n")
 		respondError(w, http.StatusMethodNotAllowed, "POST required")
 		return
 	}
+	fmt.Fprintf(os.Stderr, "[STEP 2] ✅ Method OK\n")
 
+	// STEP 3: Bot client check
+	fmt.Fprintf(os.Stderr, "[STEP 3] Checking botClient: %v\n", r.botClient != nil)
 	if r.botClient == nil {
+		webhookDebugMu.Lock()
+		lastWebhookDebug.Error = "botClient is nil"
+		webhookDebugMu.Unlock()
+		fmt.Fprintf(os.Stderr, "[STEP 3] ❌ FAILED: botClient is nil\n")
 		respondError(w, http.StatusServiceUnavailable, "Bot API not configured")
 		return
 	}
+	fmt.Fprintf(os.Stderr, "[STEP 3] ✅ botClient OK\n")
 
+	// STEP 4: Parse webhook
+	fmt.Fprintf(os.Stderr, "[STEP 4] Parsing webhook body...\n")
 	callbackData, err := r.botClient.HandleWebhook(req)
 	if err != nil {
-		log.Printf("[BotAPI] Webhook error: %v", err)
+		webhookDebugMu.Lock()
+		lastWebhookDebug.Error = "parse error: " + err.Error()
+		webhookDebugMu.Unlock()
+		fmt.Fprintf(os.Stderr, "[STEP 4] ❌ FAILED: %v\n", err)
 		respondError(w, http.StatusBadRequest, "webhook error: "+err.Error())
 		return
 	}
+	fmt.Fprintf(os.Stderr, "[STEP 4] ✅ Parsed OK, callbackData=%v\n", callbackData != nil)
 
-	// Non-callback update (message, etc.) - acknowledge but don't process
+	// STEP 5: Check if callback
 	if callbackData == nil {
+		webhookDebugMu.Lock()
+		lastWebhookDebug.Error = "not a callback query"
+		webhookDebugMu.Unlock()
+		fmt.Fprintf(os.Stderr, "[STEP 5] ⚠️ Not a callback query, ignoring\n")
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ignored"})
 		return
 	}
-
-	log.Printf("[BotAPI] Callback received: query_id=%s, data=%s, user=%d, chat=%d",
+	fmt.Fprintf(os.Stderr, "[STEP 5] ✅ Callback: query_id=%s, data=%s, user=%d, chat=%d\n",
 		callbackData.QueryID, callbackData.Data, callbackData.UserID, callbackData.ChatID)
 
-	// Forward to Gleam for processing
-	ctx, cancel := context.WithTimeout(req.Context(), 10*time.Second)
-	defer cancel()
+	// Update debug
+	webhookDebugMu.Lock()
+	lastWebhookDebug.CallbackID = callbackData.QueryID
+	lastWebhookDebug.Data = callbackData.Data
+	lastWebhookDebug.Error = "forwarding to gleam..."
+	webhookDebugMu.Unlock()
 
-	if err := r.botClient.ForwardCallbackToGleam(ctx, callbackData); err != nil {
-		log.Printf("[BotAPI] Forward to Gleam error: %v", err)
-		// Still acknowledge the webhook to Telegram
+	// STEP 6: Answer callback IMMEDIATELY to remove loading indicator
+	fmt.Fprintf(os.Stderr, "[STEP 6] Answering callback immediately...\n")
+	if err := r.botClient.AnswerCallback(callbackData.QueryID, "⏳", false); err != nil {
+		fmt.Fprintf(os.Stderr, "[STEP 6] ⚠️ AnswerCallback failed: %v\n", err)
+	} else {
+		fmt.Fprintf(os.Stderr, "[STEP 6] ✅ Callback answered\n")
 	}
 
-	// Return callback data for Gleam to process
+	// STEP 7: Forward to Gleam asynchronously (don't block webhook response)
+	fmt.Fprintf(os.Stderr, "[STEP 7] Forwarding to Gleam async...\n")
+	go func() {
+		var forwardErr error
+		for attempt := 1; attempt <= 3; attempt++ {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			forwardErr = r.botClient.ForwardCallbackToGleam(ctx, callbackData)
+			cancel()
+
+			if forwardErr == nil {
+				fmt.Fprintf(os.Stderr, "[STEP 7] ✅ Forward succeeded on attempt %d\n", attempt)
+				break
+			}
+			fmt.Fprintf(os.Stderr, "[STEP 7] ⚠️ Attempt %d failed: %v\n", attempt, forwardErr)
+			if attempt < 3 {
+				time.Sleep(time.Duration(attempt) * time.Second)
+			}
+		}
+
+		webhookDebugMu.Lock()
+		if forwardErr != nil {
+			lastWebhookDebug.Error = "FORWARD ERROR: " + forwardErr.Error()
+			fmt.Fprintf(os.Stderr, "[STEP 7] ❌ FORWARD FAILED: %v\n", forwardErr)
+		} else {
+			lastWebhookDebug.Error = "SUCCESS: forwarded to gleam"
+			fmt.Fprintf(os.Stderr, "[STEP 7] ✅ FORWARD SUCCESS\n")
+		}
+		webhookDebugMu.Unlock()
+	}()
+
+	// STEP 8: Response to Telegram webhook
+	elapsed := time.Since(startTime)
+	fmt.Fprintf(os.Stderr, "[STEP 8] Responding OK, elapsed=%v\n", elapsed)
+	fmt.Fprintf(os.Stderr, "========== WEBHOOK END ==========\n\n")
+
 	respondJSON(w, http.StatusOK, callbackData)
 }
 
@@ -1147,33 +1251,43 @@ type BotAnswerRequest struct {
 // handleBotAnswer answers a callback query
 // POST /api/v1/bot/answer
 func (r *Router) handleBotAnswer(w http.ResponseWriter, req *http.Request) {
+	fmt.Fprintf(os.Stderr, "[ANSWER] Received /bot/answer request\n")
+
 	if req.Method != http.MethodPost {
+		fmt.Fprintf(os.Stderr, "[ANSWER] ❌ Wrong method: %s\n", req.Method)
 		respondError(w, http.StatusMethodNotAllowed, "POST required")
 		return
 	}
 
 	if r.botClient == nil {
+		fmt.Fprintf(os.Stderr, "[ANSWER] ❌ botClient is nil\n")
 		respondError(w, http.StatusServiceUnavailable, "Bot API not configured")
 		return
 	}
 
 	var body BotAnswerRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		fmt.Fprintf(os.Stderr, "[ANSWER] ❌ JSON decode error: %v\n", err)
 		respondError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 		return
 	}
 
+	fmt.Fprintf(os.Stderr, "[ANSWER] query_id=%s, text=%s, show_alert=%v\n", body.QueryID, body.Text, body.ShowAlert)
+
 	if body.QueryID == "" {
+		fmt.Fprintf(os.Stderr, "[ANSWER] ❌ query_id is empty\n")
 		respondError(w, http.StatusBadRequest, "query_id is required")
 		return
 	}
 
 	if err := r.botClient.AnswerCallback(body.QueryID, body.Text, body.ShowAlert); err != nil {
+		fmt.Fprintf(os.Stderr, "[ANSWER] ❌ AnswerCallback failed: %v\n", err)
 		log.Printf("[BotAPI] AnswerCallback error: %v", err)
 		respondError(w, http.StatusInternalServerError, "failed to answer: "+err.Error())
 		return
 	}
 
+	fmt.Fprintf(os.Stderr, "[ANSWER] ✅ Callback answered successfully\n")
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 	})
@@ -1199,6 +1313,95 @@ func (r *Router) handleBotStatus(w http.ResponseWriter, req *http.Request) {
 		"configured": true,
 		"bot_id":     r.botClient.GetBotID(),
 		"username":   r.botClient.GetBotUsername(),
+	})
+}
+
+// handleBotWebhookInfo returns current webhook configuration
+// GET /api/v1/bot/webhook-info
+func (r *Router) handleBotWebhookInfo(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		respondError(w, http.StatusMethodNotAllowed, "GET required")
+		return
+	}
+
+	if r.botClient == nil {
+		respondError(w, http.StatusServiceUnavailable, "Bot API not configured")
+		return
+	}
+
+	info, err := r.botClient.GetWebhookInfo()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to get webhook info: "+err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"bot_id":                 r.botClient.GetBotID(),
+		"bot_username":           r.botClient.GetBotUsername(),
+		"url":                    info.URL,
+		"has_custom_certificate": info.HasCustomCertificate,
+		"pending_update_count":   info.PendingUpdateCount,
+		"last_error_date":        info.LastErrorDate,
+		"last_error_message":     info.LastErrorMessage,
+		"max_connections":        info.MaxConnections,
+		"ip_address":             info.IPAddress,
+	})
+}
+
+// handleBotWebhookDebug returns debug info about last webhook call
+// GET /api/v1/bot/webhook-debug
+func (r *Router) handleBotWebhookDebug(w http.ResponseWriter, req *http.Request) {
+	webhookDebugMu.Lock()
+	debug := lastWebhookDebug
+	webhookDebugMu.Unlock()
+
+	respondJSON(w, http.StatusOK, debug)
+}
+
+// handleBotWebhookSetup registers webhook with Telegram
+// POST /api/v1/bot/webhook-setup
+func (r *Router) handleBotWebhookSetup(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "POST required")
+		return
+	}
+
+	if r.botClient == nil {
+		respondError(w, http.StatusServiceUnavailable, "Bot API not configured")
+		return
+	}
+
+	webhookURL := r.cfg.BotWebhookURL
+	if webhookURL == "" {
+		respondError(w, http.StatusBadRequest, "TELEGRAM_BOT_WEBHOOK_URL not configured")
+		return
+	}
+
+	log.Printf("[BotAPI] Manual webhook setup requested, URL: %s", webhookURL)
+
+	// First delete the webhook to clear any cached errors
+	if err := r.botClient.DeleteWebhook(); err != nil {
+		log.Printf("[BotAPI] ⚠️ Failed to delete webhook (continuing): %v", err)
+	}
+
+	if err := r.botClient.SetWebhook(webhookURL); err != nil {
+		log.Printf("[BotAPI] ❌ Failed to set webhook: %v", err)
+		respondError(w, http.StatusInternalServerError, "Failed to set webhook: "+err.Error())
+		return
+	}
+
+	// Verify it was set
+	info, _ := r.botClient.GetWebhookInfo()
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"status":      "ok",
+		"webhook_url": webhookURL,
+		"verified":    info.URL == webhookURL,
+		"info": map[string]interface{}{
+			"url":                  info.URL,
+			"pending_update_count": info.PendingUpdateCount,
+			"last_error_message":   info.LastErrorMessage,
+		},
 	})
 }
 

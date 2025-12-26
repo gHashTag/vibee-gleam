@@ -28,10 +28,34 @@ import {
   logRenderAtom,
   canRenderAtom,
   logoutAtom,
+  // Templates
+  addTemplateAtom,
+  sidebarTabAtom,
+  // Template props atoms for reset
+  musicVolumeAtom,
+  vignetteStrengthAtom,
+  colorCorrectionAtom,
+  faceOffsetXAtom,
+  faceOffsetYAtom,
+  showCaptionsAtom,
+  playbackRateAtom,
+  splitCircleSizeAtom,
+  splitPositionXAtom,
+  splitPositionYAtom,
+  splitFaceScaleAtom,
+  splitIsCircleAtom,
+  splitBorderRadiusAtom,
+  fullscreenCircleSizeAtom,
+  fullscreenPositionXAtom,
+  fullscreenPositionYAtom,
+  fullscreenFaceScaleAtom,
+  fullscreenIsCircleAtom,
+  fullscreenBorderRadiusAtom,
 } from '@/atoms';
 import { editorStore } from '@/atoms/Provider';
-import { Download, Play, Pause, Settings, Wifi, WifiOff, Loader2, AlertTriangle, Undo2, Redo2, X, Keyboard, Upload, Save, RotateCcw, Zap } from 'lucide-react';
+import { Download, Play, Pause, Loader2, AlertTriangle, Undo2, Redo2, X, Keyboard, Upload, Save, RotateCcw, Zap } from 'lucide-react';
 import { TelegramLoginButton, UserAvatar, PaywallModal } from '@/components/Auth';
+import { RemixBadge } from '@/components/RemixBadge';
 import { RENDER_SERVER_URL, toAbsoluteUrl } from '@/lib/mediaUrl';
 import { DEFAULT_COMPOSITION_ID } from '@/shared/compositions';
 import { logExport } from '@/lib/logger';
@@ -138,6 +162,31 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
   const setShowPaywall = useSetAtom(showPaywallAtom);
   const setShowLoginModal = useSetAtom(showLoginModalAtom);
 
+  // Templates
+  const addTemplate = useSetAtom(addTemplateAtom);
+  const setSidebarTab = useSetAtom(sidebarTabAtom);
+
+  // Template props setters for reset
+  const setMusicVolume = useSetAtom(musicVolumeAtom);
+  const setVignetteStrength = useSetAtom(vignetteStrengthAtom);
+  const setColorCorrection = useSetAtom(colorCorrectionAtom);
+  const setFaceOffsetX = useSetAtom(faceOffsetXAtom);
+  const setFaceOffsetY = useSetAtom(faceOffsetYAtom);
+  const setShowCaptions = useSetAtom(showCaptionsAtom);
+  const setPlaybackRate = useSetAtom(playbackRateAtom);
+  const setSplitSize = useSetAtom(splitCircleSizeAtom);
+  const setSplitPosX = useSetAtom(splitPositionXAtom);
+  const setSplitPosY = useSetAtom(splitPositionYAtom);
+  const setSplitScale = useSetAtom(splitFaceScaleAtom);
+  const setSplitIsCircle = useSetAtom(splitIsCircleAtom);
+  const setSplitRadius = useSetAtom(splitBorderRadiusAtom);
+  const setFullSize = useSetAtom(fullscreenCircleSizeAtom);
+  const setFullPosX = useSetAtom(fullscreenPositionXAtom);
+  const setFullPosY = useSetAtom(fullscreenPositionYAtom);
+  const setFullScale = useSetAtom(fullscreenFaceScaleAtom);
+  const setFullIsCircle = useSetAtom(fullscreenIsCircleAtom);
+  const setFullRadius = useSetAtom(fullscreenBorderRadiusAtom);
+
   // Fetch quota on mount if user is logged in
   useEffect(() => {
     if (user) {
@@ -149,7 +198,35 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
   const setExporting = (exporting: boolean, progress?: number) => setExportingAction({ exporting, progress });
   const canUndo = () => canUndoValue;
   const canRedo = () => canRedoValue;
-  const resetToDefaults = () => resetTracks({ fps: 30, durationInFrames: 825 });
+  const resetToDefaults = () => {
+    // Reset tracks/timeline
+    resetTracks({ fps: 30, durationInFrames: 825 });
+
+    // Reset ALL template props settings
+    setMusicVolume(0.06);
+    setVignetteStrength(0.7);
+    setColorCorrection(1.2);
+    setFaceOffsetX(0);
+    setFaceOffsetY(0);
+    setShowCaptions(true);
+    setPlaybackRate(1);
+
+    // Split mode defaults
+    setSplitSize(100);
+    setSplitPosX(0);
+    setSplitPosY(0);
+    setSplitScale(1.0);
+    setSplitIsCircle(false);
+    setSplitRadius(50);
+
+    // Fullscreen mode defaults
+    setFullSize(100);
+    setFullPosX(0);
+    setFullPosY(0);
+    setFullScale(1.0);
+    setFullIsCircle(false);
+    setFullRadius(50);
+  };
 
   const [showBlobWarning, setShowBlobWarning] = useState(false);
   const [showCriticalBlobError, setShowCriticalBlobError] = useState(false);
@@ -158,6 +235,10 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
   const [exportSettings, setExportSettings] = useState<ExportSettings>(getExportSettings);
   const projectImportRef = useRef<HTMLInputElement>(null);
 
+  // Save as template dialog
+  const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+
   const handleSettingsChange = (key: keyof ExportSettings, value: string) => {
     const newSettings = { ...exportSettings, [key]: value };
     setExportSettings(newSettings);
@@ -165,7 +246,35 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
   };
   const [blobAssets, setBlobAssets] = useState<{ critical: string[]; optional: string[] }>({ critical: [], optional: [] });
 
-  // Project Export - save as JSON file
+  // Open save as template dialog
+  const handleSaveClick = () => {
+    setTemplateName(project.name);
+    setShowSaveTemplateDialog(true);
+  };
+
+  // Save current state as a template
+  const handleSaveTemplate = () => {
+    if (!templateName.trim()) return;
+
+    addTemplate({
+      name: templateName.trim(),
+      description: `Created from ${project.name}`,
+      compositionId: 'SplitTalkingHead',
+      defaultProps: { ...templateProps },
+      assets: [...assets],
+      tracks: JSON.parse(JSON.stringify(tracks)), // Deep clone
+    });
+
+    setShowSaveTemplateDialog(false);
+    setTemplateName('');
+
+    // Switch to templates tab to show the new template
+    setSidebarTab('templates');
+
+    console.log('[Templates] Saved new template:', templateName);
+  };
+
+  // Project Export - save as JSON file (legacy, kept for import/export)
   const handleProjectExport = () => {
     const projectData = {
       version: 1,
@@ -344,10 +453,12 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
         ...templateProps,
         lipSyncVideo: toAbsoluteUrl(templateProps.lipSyncVideo),
         coverImage: toAbsoluteUrl(templateProps.coverImage),
-        backgroundMusic: templateProps.backgroundMusic ? toAbsoluteUrl(templateProps.backgroundMusic) : '',
+        backgroundMusic: templateProps.backgroundMusic ? toAbsoluteUrl(templateProps.backgroundMusic) : undefined,
         backgroundVideos: filteredBackgroundVideos,
         // Add segments with timeline positions for render
         segments: validSegments,
+        // Explicitly set video volume for LipSync audio
+        videoVolume: 1,
       };
 
       logExport('Render props prepared', {
@@ -489,6 +600,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
           value={project.name}
           onChange={(e) => setProject({ ...project, name: e.target.value })}
         />
+        <RemixBadge />
       </div>
 
       <div className="header-right">
@@ -512,34 +624,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
           </button>
         </div>
 
-        {/* Language Switcher */}
-        <div className="lang-switcher">
-          <button
-            className={`lang-btn ${lang === 'en' ? 'active' : ''}`}
-            onClick={() => setLang('en')}
-          >EN</button>
-          <button
-            className={`lang-btn ${lang === 'ru' ? 'active' : ''}`}
-            onClick={() => setLang('ru')}
-          >RU</button>
-        </div>
-
-        {/* WebSocket status indicator */}
-        {wsStatus && (
-          <div
-            className={`ws-status ${wsStatus}`}
-            title={wsStatus === 'connected'
-              ? `${t('ws.syncActive')}${wsClientId ? ` (${wsClientId.slice(0, 8)})` : ''}`
-              : t('ws.connecting')}
-          >
-            {wsStatus === 'connected' ? (
-              <Wifi size={16} className="ws-icon connected" />
-            ) : (
-              <WifiOff size={16} className="ws-icon disconnected" />
-            )}
-          </div>
-        )}
-
+        
         <button
           className="header-button"
           onClick={() => (isPlaying ? pause() : play())}
@@ -548,11 +633,11 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
           {isPlaying ? <Pause size={18} /> : <Play size={18} />}
         </button>
 
-        {/* Project Save/Load */}
+        {/* Save as Template */}
         <button
           className="header-button"
-          onClick={handleProjectExport}
-          title={t('editor.save')}
+          onClick={handleSaveClick}
+          title={t('editor.saveTemplate')}
         >
           <Save size={18} />
         </button>
@@ -579,6 +664,14 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
           <RotateCcw size={18} />
         </button>
 
+        {/* Language Switcher */}
+        <button
+          className="header-button lang-toggle"
+          onClick={() => setLang(lang === 'en' ? 'ru' : 'en')}
+          title={lang === 'en' ? 'Переключить на русский' : 'Switch to English'}
+        >
+          {lang.toUpperCase()}
+        </button>
 
         {/* User login / Quota display */}
         {user ? (
@@ -873,6 +966,46 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
                 size="large"
                 showFallback={true}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save Template Dialog */}
+      {showSaveTemplateDialog && (
+        <div className="save-template-overlay" onClick={() => setShowSaveTemplateDialog(false)}>
+          <div className="save-template-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="save-template-header">
+              <Save size={24} />
+              <h3>{t('templates.saveTitle')}</h3>
+            </div>
+            <p className="save-template-text">{t('templates.saveDescription')}</p>
+            <input
+              type="text"
+              className="save-template-input"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder={t('templates.namePlaceholder')}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSaveTemplate();
+                if (e.key === 'Escape') setShowSaveTemplateDialog(false);
+              }}
+            />
+            <div className="save-template-actions">
+              <button
+                className="save-template-btn secondary"
+                onClick={() => setShowSaveTemplateDialog(false)}
+              >
+                {t('dialog.cancel')}
+              </button>
+              <button
+                className="save-template-btn primary"
+                onClick={handleSaveTemplate}
+                disabled={!templateName.trim()}
+              >
+                {t('templates.save')}
+              </button>
             </div>
           </div>
         </div>

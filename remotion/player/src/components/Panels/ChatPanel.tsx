@@ -1,7 +1,23 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useChatStore, initLogCapture } from '@/store/chatStore';
-import { useAtomValue } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { templatePropsAtom, selectedItemIdsAtom } from '@/atoms';
+import {
+  messagesAtom,
+  isStreamingAtom,
+  isChatConnectedAtom,
+  agentContextAtom,
+  addMessageAtom,
+  addLogAtom,
+  clearMessagesAtom,
+  refreshWelcomeMessageAtom,
+  setStreamingAtom,
+  applyActionAtom,
+  rejectActionAtom,
+  updateContextAtom,
+  initLogCapture,
+  setLogCaptureFn,
+} from '@/atoms/chat';
+import { editorStore } from '@/atoms/Provider';
 import { useLanguage } from '@/hooks/useLanguage';
 import {
   initAgentConnection,
@@ -44,29 +60,36 @@ export function ChatPanel({ wsConnected, wsSend }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Chat store
-  const messages = useChatStore((s) => s.messages);
-  const isStreaming = useChatStore((s) => s.isStreaming);
-  const agentConnected = useChatStore((s) => s.isConnected);
-  const refreshWelcomeMessage = useChatStore((s) => s.refreshWelcomeMessage);
+  // Chat atoms
+  const messages = useAtomValue(messagesAtom);
+  const isStreaming = useAtomValue(isStreamingAtom);
+  const agentConnected = useAtomValue(isChatConnectedAtom);
+  const context = useAtomValue(agentContextAtom);
 
-  // Refresh welcome message when language changes
-  useEffect(() => {
-    refreshWelcomeMessage();
-  }, [lang, refreshWelcomeMessage]);
-  const context = useChatStore((s) => s.context);
-  const addMessage = useChatStore((s) => s.addMessage);
-  const clearMessages = useChatStore((s) => s.clearMessages);
-  const setStreaming = useChatStore((s) => s.setStreaming);
-  const applyAction = useChatStore((s) => s.applyAction);
-  const rejectAction = useChatStore((s) => s.rejectAction);
+  // Chat actions
+  const addMessage = useSetAtom(addMessageAtom);
+  const clearMessages = useSetAtom(clearMessagesAtom);
+  const refreshWelcomeMessage = useSetAtom(refreshWelcomeMessageAtom);
+  const setStreaming = useSetAtom(setStreamingAtom);
+  const applyAction = useSetAtom(applyActionAtom);
+  const rejectAction = useSetAtom(rejectActionAtom);
+  const updateContext = useSetAtom(updateContextAtom);
 
   // Editor store for context
   const templateProps = useAtomValue(templatePropsAtom);
   const selectedItemIds = useAtomValue(selectedItemIdsAtom);
 
+  // Refresh welcome message when language changes
+  useEffect(() => {
+    refreshWelcomeMessage();
+  }, [lang, refreshWelcomeMessage]);
+
   // Initialize log capture and agent connection
   useEffect(() => {
+    // Set up log capture function to use Jotai
+    setLogCaptureFn((level, message) => {
+      editorStore.set(addLogAtom, { level, message });
+    });
     initLogCapture();
     initAgentConnection();
 
@@ -82,18 +105,18 @@ export function ChatPanel({ wsConnected, wsSend }: ChatPanelProps) {
 
   // Update context when props change
   useEffect(() => {
-    useChatStore.getState().updateContext({
+    updateContext({
       props: templateProps as unknown as Record<string, unknown>,
       selectedItems: selectedItemIds,
     });
-  }, [templateProps, selectedItemIds]);
+  }, [templateProps, selectedItemIds, updateContext]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || isStreaming) return;
 
     // Add user message
-    addMessage('user', text);
+    addMessage({ role: 'user', content: text });
     setInput('');
     setStreaming(true);
 
@@ -119,19 +142,16 @@ export function ChatPanel({ wsConnected, wsSend }: ChatPanelProps) {
       } else {
         // No connection - show helpful message
         setTimeout(() => {
-          addMessage(
-            'assistant',
-            t('chat.offlineMessage'),
-          );
+          addMessage({ role: 'assistant', content: t('chat.offlineMessage') });
           setStreaming(false);
         }, 500);
       }
     } catch (error) {
       console.error('[ChatPanel] Send error:', error);
-      addMessage('system', `Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      addMessage({ role: 'system', content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` });
       setStreaming(false);
     }
-  }, [input, isStreaming, agentConnected, wsConnected, wsSend, context, templateProps, selectedItemIds, addMessage, setStreaming]);
+  }, [input, isStreaming, agentConnected, wsConnected, wsSend, context, templateProps, selectedItemIds, addMessage, setStreaming, t]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -150,17 +170,17 @@ export function ChatPanel({ wsConnected, wsSend }: ChatPanelProps) {
         // Apply the action via Agent API
         await applyAgentAction(action);
         // Mark as applied in store
-        applyAction(messageId, actionId);
-        addMessage('system', `${t('chat.applied')} ${action.label}`);
+        applyAction({ messageId, actionId });
+        addMessage({ role: 'system', content: `${t('chat.applied')} ${action.label}` });
       } catch (error) {
         console.error('[ChatPanel] Apply action error:', error);
-        addMessage('system', `${t('chat.failedToApply')} ${error instanceof Error ? error.message : t('chat.unknownError')}`);
+        addMessage({ role: 'system', content: `${t('chat.failedToApply')} ${error instanceof Error ? error.message : t('chat.unknownError')}` });
       }
     }
   };
 
   const handleRejectAction = (messageId: string, actionId: string) => {
-    rejectAction(messageId, actionId);
+    rejectAction({ messageId, actionId });
   };
 
   // Connection status - prefer agent connection over WS

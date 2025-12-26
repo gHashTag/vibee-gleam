@@ -62,6 +62,7 @@ pub type OwnerEvent {
     username: String,
     text: String,
     timestamp: Int,
+    message_id: Int,  // ID сообщения для deep link
     extra: List(#(String, String)),
   )
 }
@@ -119,6 +120,8 @@ pub fn notify(event: OwnerEvent) -> Result(Int, NotificationError) {
 }
 
 /// Отправить уведомление о новом неизвестном чате
+/// trigger_word - если в сообщении найден триггер, показать его
+/// msg_id - ID сообщения для deep link (0 если не известен)
 pub fn notify_new_chat(
   chat_id: Int,
   chat_type: String,
@@ -126,7 +129,14 @@ pub fn notify_new_chat(
   from_name: String,
   username: String,
   sample_message: String,
+  trigger_word: Option(String),
+  msg_id: Int,
 ) -> Result(Int, NotificationError) {
+  let extra = case trigger_word {
+    Some(t) -> [#("🎯 Триггер", t)]
+    None -> []
+  }
+
   let event = OwnerEvent(
     event_type: NewChat,
     importance: High,
@@ -137,12 +147,14 @@ pub fn notify_new_chat(
     username: username,
     text: sample_message,
     timestamp: get_timestamp(),
-    extra: [],
+    message_id: msg_id,  // ID сообщения для deep link
+    extra: extra,
   )
   notify(event)
 }
 
 /// Отправить уведомление о лиде
+/// msg_id - ID сообщения для deep link
 pub fn notify_lead(
   chat_id: Int,
   chat_name: String,
@@ -151,6 +163,7 @@ pub fn notify_lead(
   username: String,
   trigger_text: String,
   trigger_word: String,
+  msg_id: Int,
 ) -> Result(Int, NotificationError) {
   let event = OwnerEvent(
     event_type: Lead,
@@ -162,6 +175,7 @@ pub fn notify_lead(
     username: username,
     text: trigger_text,
     timestamp: get_timestamp(),
+    message_id: msg_id,  // ID сообщения для deep link
     extra: [#("trigger", trigger_word)],
   )
   notify(event)
@@ -179,6 +193,7 @@ pub fn notify_error(error_type: String, error_message: String) -> Result(Int, No
     username: "",
     text: error_message,
     timestamp: get_timestamp(),
+    message_id: 0,  // Системные ошибки не связаны с конкретным сообщением
     extra: [#("error_type", error_type)],
   )
   notify(event)
@@ -301,7 +316,8 @@ fn create_buttons(event: OwnerEvent) -> List(List(NotificationButton)) {
         NotificationButton("🚫 Block", "owner:block:" <> int.to_string(event.chat_id)),
       ],
       [
-        NotificationButton("💬 Reply", "owner:reply:" <> int.to_string(event.chat_id)),
+        // Reply включает message_id для deep link к конкретному сообщению
+        NotificationButton("💬 Reply", "owner:reply:" <> int.to_string(event.chat_id) <> ":" <> int.to_string(event.message_id)),
         NotificationButton("🔇 Mute 1h", "owner:mute:" <> int.to_string(event.chat_id) <> ":1h"),
       ],
     ]
@@ -525,7 +541,9 @@ fn format_extra(extra: List(#(String, String))) -> String {
 
 fn escape_markdown(text: String) -> String {
   text
-  |> string.replace("\\", "\\\\")
+  // Сначала конвертируем literal "\n" в реальные переносы строк
+  |> string.replace("\\n", "\n")
+  // Затем экранируем markdown символы (НЕ трогаем обратный слэш, чтобы не ломать переносы)
   |> string.replace("[", "\\[")
   |> string.replace("]", "\\]")
   |> string.replace("*", "\\*")

@@ -1,7 +1,7 @@
 import { useAtomValue, useSetAtom } from 'jotai';
-import { templatesAtom, selectedTemplateIdAtom, selectTemplateAtom } from '@/atoms';
+import { templatesAtom, selectedTemplateIdAtom, selectTemplateAtom, removeTemplateAtom } from '@/atoms';
 import { useLanguage } from '@/hooks/useLanguage';
-import { LayoutTemplate, Check } from 'lucide-react';
+import { LayoutTemplate, Check, Trash2 } from 'lucide-react';
 import './TemplatesPanel.css';
 
 export function TemplatesPanel() {
@@ -9,6 +9,14 @@ export function TemplatesPanel() {
   const templates = useAtomValue(templatesAtom);
   const selectedTemplateId = useAtomValue(selectedTemplateIdAtom);
   const selectTemplate = useSetAtom(selectTemplateAtom);
+  const removeTemplate = useSetAtom(removeTemplateAtom);
+
+  const handleDelete = (e: React.MouseEvent, templateId: string) => {
+    e.stopPropagation();
+    if (confirm(t('templates.confirmDelete'))) {
+      removeTemplate(templateId);
+    }
+  };
 
   return (
     <div className="templates-panel">
@@ -36,6 +44,15 @@ export function TemplatesPanel() {
                 <div className="template-check">
                   <Check size={14} />
                 </div>
+              )}
+              {template.isUserCreated && (
+                <button
+                  className="template-delete"
+                  onClick={(e) => handleDelete(e, template.id)}
+                  title={t('templates.delete')}
+                >
+                  <Trash2 size={12} />
+                </button>
               )}
             </div>
           );

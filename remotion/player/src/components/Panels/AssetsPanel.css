@@ -8,7 +8,7 @@
 .upload-zone {
   border: 2px dashed #2a2a2a;
   border-radius: 8px;
-  padding: 20px;
+  padding: 16px;
   text-align: center;
   transition: all 0.15s;
 }
@@ -22,9 +22,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: #666;
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
 }
 
@@ -35,6 +35,38 @@
 .upload-hint {
   font-size: 10px;
   color: #4a4a4a;
+}
+
+/* View Mode Toggle */
+.view-mode-toggle {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.view-mode-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.view-mode-btn:hover {
+  background: #222;
+  color: #888;
+}
+
+.view-mode-btn.active {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #000;
 }
 
 /* Upload Progress */
@@ -123,13 +155,150 @@
   letter-spacing: 0;
 }
 
+/* Grid View for Videos/Images */
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+/* Asset Card (Grid Item) */
+.asset-card {
+  position: relative;
+  background: #1a1a1a;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: grab;
+  transition: all 0.15s;
+}
+
+.asset-card:hover {
+  background: #222;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.asset-card:active {
+  cursor: grabbing;
+  transform: translateY(0);
+}
+
+.asset-card.blob-warning {
+  border: 1px solid #f59e0b;
+}
+
+.asset-card-thumbnail {
+  position: relative;
+  width: 100%;
+  height: 56px;
+  background: #0a0a0a;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.asset-card-img,
+.asset-card-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Fill mode - crop to fill (default) */
+.asset-grid.fill-mode .asset-card-img,
+.asset-grid.fill-mode .asset-card-video {
+  object-fit: cover;
+}
+
+/* Fit mode - show full with letterboxing */
+.asset-grid.fit-mode .asset-card-img,
+.asset-grid.fit-mode .asset-card-video {
+  object-fit: contain;
+}
+
+.asset-card-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #444;
+}
+
+.asset-card-duration {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  padding: 1px 4px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.asset-card-warning {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  font-size: 10px;
+}
+
+.asset-card-info {
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.asset-card-name {
+  font-size: 9px;
+  color: #ccc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.asset-card-size {
+  font-size: 8px;
+  color: #666;
+}
+
+.asset-card-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  border-radius: 3px;
+  color: #888;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.asset-card:hover .asset-card-remove {
+  opacity: 1;
+}
+
+.asset-card-remove:hover {
+  background: rgba(239, 68, 68, 0.8);
+  color: #fff;
+}
+
+/* List View for Audio */
 .asset-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-/* Asset Item */
 .asset-item {
   display: flex;
   align-items: center;
@@ -167,6 +336,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.asset-size {
+  font-size: 10px;
+  color: #666;
+  flex-shrink: 0;
 }
 
 .asset-remove {

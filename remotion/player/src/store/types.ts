@@ -5,10 +5,11 @@
 import type React from 'react';
 
 // Import shared types
-import type { CaptionStyle as SharedCaptionStyle } from '@/shared/types';
+import type { CaptionStyle as SharedCaptionStyle, AvatarAnimation, AvatarBorderEffect } from '@/shared/types';
+import type { SidebarTab } from '@/atoms/ui';
 
 // Re-export shared types
-export type { SharedCaptionStyle as CaptionStyleShared };
+export type { SharedCaptionStyle as CaptionStyleShared, AvatarAnimation };
 
 export interface Project {
   id: string;
@@ -41,6 +42,26 @@ export interface Track {
 // Color tag options for organizing clips
 export type ColorTag = 'none' | 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink';
 
+// ===============================
+// Video Layout Options
+// ===============================
+
+export type VideoLayout =
+  | 'top-half'          // B-roll top 50% (DEFAULT)
+  | 'top-2-3'           // B-roll top 66%
+  | 'top-3-4'           // B-roll top 75%
+  | 'bottom-half'       // B-roll bottom 50%
+  | 'bottom-2-3'        // B-roll bottom 66%
+  | 'side-left'         // B-roll left 50%
+  | 'side-right'        // B-roll right 50%
+  | 'fullscreen'        // B-roll fullscreen only
+  | 'pip-top-left'      // B-roll fullscreen, avatar top-left
+  | 'pip-top-right'     // B-roll fullscreen, avatar top-right
+  | 'pip-center-left'   // B-roll fullscreen, avatar center-left
+  | 'pip-center-right'  // B-roll fullscreen, avatar center-right
+  | 'pip-bottom-left'   // B-roll fullscreen, avatar bottom-left
+  | 'pip-bottom-right'; // B-roll fullscreen, avatar bottom-right
+
 export interface TrackItemBase {
   id: string;
   trackId: string;
@@ -66,6 +87,7 @@ export interface VideoItemProps {
   type: 'video';
   volume: number;
   playbackRate: number;
+  layout?: VideoLayout; // B-roll layout position, default 'top-half'
 }
 
 export interface ImageItemProps {
@@ -93,7 +115,7 @@ export interface AvatarItemProps {
   // Avatar-specific props (lipsync video)
   circleSizePercent: number;
   circleBottomPercent: number;
-  circleLeftPx: number;
+  circleLeftPercent: number;
 }
 
 export type TrackItemProps =
@@ -159,6 +181,7 @@ export interface Segment {
   durationFrames: number;
   bRollUrl?: string;
   bRollType?: 'video' | 'image';
+  layout?: VideoLayout; // B-roll layout position, default 'top-half'
 }
 
 // ===============================
@@ -181,7 +204,7 @@ export interface LipSyncMainProps {
   // Avatar circle position
   circleSizePercent: number;
   circleBottomPercent: number;
-  circleLeftPx: number;
+  circleLeftPercent: number;
 
   // Captions (TikTok-style subtitles)
   captions?: CaptionItem[];
@@ -192,6 +215,36 @@ export interface LipSyncMainProps {
   faceOffsetX?: number;  // -50 to 50 (%)
   faceOffsetY?: number;  // -50 to 50 (%)
   faceScale?: number;    // 1.0 = no zoom
+
+  // Circle avatar mode
+  isCircleAvatar?: boolean;
+  avatarBorderRadius?: number; // 0-50%
+
+  // Split mode settings (when video background is shown)
+  splitCircleSize?: number;
+  splitPositionX?: number;
+  splitPositionY?: number;
+  splitFaceScale?: number;
+  splitIsCircle?: boolean;
+  splitBorderRadius?: number;
+
+  // Fullscreen mode settings (avatar fills screen)
+  fullscreenCircleSize?: number;
+  fullscreenPositionX?: number;
+  fullscreenPositionY?: number;
+  fullscreenFaceScale?: number;
+  fullscreenIsCircle?: boolean;
+  fullscreenBorderRadius?: number;
+
+  // Avatar animation
+  avatarAnimation?: AvatarAnimation;
+
+  // Avatar border effects
+  avatarBorderEffect?: AvatarBorderEffect;
+  avatarBorderColor?: string;
+  avatarBorderColor2?: string;
+  avatarBorderWidth?: number;
+  avatarBorderIntensity?: number;
 }
 
 // ===============================
@@ -247,7 +300,7 @@ export interface EditorState {
   templateProps: LipSyncMainProps;
 
   // UI state
-  sidebarTab: 'assets' | 'properties';
+  sidebarTab: SidebarTab;
   canvasZoom: number;
 
   // Snap settings
@@ -332,7 +385,7 @@ export interface EditorActions {
   setCanvasZoom: (zoom: number) => void;
 
   // UI
-  setSidebarTab: (tab: 'assets' | 'properties') => void;
+  setSidebarTab: (tab: SidebarTab) => void;
 
   // Snap
   setSnapEnabled: (enabled: boolean) => void;

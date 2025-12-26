@@ -1,7 +1,7 @@
 # Fly.io configuration for VIBEE MCP Server
 # Deploy with: fly deploy
 
-app = 'vibee-bot'
+app = 'vibee-mcp'
 primary_region = 'ams'
 
 [build]

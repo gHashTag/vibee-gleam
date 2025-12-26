@@ -32,6 +32,8 @@ import vibee/api/leads_handlers
 import vibee/api/graphql_handlers
 import vibee/mcp/websocket as mcp_ws
 import vibee/mcp/tools.{type ToolRegistry}
+import vibee/mcp/protocol
+import vibee/mcp/types as mcp_types
 import vibee/mcp/session_manager
 import vibee/api/p2p_ws
 import vibee/api/p2p_handlers
@@ -50,10 +52,13 @@ import vibee/api/agent_websocket
 import vibee/api/agent_metrics
 import vibee/api/agent_handlers
 import vibee/api/e2e_handlers
+import vibee/api/trigger_handlers
 import vibee/api/editor_agent_ws
 import vibee/api/video_api
 import vibee/api/render_quota_handlers
+import vibee/api/feed_handlers
 import vibee/notifications/owner_callbacks
+import vibee/carousel/api_handlers as carousel_handlers
 
 /// WebSocket message types
 pub type WsMessage {
@@ -98,14 +103,19 @@ pub fn start(port: Int) -> Result(Nil, String) {
 }
 
 /// Start the HTTP server with shared event bus
+/// Also initializes MCP tool registry for /mcp HTTP endpoint
 pub fn start_with_events(
   port: Int,
   bus: process.Subject(event_bus.PubSubMessage),
 ) -> Result(Nil, String) {
   logging.quick_info("🚀 Starting VIBEE HTTP server on port " <> int.to_string(port) <> " with event bus")
 
+  // Initialize MCP tool registry for HTTP endpoint support
+  let registry = tools.init_registry()
+  logging.quick_info("[MCP] Tool registry initialized with " <> int.to_string(list.length(tools.list_tools(registry))) <> " tools")
+
   let handler = fn(req: Request(Connection)) -> Response(ResponseData) {
-    handle_request(req, Some(bus), None)
+    handle_request(req, Some(bus), Some(registry))
   }
 
   case mist.new(handler)
@@ -114,7 +124,7 @@ pub fn start_with_events(
     |> mist.start()
   {
     Ok(_) -> {
-      logging.quick_info("✅ HTTP server started successfully with event bus")
+      logging.quick_info("✅ HTTP server started successfully with event bus and MCP")
       Ok(Nil)
     }
     Error(_) -> {
@@ -225,6 +235,17 @@ fn route_request(
       }
     }
 
+    // MCP HTTP endpoint (for render-server AI generation)
+    http.Post, ["mcp"] -> {
+      case mcp_registry {
+        Some(registry) -> mcp_http_handler(req, registry)
+        None -> {
+          response.new(503)
+          |> response.set_body(mist.Bytes(bytes_tree.from_string("{\"error\":\"MCP not configured\"}")))
+        }
+      }
+    }
+
     // Web UI - root path serves HTML dashboard
     http.Get, [] -> dashboard_handler()
 
@@ -305,6 +326,13 @@ fn route_request(
     // P2P Lead Forward E2E test (async)
     http.Get, ["api", "e2e", "p2p"] -> e2e_handlers.p2p_handler()
 
+    // Trigger Words API (из БД, не хардкод!)
+    http.Get, ["api", "triggers", "list"] -> trigger_handlers.list_handler()
+    http.Post, ["api", "triggers", "test"] -> trigger_test_handler(req)
+    http.Post, ["api", "triggers", "add"] -> trigger_add_handler(req)
+    http.Post, ["api", "triggers", "remove"] -> trigger_remove_handler(req)
+    http.Get, ["api", "triggers", "self-check"] -> trigger_handlers.self_check_handler()
+
     // Video Auto-Render Pipeline
     // POST /api/video/auto-render - Start fully automated video pipeline
     http.Post, ["api", "video", "auto-render"] -> video_api.auto_render_handler(req)
@@ -322,6 +350,33 @@ fn route_request(
     http.Get, ["api", "render-quota"] -> render_quota_handlers.check_quota_handler(req)
     // POST /api/render-log - Log a render (increment counter)
     http.Post, ["api", "render-log"] -> render_quota_handlers.log_render_handler(req)
+
+    // Feed API (Public templates social feed)
+    // GET /api/feed?page=0&limit=20&sort=recent|popular - Get templates feed
+    http.Get, ["api", "feed"] -> feed_handlers.get_feed_handler(req)
+    // POST /api/feed/publish - Publish template to feed
+    http.Post, ["api", "feed", "publish"] -> feed_handlers.publish_to_feed_handler(req)
+    // POST /api/feed/:id/like - Like/unlike template
+    http.Post, ["api", "feed", id, "like"] -> {
+      case int.parse(id) {
+        Ok(template_id) -> feed_handlers.like_template_handler(req, template_id)
+        Error(_) -> not_found_handler()
+      }
+    }
+    // GET /api/feed/:id - Get template details
+    http.Get, ["api", "feed", id] -> {
+      case int.parse(id) {
+        Ok(template_id) -> feed_handlers.get_template_handler(template_id)
+        Error(_) -> not_found_handler()
+      }
+    }
+    // POST /api/feed/:id/use - Use template (increment uses, return full data)
+    http.Post, ["api", "feed", id, "use"] -> {
+      case int.parse(id) {
+        Ok(template_id) -> feed_handlers.use_template_handler(template_id)
+        Error(_) -> not_found_handler()
+      }
+    }
 
     // Logs page - real-time log viewer
     http.Get, ["logs"] -> logs_page_handler()
@@ -552,6 +607,35 @@ fn route_request(
     http.Get, ["api", "v1", "twin", "export"] -> handle_twin_export()
     http.Post, ["api", "v1", "twin", "import"] -> handle_twin_import(req)
     http.Get, ["api", "v1", "twin", "prompt"] -> handle_twin_prompt_get()
+
+    // ==========================================================================
+    // Carousel API - Instagram Carousel Creator
+    // ==========================================================================
+    // Create new carousel
+    http.Post, ["api", "carousel", "create"] -> carousel_create_handler(req)
+    // List carousels
+    http.Get, ["api", "carousel", "list"] -> carousel_handlers.list_handler(None)
+    // Get carousel by ID
+    http.Get, ["api", "carousel", carousel_id] -> carousel_handlers.get_handler(carousel_id)
+    // Delete carousel
+    http.Delete, ["api", "carousel", carousel_id] -> carousel_handlers.delete_handler(carousel_id)
+    // Generate slides with AI
+    http.Post, ["api", "carousel", carousel_id, "generate"] -> carousel_generate_handler(req, carousel_id)
+    // Upload photos for combo mode
+    http.Post, ["api", "carousel", carousel_id, "photos"] -> carousel_photos_handler(req, carousel_id)
+    // Get uploaded photos
+    http.Get, ["api", "carousel", carousel_id, "photos"] -> carousel_handlers.get_photos_handler(carousel_id)
+    // Generate combo (photos + LoRA)
+    http.Post, ["api", "carousel", carousel_id, "generate-combo"] -> carousel_combo_handler(req, carousel_id)
+    // Regenerate slide image
+    http.Post, ["api", "carousel", carousel_id, "image", slide_id] -> carousel_image_handler(req, carousel_id, slide_id)
+    // Make text viral
+    http.Post, ["api", "carousel", carousel_id, "viral", slide_id] -> carousel_viral_handler(req, carousel_id, slide_id)
+    // Update element
+    http.Put, ["api", "carousel", carousel_id, "element", element_id] -> carousel_element_handler(req, carousel_id, element_id)
+
+    // Carousel Preview (static HTML)
+    http.Get, ["carousel_preview.html"] -> serve_carousel_preview()
 
     // 404 for unknown routes
     _, _ -> not_found_handler()
@@ -1075,6 +1159,105 @@ fn serve_test_dashboard() -> Response(ResponseData) {
   }
 }
 
+fn serve_carousel_preview() -> Response(ResponseData) {
+  case simplifile.read("priv/static/carousel_preview.html") {
+    Ok(content) -> html_response(200, content)
+    Error(_) -> {
+      let body = "<html><body><h1>Carousel Preview not found</h1></body></html>"
+      html_response(404, body)
+    }
+  }
+}
+
+/// Handle HTTP MCP requests (for render-server AI generation)
+fn mcp_http_handler(
+  req: Request(Connection),
+  registry: ToolRegistry,
+) -> Response(ResponseData) {
+  case mist.read_body(req, 1_000_000) {
+    Ok(req_with_body) -> {
+      let body = bit_array.to_string(req_with_body.body)
+      case body {
+        Ok(input) -> {
+          logging.quick_info("[MCP-HTTP] Received: " <> string.slice(input, 0, 200))
+          case protocol.parse_request(input) {
+            Ok(rpc_req) -> {
+              case rpc_req.method {
+                "tools/call" -> {
+                  // Extract tool name and args
+                  let params = option.unwrap(rpc_req.params, json.null())
+                  let name = protocol.extract_tool_name(params)
+                  let args = protocol.extract_tool_args(params)
+
+                  logging.quick_info("[MCP-HTTP] Calling tool: " <> name)
+
+                  // Execute tool
+                  let result = tools.execute_tool(registry, name, args)
+
+                  // Build JSON-RPC response with MCP format: result.content[0].text
+                  let json_response = case result.is_error {
+                    True -> {
+                      let error_text = case result.content {
+                        [mcp_types.TextContent(text), ..] -> text
+                        _ -> "Unknown error"
+                      }
+                      "{\"jsonrpc\":\"2.0\",\"id\":" <> int.to_string(option.unwrap(rpc_req.id, 0)) <> ",\"error\":{\"code\":-32603,\"message\":\"" <> string.replace(error_text, "\"", "\\\"") <> "\"}}"
+                    }
+                    False -> {
+                      let content_text = case result.content {
+                        [mcp_types.TextContent(text), ..] -> text
+                        _ -> "{}"
+                      }
+                      // Escape content_text for JSON string
+                      let escaped_content = string.replace(content_text, "\\", "\\\\")
+                        |> string.replace("\"", "\\\"")
+                        |> string.replace("\n", "\\n")
+                        |> string.replace("\t", "\\t")
+                      "{\"jsonrpc\":\"2.0\",\"id\":" <> int.to_string(option.unwrap(rpc_req.id, 0)) <> ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"" <> escaped_content <> "\"}]}}"
+                    }
+                  }
+
+                  logging.quick_info("[MCP-HTTP] Response: " <> string.slice(json_response, 0, 200))
+
+                  response.new(200)
+                  |> response.set_header("content-type", "application/json")
+                  |> response.set_header("access-control-allow-origin", "*")
+                  |> response.set_body(mist.Bytes(bytes_tree.from_string(json_response)))
+                }
+                _ -> {
+                  response.new(400)
+                  |> response.set_header("content-type", "application/json")
+                  |> response.set_body(mist.Bytes(bytes_tree.from_string(
+                    "{\"error\":\"Only tools/call method supported\"}"
+                  )))
+                }
+              }
+            }
+            Error(err) -> {
+              logging.quick_error("[MCP-HTTP] Parse error: " <> err)
+              response.new(400)
+              |> response.set_header("content-type", "application/json")
+              |> response.set_body(mist.Bytes(bytes_tree.from_string(
+                "{\"error\":\"" <> err <> "\"}"
+              )))
+            }
+          }
+        }
+        Error(_) -> {
+          response.new(400)
+          |> response.set_header("content-type", "application/json")
+          |> response.set_body(mist.Bytes(bytes_tree.from_string("{\"error\":\"Invalid body encoding\"}")))
+        }
+      }
+    }
+    Error(_) -> {
+      response.new(400)
+      |> response.set_header("content-type", "application/json")
+      |> response.set_body(mist.Bytes(bytes_tree.from_string("{\"error\":\"Failed to read body\"}")))
+    }
+  }
+}
+
 fn dashboard_handler() -> Response(ResponseData) {
   let body = html.index_page()
   html_response(200, body)
@@ -1241,6 +1424,45 @@ fn agent_status_handler() -> Response(ResponseData) {
   ])
 
   json_response(200, body)
+}
+
+/// Trigger test handler wrapper
+fn trigger_test_handler(req: Request(Connection)) -> Response(ResponseData) {
+  case mist.read_body(req, 10_000) {
+    Error(_) -> json_response(400, json.object([#("error", json.string("Failed to read body"))]))
+    Ok(body_result) -> {
+      case bit_array.to_string(body_result.body) {
+        Error(_) -> json_response(400, json.object([#("error", json.string("Invalid UTF-8"))]))
+        Ok(body_str) -> trigger_handlers.test_handler(body_str)
+      }
+    }
+  }
+}
+
+/// Trigger add handler wrapper
+fn trigger_add_handler(req: Request(Connection)) -> Response(ResponseData) {
+  case mist.read_body(req, 10_000) {
+    Error(_) -> json_response(400, json.object([#("error", json.string("Failed to read body"))]))
+    Ok(body_result) -> {
+      case bit_array.to_string(body_result.body) {
+        Error(_) -> json_response(400, json.object([#("error", json.string("Invalid UTF-8"))]))
+        Ok(body_str) -> trigger_handlers.add_handler(body_str)
+      }
+    }
+  }
+}
+
+/// Trigger remove handler wrapper
+fn trigger_remove_handler(req: Request(Connection)) -> Response(ResponseData) {
+  case mist.read_body(req, 10_000) {
+    Error(_) -> json_response(400, json.object([#("error", json.string("Failed to read body"))]))
+    Ok(body_result) -> {
+      case bit_array.to_string(body_result.body) {
+        Error(_) -> json_response(400, json.object([#("error", json.string("Invalid UTF-8"))]))
+        Ok(body_str) -> trigger_handlers.remove_handler(body_str)
+      }
+    }
+  }
 }
 
 /// Test endpoint for simulating incoming messages
@@ -1439,6 +1661,94 @@ fn not_found_handler() -> Response(ResponseData) {
   ])
 
   json_response(404, body)
+}
+
+// =============================================================================
+// Carousel Handlers (wrappers that read request body)
+// =============================================================================
+
+fn carousel_create_handler(req: Request(Connection)) -> Response(ResponseData) {
+  case mist.read_body(req, 1024 * 100) {
+    Ok(body_req) -> {
+      case bit_array.to_string(body_req.body) {
+        Ok(body_str) -> carousel_handlers.create_handler(body_str)
+        Error(_) -> json_response(400, json.object([#("error", json.string("Invalid body encoding"))]))
+      }
+    }
+    Error(_) -> json_response(400, json.object([#("error", json.string("Failed to read body"))]))
+  }
+}
+
+fn carousel_generate_handler(req: Request(Connection), carousel_id: String) -> Response(ResponseData) {
+  case mist.read_body(req, 1024 * 100) {
+    Ok(body_req) -> {
+      case bit_array.to_string(body_req.body) {
+        Ok(body_str) -> carousel_handlers.generate_handler(carousel_id, body_str)
+        Error(_) -> carousel_handlers.generate_handler(carousel_id, "{}")
+      }
+    }
+    Error(_) -> carousel_handlers.generate_handler(carousel_id, "{}")
+  }
+}
+
+fn carousel_image_handler(req: Request(Connection), carousel_id: String, slide_id: String) -> Response(ResponseData) {
+  case mist.read_body(req, 1024 * 100) {
+    Ok(body_req) -> {
+      case bit_array.to_string(body_req.body) {
+        Ok(body_str) -> carousel_handlers.regenerate_image_handler(carousel_id, slide_id, body_str)
+        Error(_) -> carousel_handlers.regenerate_image_handler(carousel_id, slide_id, "{}")
+      }
+    }
+    Error(_) -> carousel_handlers.regenerate_image_handler(carousel_id, slide_id, "{}")
+  }
+}
+
+fn carousel_viral_handler(req: Request(Connection), carousel_id: String, slide_id: String) -> Response(ResponseData) {
+  case mist.read_body(req, 1024 * 100) {
+    Ok(body_req) -> {
+      case bit_array.to_string(body_req.body) {
+        Ok(body_str) -> carousel_handlers.make_viral_handler(carousel_id, slide_id, body_str)
+        Error(_) -> carousel_handlers.make_viral_handler(carousel_id, slide_id, "{}")
+      }
+    }
+    Error(_) -> carousel_handlers.make_viral_handler(carousel_id, slide_id, "{}")
+  }
+}
+
+fn carousel_element_handler(req: Request(Connection), carousel_id: String, element_id: String) -> Response(ResponseData) {
+  case mist.read_body(req, 1024 * 100) {
+    Ok(body_req) -> {
+      case bit_array.to_string(body_req.body) {
+        Ok(body_str) -> carousel_handlers.update_element_handler(carousel_id, element_id, body_str)
+        Error(_) -> json_response(400, json.object([#("error", json.string("Invalid body"))]))
+      }
+    }
+    Error(_) -> json_response(400, json.object([#("error", json.string("Failed to read body"))]))
+  }
+}
+
+fn carousel_photos_handler(req: Request(Connection), carousel_id: String) -> Response(ResponseData) {
+  case mist.read_body(req, 1024 * 1024) {
+    Ok(body_req) -> {
+      case bit_array.to_string(body_req.body) {
+        Ok(body_str) -> carousel_handlers.photos_handler(carousel_id, body_str)
+        Error(_) -> carousel_handlers.photos_handler(carousel_id, "{}")
+      }
+    }
+    Error(_) -> carousel_handlers.photos_handler(carousel_id, "{}")
+  }
+}
+
+fn carousel_combo_handler(req: Request(Connection), carousel_id: String) -> Response(ResponseData) {
+  case mist.read_body(req, 1024 * 100) {
+    Ok(body_req) -> {
+      case bit_array.to_string(body_req.body) {
+        Ok(body_str) -> carousel_handlers.combo_generate_handler(carousel_id, body_str)
+        Error(_) -> carousel_handlers.combo_generate_handler(carousel_id, "{}")
+      }
+    }
+    Error(_) -> carousel_handlers.combo_generate_handler(carousel_id, "{}")
+  }
 }
 
 // Telegram handlers
@@ -2429,46 +2739,63 @@ fn handle_twin_prompt_get() -> Response(ResponseData) {
 
 /// Handle incoming bot callback from Go bridge
 fn handle_bot_callback(req: Request(Connection)) -> Response(ResponseData) {
-  io.println("[BotCallback] 📥 Received callback from Go bridge")
+  // Diagnostic log - must appear in stdout
+  io.println("[CALLBACK] >>> handle_bot_callback called <<<")
+
+  let log = vibe_logger.new("bot_callback")
+  vibe_logger.info(log, "Received callback from Go bridge")
 
   case mist.read_body(req, 1024 * 1024) {
     Ok(req_with_body) -> {
       let body = bit_array.to_string(req_with_body.body)
       case body {
         Ok(json_body) -> {
-          io.println("[BotCallback] Body: " <> string.slice(json_body, 0, 200))
+          vibe_logger.info(
+            log |> vibe_logger.with_data("body", json.string(string.slice(json_body, 0, 200))),
+            "Parsing callback body"
+          )
 
           // Parse the callback query
           case bot_api.parse_callback_query(json_body) {
             Ok(callback) -> {
-              io.println("[BotCallback] ✅ Parsed: query_id=" <> callback.query_id <> ", data=" <> callback.data)
+              vibe_logger.info(
+                log
+                |> vibe_logger.with_data("query_id", json.string(callback.query_id))
+                |> vibe_logger.with_data("data", json.string(callback.data)),
+                "Callback parsed successfully"
+              )
 
               // Route through scene FSM (similar to telegram_agent handling)
-              // For now, just log and acknowledge
+              // NOTE: Go bridge already answered the callback with "⏳"
+              // So we don't need to answer again here
               let bridge_url = telegram_config.bridge_url()
               let api_key = telegram_config.bridge_api_key()
               let bot_config = bot_api.with_key(bridge_url, api_key)
-
-              // Answer the callback to remove "loading" indicator
-              case bot_api.answer_callback(bot_config, callback.query_id, "✅ Processing...", False) {
-                Ok(_) -> io.println("[BotCallback] Callback answered")
-                Error(_) -> io.println("[BotCallback] ⚠️ Failed to answer callback")
-              }
 
               // Process the callback data through scene router
               let chat_id = callback.chat_id
               let user_id = callback.user_id
               let callback_data = callback.data
 
-              io.println("[BotCallback] 🎯 Routing: chat=" <> int.to_string(chat_id) <> ", user=" <> int.to_string(user_id) <> ", data=" <> callback_data)
+              vibe_logger.info(
+                log
+                |> vibe_logger.with_data("chat_id", json.int(chat_id))
+                |> vibe_logger.with_data("user_id", json.int(user_id))
+                |> vibe_logger.with_data("callback_data", json.string(callback_data)),
+                "Routing callback"
+              )
 
               // Route owner notification callbacks
               case owner_callbacks.is_owner_callback(callback_data) {
                 True -> {
-                  io.println("[BotCallback] 🔔 Owner callback detected")
+                  vibe_logger.info(log, "Owner callback detected")
                   let result = owner_callbacks.handle(callback_data)
                   case result {
                     owner_callbacks.CallbackSuccess(text, show_alert) -> {
+                      vibe_logger.info(
+                        log |> vibe_logger.with_data("result", json.string(text)),
+                        "Owner callback SUCCESS"
+                      )
                       // Answer with result text
                       let _ = bot_api.answer_callback(bot_config, callback.query_id, text, show_alert)
                       let response_body = json.object([
@@ -2479,6 +2806,10 @@ fn handle_bot_callback(req: Request(Connection)) -> Response(ResponseData) {
                       json_response(200, response_body)
                     }
                     owner_callbacks.CallbackError(text) -> {
+                      vibe_logger.info(
+                        log |> vibe_logger.with_data("error", json.string(text)),
+                        "Owner callback ERROR"
+                      )
                       let _ = bot_api.answer_callback(bot_config, callback.query_id, text, True)
                       let response_body = json.object([
                         #("success", json.bool(False)),
@@ -2487,11 +2818,25 @@ fn handle_bot_callback(req: Request(Connection)) -> Response(ResponseData) {
                       json_response(400, response_body)
                     }
                     owner_callbacks.CallbackUrl(url) -> {
-                      // Send URL to open (not fully supported via answer_callback)
-                      let _ = bot_api.answer_callback(bot_config, callback.query_id, "Opening...", False)
+                      vibe_logger.info(
+                        log |> vibe_logger.with_data("url", json.string(url)),
+                        "Owner callback URL - sending message with clickable button"
+                      )
+                      // Answer callback first to remove loading
+                      let _ = bot_api.answer_callback(bot_config, callback.query_id, "", False)
+
+                      // Send a message with a URL button that user can click
+                      let url_button = bot_api.UrlButton("🔗 Открыть сообщение", url)
+                      let _ = bot_api.send_with_buttons(
+                        bot_config,
+                        chat_id,
+                        "Нажмите кнопку чтобы перейти к сообщению:",
+                        [[url_button]],
+                      )
+
                       let response_body = json.object([
                         #("success", json.bool(True)),
-                        #("action", json.string("open_url")),
+                        #("action", json.string("sent_url_button")),
                         #("url", json.string(url)),
                       ])
                       json_response(200, response_body)
@@ -2499,6 +2844,7 @@ fn handle_bot_callback(req: Request(Connection)) -> Response(ResponseData) {
                   }
                 }
                 False -> {
+                  vibe_logger.info(log, "Non-owner callback, returning OK")
                   // Other callbacks - process through scene router
                   let response_body = json.object([
                     #("success", json.bool(True)),
@@ -2511,7 +2857,7 @@ fn handle_bot_callback(req: Request(Connection)) -> Response(ResponseData) {
               }
             }
             Error(_) -> {
-              io.println("[BotCallback] ❌ Failed to parse callback query")
+              vibe_logger.info(log, "Failed to parse callback query")
               let body = json.object([#("error", json.string("Invalid callback format"))])
               json_response(400, body)
             }

@@ -18,7 +18,9 @@
 .header-center {
   flex: 1;
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 12px;
 }
 
 /* Logo */
@@ -700,4 +702,116 @@
   color: #9ca3af;
   font-size: 14px;
   margin: 0 0 24px;
+}
+
+/* Save Template Dialog */
+.save-template-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.save-template-dialog {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.save-template-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: #f59e0b;
+}
+
+.save-template-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #fff;
+}
+
+.save-template-text {
+  color: #888;
+  font-size: 14px;
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.save-template-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: #0d0d0d;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 15px;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+}
+
+.save-template-input:focus {
+  outline: none;
+  border-color: #f59e0b;
+}
+
+.save-template-input::placeholder {
+  color: #555;
+}
+
+.save-template-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.save-template-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.save-template-btn.secondary {
+  background: #333;
+  color: #ccc;
+}
+
+.save-template-btn.secondary:hover {
+  background: #444;
+  color: #fff;
+}
+
+.save-template-btn.primary {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  color: #000;
+  font-weight: 600;
+}
+
+.save-template-btn.primary:hover:not(:disabled) {
+  box-shadow: 0 2px 12px rgba(245, 158, 11, 0.4);
+}
+
+.save-template-btn.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Language Toggle */
+.lang-toggle {
+  font-weight: 600;
+  min-width: 40px;
+  justify-content: center;
 }

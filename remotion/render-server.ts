@@ -811,6 +811,435 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ==============================================
+  // AI Generation Endpoints
+  // ==============================================
+  const MCP_URL = process.env.MCP_URL || "https://vibee-mcp.fly.dev";
+  const FAL_KEY = process.env.FAL_KEY;
+
+  // Supported fal.ai image models
+  const FAL_IMAGE_MODELS: Record<string, string> = {
+    'fal-ai/flux-pro/v1.1-ultra': 'fal-ai/flux-pro/v1.1-ultra',
+    'fal-ai/flux/dev': 'fal-ai/flux/dev',
+    'fal-ai/nano-banana-pro': 'fal-ai/nano-banana-pro',
+    'fal-ai/reve/text-to-image': 'fal-ai/reve/text-to-image',
+  };
+
+  // POST /api/generate/image - Generate image using FAL.ai (multiple models)
+  if (req.url === "/api/generate/image" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", async () => {
+      try {
+        if (!FAL_KEY) throw new Error("FAL_KEY not configured");
+
+        const { model, prompt, width, height } = JSON.parse(body);
+        console.log(`📷 [Generate] Photo: ${model}, prompt: "${prompt.substring(0, 50)}..."`);
+
+        // Convert width/height to aspect ratio for FAL
+        const getAspectRatio = (w: number, h: number): string => {
+          if (w === h) return "1:1";
+          if (w > h) return w / h >= 1.7 ? "16:9" : "4:3";
+          return h / w >= 1.7 ? "9:16" : "3:4";
+        };
+        const aspectRatio = getAspectRatio(width || 1024, height || 1024);
+
+        // Get model endpoint (default to nano-banana-pro)
+        const modelEndpoint = FAL_IMAGE_MODELS[model] || 'fal-ai/nano-banana-pro';
+
+        // Submit job to FAL queue
+        const submitResponse = await fetch(`https://queue.fal.run/${modelEndpoint}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Key ${FAL_KEY}`,
+          },
+          body: JSON.stringify({
+            prompt,
+            aspect_ratio: aspectRatio,
+            num_images: 1,
+          }),
+        });
+
+        if (!submitResponse.ok) {
+          const errorText = await submitResponse.text();
+          throw new Error(`FAL submit failed: ${submitResponse.status} - ${errorText}`);
+        }
+
+        const submitResult = await submitResponse.json();
+        const requestId = submitResult.request_id;
+        console.log(`📷 [Generate] FAL request submitted: ${requestId}`);
+
+        if (!requestId) {
+          // Synchronous response - image is already ready
+          const imageUrl = submitResult.images?.[0]?.url || submitResult.image?.url;
+          if (imageUrl) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true, url: imageUrl, id: Date.now().toString() }));
+            return;
+          }
+          throw new Error("No image URL in response");
+        }
+
+        // Poll for completion (async queue mode)
+        let imageUrl = null;
+        for (let i = 0; i < 120; i++) { // Max 6 minutes (120 * 3s)
+          await new Promise(r => setTimeout(r, 3000));
+
+          // Check status
+          const statusResponse = await fetch(
+            `https://queue.fal.run/${modelEndpoint}/requests/${requestId}/status`,
+            { headers: { "Authorization": `Key ${FAL_KEY}` } }
+          );
+
+          if (!statusResponse.ok) continue;
+          const statusData = await statusResponse.json();
+          const status = statusData.status;
+
+          console.log(`📷 [Generate] FAL status: ${status}`);
+
+          if (status === "COMPLETED") {
+            // Get result
+            const resultResponse = await fetch(
+              `https://queue.fal.run/${modelEndpoint}/requests/${requestId}`,
+              { headers: { "Authorization": `Key ${FAL_KEY}` } }
+            );
+
+            if (resultResponse.ok) {
+              const resultData = await resultResponse.json();
+              imageUrl = resultData.images?.[0]?.url || resultData.image?.url;
+            }
+            break;
+          } else if (status === "FAILED") {
+            throw new Error("FAL generation failed: " + (statusData.error || "Unknown error"));
+          }
+        }
+
+        if (imageUrl) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true, url: imageUrl, id: requestId }));
+          return;
+        }
+
+        throw new Error("Image generation timeout");
+      } catch (error) {
+        console.error("❌ [Generate] Image error:", error);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Generation failed" }));
+      }
+    });
+    return;
+  }
+
+  // POST /api/generate/video - Generate video using Kling/Veo3
+  if (req.url === "/api/generate/video" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", async () => {
+      try {
+        const { model, prompt, duration, aspect_ratio } = JSON.parse(body);
+        console.log(`🎬 [Generate] Video: ${model}, duration: ${duration}`);
+
+        // Determine which API to use based on model
+        const isKling = model.startsWith("kling");
+        const toolName = isKling ? "ai_kling_create_video" : "ai_kie_create_video";
+        const mode = model.includes("pro") ? "pro" : "std";
+
+        const mcpResponse = await fetch(`${MCP_URL}/mcp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            method: "tools/call",
+            params: {
+              name: toolName,
+              arguments: { prompt, mode, duration: duration.replace("s", ""), aspect_ratio },
+            },
+            id: Date.now(),
+          }),
+        });
+
+        const mcpResult = await mcpResponse.json();
+        if (mcpResult.error) throw new Error(mcpResult.error.message);
+
+        const content = mcpResult.result?.content?.[0]?.text;
+        if (!content) throw new Error("No result from MCP");
+
+        const data = JSON.parse(content);
+        if (!data.success) throw new Error(data.error || "Generation failed");
+
+        // Poll for result (video generation is async)
+        const taskId = data.data?.task_id;
+        if (taskId) {
+          let videoUrl = null;
+          const pollTool = isKling ? "ai_kling_get_task" : "ai_kie_get_task";
+          for (let i = 0; i < 100; i++) { // Max 5 minutes
+            await new Promise(r => setTimeout(r, 3000));
+            const statusResp = await fetch(`${MCP_URL}/mcp`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                jsonrpc: "2.0",
+                method: "tools/call",
+                params: {
+                  name: pollTool,
+                  arguments: { task_id: taskId },
+                },
+                id: Date.now(),
+              }),
+            });
+            const statusResult = await statusResp.json();
+            const statusContent = statusResult.result?.content?.[0]?.text;
+            if (statusContent) {
+              const statusData = JSON.parse(statusContent);
+              if (statusData.success && statusData.data?.status === "completed") {
+                videoUrl = statusData.data.video_url || statusData.data.works?.[0]?.resource?.resource;
+                break;
+              }
+            }
+          }
+          if (videoUrl) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true, url: videoUrl, id: taskId }));
+            return;
+          }
+        }
+
+        throw new Error("Video generation timeout");
+      } catch (error) {
+        console.error("❌ [Generate] Video error:", error);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Generation failed" }));
+      }
+    });
+    return;
+  }
+
+  // POST /api/generate/audio - Generate TTS using ElevenLabs (direct API call)
+  if (req.url === "/api/generate/audio" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", async () => {
+      try {
+        const { text, voice_id, speed } = JSON.parse(body);
+        const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+
+        if (!ELEVENLABS_API_KEY) {
+          throw new Error("ELEVENLABS_API_KEY not configured");
+        }
+
+        console.log(`🎤 [Generate] Audio: voice=${voice_id}, text="${text.substring(0, 50)}..."`);
+
+        // Call ElevenLabs TTS API directly
+        const ttsResponse = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${voice_id}`,
+          {
+            method: "POST",
+            headers: {
+              "xi-api-key": ELEVENLABS_API_KEY,
+              "Content-Type": "application/json",
+              "Accept": "audio/mpeg",
+            },
+            body: JSON.stringify({
+              text,
+              model_id: "eleven_multilingual_v2",
+              voice_settings: {
+                stability: 0.5,
+                similarity_boost: 0.75,
+              },
+            }),
+          }
+        );
+
+        if (!ttsResponse.ok) {
+          const errorText = await ttsResponse.text();
+          throw new Error(`ElevenLabs TTS error: ${ttsResponse.status} - ${errorText}`);
+        }
+
+        // Get audio buffer
+        const audioBuffer = Buffer.from(await ttsResponse.arrayBuffer());
+        console.log(`✅ [Generate] Audio received: ${audioBuffer.length} bytes`);
+
+        // Upload to S3
+        const filename = `tts-${Date.now()}.mp3`;
+        const uploadResult = await uploadToS3(audioBuffer, filename, "audio/mpeg");
+
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || "Failed to upload audio to S3");
+        }
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          success: true,
+          url: uploadResult.url,
+          id: Date.now().toString(),
+        }));
+      } catch (error) {
+        console.error("❌ [Generate] Audio error:", error);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          success: false,
+          error: error instanceof Error ? error.message : "Generation failed",
+        }));
+      }
+    });
+    return;
+  }
+
+  // GET /api/voices - Get available ElevenLabs voices
+  if (req.url === "/api/voices" && req.method === "GET") {
+    try {
+      const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+      if (!ELEVENLABS_API_KEY) {
+        throw new Error("ELEVENLABS_API_KEY not configured");
+      }
+
+      console.log(`🎤 [Voices] Fetching ElevenLabs voices...`);
+
+      const response = await fetch("https://api.elevenlabs.io/v1/voices", {
+        method: "GET",
+        headers: {
+          "xi-api-key": ELEVENLABS_API_KEY,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`ElevenLabs API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const voices = data.voices || [];
+
+      console.log(`✅ [Voices] Found ${voices.length} voices`);
+
+      // Filter out voices that are not fine-tuned (professional clones need fine-tuning)
+      const readyVoices = voices.filter((voice: any) => {
+        // Premade voices always work
+        if (voice.category === "premade") {
+          return true;
+        }
+
+        // Check fine_tuning status for cloned voices
+        if (voice.fine_tuning) {
+          const state = voice.fine_tuning.fine_tuning_state;
+          const isAllowed = voice.fine_tuning.is_allowed_to_fine_tune;
+
+          // Log for debugging
+          console.log(`🔍 [Voices] ${voice.name} (${voice.voice_id}): category=${voice.category}, state=${state}, isAllowed=${isAllowed}`);
+
+          // Skip if fine-tuning is required but not complete
+          if (state && state !== "fine_tuned" && state !== "not_started") {
+            console.log(`⚠️ [Voices] Skipping ${voice.name}: not fine-tuned (state=${state})`);
+            return false;
+          }
+
+          // Skip if not allowed to use (professional voices that need fine-tuning)
+          if (isAllowed === false && state !== "fine_tuned") {
+            console.log(`⚠️ [Voices] Skipping ${voice.name}: not allowed and not fine-tuned`);
+            return false;
+          }
+        }
+        return true;
+      });
+
+      console.log(`✅ [Voices] ${readyVoices.length} ready voices (filtered from ${voices.length})`);
+
+      // Map to simplified format
+      const simplifiedVoices = readyVoices.map((voice: any) => ({
+        id: voice.voice_id,
+        name: voice.name,
+        category: voice.category || "custom",
+        labels: voice.labels || {},
+        preview_url: voice.preview_url,
+      }));
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, voices: simplifiedVoices }));
+    } catch (error) {
+      console.error("❌ [Voices] Error:", error);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Failed to fetch voices" }));
+    }
+    return;
+  }
+
+  // POST /api/generate/lipsync - Generate lipsync video using fal.ai VEED Fabric
+  if (req.url === "/api/generate/lipsync" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", async () => {
+      try {
+        const { audio_url, image_url, resolution } = JSON.parse(body);
+        console.log(`👄 [Generate] Lipsync via fal.ai VEED Fabric: resolution=${resolution || "720p"}`);
+
+        const FAL_KEY = process.env.FAL_KEY;
+        if (!FAL_KEY) throw new Error("FAL_KEY not configured");
+
+        // Submit job to fal.ai queue
+        const queueResponse = await fetch("https://queue.fal.run/fal-ai/veed/fabric-1.0", {
+          method: "POST",
+          headers: {
+            "Authorization": `Key ${FAL_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            image_url,
+            audio_url,
+            resolution: resolution || "720p",
+          }),
+        });
+
+        if (!queueResponse.ok) {
+          const errorText = await queueResponse.text();
+          throw new Error(`fal.ai queue error: ${queueResponse.status} ${errorText}`);
+        }
+
+        const queueResult = await queueResponse.json();
+        const requestId = queueResult.request_id;
+        console.log(`👄 [fal.ai] Job queued: ${requestId}`);
+
+        // Poll for result
+        let videoUrl = null;
+        for (let i = 0; i < 120; i++) { // Max 10 minutes (5s intervals)
+          await new Promise(r => setTimeout(r, 5000));
+
+          const statusResponse = await fetch(`https://queue.fal.run/fal-ai/veed/fabric-1.0/requests/${requestId}/status`, {
+            headers: { "Authorization": `Key ${FAL_KEY}` },
+          });
+          const statusData = await statusResponse.json();
+          console.log(`👄 [fal.ai] Status: ${statusData.status}`);
+
+          if (statusData.status === "COMPLETED") {
+            // Get the result
+            const resultResponse = await fetch(`https://queue.fal.run/fal-ai/veed/fabric-1.0/requests/${requestId}`, {
+              headers: { "Authorization": `Key ${FAL_KEY}` },
+            });
+            const resultData = await resultResponse.json();
+            videoUrl = resultData.video?.url;
+            break;
+          } else if (statusData.status === "FAILED") {
+            throw new Error(`fal.ai job failed: ${statusData.error || "Unknown error"}`);
+          }
+        }
+
+        if (videoUrl) {
+          console.log(`👄 [fal.ai] Video ready: ${videoUrl}`);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true, url: videoUrl, id: requestId }));
+          return;
+        }
+
+        throw new Error("Lipsync generation timeout");
+      } catch (error) {
+        console.error("❌ [Generate] Lipsync error:", error);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Generation failed" }));
+      }
+    });
+    return;
+  }
+
   // List compositions
   if (req.url === "/compositions" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -1023,12 +1452,44 @@ const server = createServer(async (req, res) => {
 
   // S3 video proxy with HEVC → H.264 conversion for browser compatibility
   if (req.url?.startsWith("/s3/") && req.method === "GET") {
-    const s3Key = req.url.slice(4).split('?')[0]; // Remove /s3/ and query string
+    const s3Key = decodeURIComponent(req.url.slice(4).split('?')[0]); // Remove /s3/ and query string, decode URL
+    const ext = path.extname(s3Key).toLowerCase();
+    const isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'].includes(ext);
+    const isAudio = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.webm'].includes(ext);
+
+    console.log(`🎬 S3 proxy request: ${s3Key} (image: ${isImage}, audio: ${isAudio})`);
+
+    // For images and audio - serve directly from S3 without conversion
+    if (isImage || isAudio) {
+      try {
+        const command = new GetObjectCommand({
+          Bucket: S3_BUCKET,
+          Key: s3Key,
+        });
+        const response = await s3Client.send(command);
+        const contentType = response.ContentType || (isImage ? 'image/jpeg' : 'audio/mpeg');
+
+        res.writeHead(200, {
+          "Content-Type": contentType,
+          "Content-Length": response.ContentLength?.toString() || '',
+          "Cache-Control": "public, max-age=31536000",
+          "Access-Control-Allow-Origin": "*",
+        });
+
+        const body = response.Body as NodeJS.ReadableStream;
+        body.pipe(res);
+      } catch (error) {
+        console.error(`❌ S3 proxy error for ${s3Key}:`, error);
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "File not found" }));
+      }
+      return;
+    }
+
+    // For videos - download, convert to H.264, cache
     const cacheDir = path.join(process.cwd(), "public", "video-cache");
     const cacheFilename = `${s3Key.replace(/\//g, '-').replace(/[^a-zA-Z0-9.-]/g, '_')}-h264.mp4`;
     const cachePath = path.join(cacheDir, cacheFilename);
-
-    console.log(`🎬 S3 video proxy request: ${s3Key}`);
 
     // Check cache first
     if (fs.existsSync(cachePath)) {
@@ -1370,6 +1831,7 @@ const server = createServer(async (req, res) => {
               SplitTalkingHead: {
                 splitRatio: 0.5,
                 musicVolume: 0.06,
+                videoVolume: 1,  // LipSync video audio volume
                 captionColor: '#FFFF00',
                 captionStyle: {},
                 faceOffsetX: 0,

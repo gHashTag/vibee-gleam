@@ -66,3 +66,28 @@
   color: #f59e0b;
   flex-shrink: 0;
 }
+
+/* Delete button */
+.template-delete {
+  opacity: 0;
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.template-item:hover .template-delete {
+  opacity: 1;
+}
+
+.template-delete:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}

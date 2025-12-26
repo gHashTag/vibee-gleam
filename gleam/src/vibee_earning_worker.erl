@@ -412,6 +412,16 @@ update_all_stats(ActiveUsers, Stats) ->
 
 %% Scan all configured pairs and send Telegram alerts
 scan_and_notify_all_pairs() ->
+    %% Check if P2P alerts are enabled (default: disabled)
+    case os:getenv("VIBEE_P2P_ALERTS_ENABLED") of
+        "true" -> do_scan_and_notify_all_pairs();
+        "1" -> do_scan_and_notify_all_pairs();
+        _ ->
+            %% Alerts disabled - skip silently
+            ok
+    end.
+
+do_scan_and_notify_all_pairs() ->
     io:format("[EarningWorker] Scanning all pairs for arbitrage...~n"),
     log_system("Scanning for arbitrage opportunities..."),
 

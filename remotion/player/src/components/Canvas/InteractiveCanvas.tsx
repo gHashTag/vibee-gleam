@@ -17,9 +17,10 @@ import {
   templatePropsAtom,
   transcribingAtom,
   captionsLoadingAtom,
+  avatarSettingsTabAtom,
 } from '@/atoms';
 import { SplitTalkingHead, type SplitTalkingHeadProps, type Segment } from '@compositions/SplitTalkingHead';
-import { ZoomIn, ZoomOut, Maximize, Minimize, Loader2, Mic } from 'lucide-react';
+import { Loader2, Mic } from 'lucide-react';
 import { convertPropsToAbsoluteUrls, toAbsoluteUrl } from '@/lib/mediaUrl';
 import type { LipSyncMainProps, TrackItem, Asset } from '@/store/types';
 import './InteractiveCanvas.css';
@@ -33,7 +34,8 @@ function convertToSplitTalkingHeadProps(
   durationInFrames: number,
   fps: number,
   videoTrackItems: TrackItem[],
-  assets: Asset[]
+  assets: Asset[],
+  avatarSettingsTab: 'split' | 'fullscreen'
 ): SplitTalkingHeadProps {
   const segments: Segment[] = [];
 
@@ -75,6 +77,7 @@ function convertToSplitTalkingHeadProps(
         bRollUrl: bRollUrl,
         bRollType: 'video',
         caption: '',
+        layout: (item as any).layout || 'top-half',
       });
 
       lastEndFrame = item.startFrame + item.durationInFrames;
@@ -109,6 +112,40 @@ function convertToSplitTalkingHeadProps(
     faceScale: props.faceScale ?? 1,
     // Video volume (default 1, applied in splitTalkingHeadProps override)
     videoVolume: 1,
+    // Circle/Avatar positioning - MUST pass these for agent actions to work!
+    circleSizePercent: props.circleSizePercent,
+    circleBottomPercent: props.circleBottomPercent,
+    circleLeftPercent: props.circleLeftPercent,
+    // Circle mode
+    isCircleAvatar: props.isCircleAvatar ?? false,
+    avatarBorderRadius: props.avatarBorderRadius ?? 50,
+    // Split mode settings
+    splitCircleSize: props.splitCircleSize ?? 25,
+    splitPositionX: props.splitPositionX ?? 0,
+    splitPositionY: props.splitPositionY ?? 0,
+    splitFaceScale: props.splitFaceScale ?? 1,
+    splitIsCircle: props.splitIsCircle ?? true,
+    splitBorderRadius: props.splitBorderRadius ?? 50,
+    // Fullscreen mode settings
+    fullscreenCircleSize: props.fullscreenCircleSize ?? 50,
+    fullscreenPositionX: props.fullscreenPositionX ?? 0,
+    fullscreenPositionY: props.fullscreenPositionY ?? 0,
+    fullscreenFaceScale: props.fullscreenFaceScale ?? 1,
+    fullscreenIsCircle: props.fullscreenIsCircle ?? false,
+    fullscreenBorderRadius: props.fullscreenBorderRadius ?? 50,
+    // Visual effects
+    vignetteStrength: props.vignetteStrength,
+    colorCorrection: props.colorCorrection,
+    // Avatar settings mode (from UI toggle)
+    avatarSettingsTab,
+    // Avatar animation
+    avatarAnimation: props.avatarAnimation ?? 'pop',
+    // Avatar border effects
+    avatarBorderEffect: props.avatarBorderEffect ?? 'none',
+    avatarBorderColor: props.avatarBorderColor ?? '#f59e0b',
+    avatarBorderColor2: props.avatarBorderColor2 ?? '#fbbf24',
+    avatarBorderWidth: props.avatarBorderWidth ?? 4,
+    avatarBorderIntensity: props.avatarBorderIntensity ?? 0.8,
   };
 }
 
@@ -130,6 +167,7 @@ export function InteractiveCanvas() {
   const assets = useAtomValue(assetsAtom);
   const isTranscribing = useAtomValue(transcribingAtom);
   const captionsLoading = useAtomValue(captionsLoadingAtom);
+  const avatarSettingsTab = useAtomValue(avatarSettingsTabAtom);
 
   const { t } = useLanguage();
 
@@ -150,12 +188,23 @@ export function InteractiveCanvas() {
     return videoTrack?.items || [];
   }, [tracks]);
 
-  // Get audio track volume from track item (not templateProps)
-  const audioTrackVolume = useMemo(() => {
+  // Get audio track volume and URL from track items
+  const { audioTrackVolume, audioTrackUrl } = useMemo(() => {
     const audioTrack = tracks.find((t) => t.type === 'audio');
-    const audioItem = audioTrack?.items[0];
-    return (audioItem as any)?.volume ?? 0.06;
-  }, [tracks]);
+    if (!audioTrack || audioTrack.items.length === 0) {
+      return { audioTrackVolume: 0.06, audioTrackUrl: null };
+    }
+
+    // Use the last added audio item (most recent)
+    const lastAudioItem = audioTrack.items[audioTrack.items.length - 1];
+    const volume = (lastAudioItem as any)?.volume ?? 0.06;
+
+    // Get URL from asset
+    const asset = assets.find(a => a.id === lastAudioItem.assetId);
+    const url = asset?.url || null;
+
+    return { audioTrackVolume: volume, audioTrackUrl: url };
+  }, [tracks, assets]);
 
   // Get avatar track volume from track item
   const avatarTrackVolume = useMemo(() => {
@@ -175,24 +224,27 @@ export function InteractiveCanvas() {
 
   // Convert to SplitTalkingHead props - using actual timeline positions
   const splitTalkingHeadPropsBase = useMemo(
-    () => convertToSplitTalkingHeadProps(lipSyncPropsWithUrls, project.durationInFrames, project.fps, videoTrackItems, assets),
-    [lipSyncPropsWithUrls, project.durationInFrames, project.fps, videoTrackItems, assets]
+    () => convertToSplitTalkingHeadProps(lipSyncPropsWithUrls, project.durationInFrames, project.fps, videoTrackItems, assets, avatarSettingsTab),
+    [lipSyncPropsWithUrls, project.durationInFrames, project.fps, videoTrackItems, assets, avatarSettingsTab]
   );
 
   // Apply mute/volume state to music and video
   // Use track item volumes (controlled by VolumePopup)
+  // Override backgroundMusic if audio was added via timeline
   const splitTalkingHeadProps = useMemo(
     () => {
       const props = {
         ...splitTalkingHeadPropsBase,
-        // Background music - use audio track item volume
+        // Background music - use audio from track if available, otherwise use default
+        backgroundMusic: audioTrackUrl ? toAbsoluteUrl(audioTrackUrl) : splitTalkingHeadPropsBase.backgroundMusic,
+        // Background music volume - use audio track item volume
         musicVolume: isMuted ? 0 : audioTrackVolume,
         // LipSync video (avatar) volume - use avatar track item volume
         videoVolume: isMuted ? 0 : avatarTrackVolume,
       };
       return props;
     },
-    [splitTalkingHeadPropsBase, isMuted, audioTrackVolume, avatarTrackVolume]
+    [splitTalkingHeadPropsBase, isMuted, audioTrackVolume, avatarTrackVolume, audioTrackUrl]
   );
 
   // Calculate zoom to fit height
@@ -276,36 +328,6 @@ export function InteractiveCanvas() {
   // Use autoZoom if canvasZoom hasn't been manually set
   const effectiveZoom = canvasZoom || autoZoom;
 
-  const handleZoomIn = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCanvasZoom(Math.min(effectiveZoom + 0.05, 1));
-  }, [effectiveZoom, setCanvasZoom]);
-
-  const handleZoomOut = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCanvasZoom(Math.max(effectiveZoom - 0.05, 0.1));
-  }, [effectiveZoom, setCanvasZoom]);
-
-  const handleFitToHeight = useCallback(() => {
-    setCanvasZoom(autoZoom);
-  }, [autoZoom, setCanvasZoom]);
-
-  // Fullscreen toggle
-  const handleFullscreen = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    const container = containerRef.current;
-    if (!container) return;
-
-    if (!document.fullscreenElement) {
-      container.requestFullscreen().catch((err) => {
-        console.error('Fullscreen error:', err);
-        alert(t('canvas.fullscreenNotSupported'));
-      });
-    } else {
-      document.exitFullscreen();
-    }
-  }, [t]);
-
   // Listen for fullscreen changes and calculate zoom
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -327,20 +349,6 @@ export function InteractiveCanvas() {
 
   return (
     <div className="canvas-container" onClick={handleCanvasClick} ref={containerRef}>
-      {/* Zoom Controls */}
-      <div className="canvas-controls" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="canvas-control-btn" onClick={handleZoomOut} title={t('canvas.zoomOut')}>
-          <ZoomOut size={16} />
-        </button>
-        <span className="canvas-zoom-label">{Math.round(effectiveZoom * 100)}%</span>
-        <button type="button" className="canvas-control-btn" onClick={handleZoomIn} title={t('canvas.zoomIn')}>
-          <ZoomIn size={16} />
-        </button>
-        <button type="button" className="canvas-control-btn" onClick={handleFullscreen} title={isFullscreen ? t('canvas.exitFullscreen') : t('canvas.fullscreen')}>
-          {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-        </button>
-      </div>
-
       {/* Transcribing/Loading Overlay */}
       {(isTranscribing || captionsLoading) && (
         <div className="canvas-transcribing-overlay">
@@ -356,7 +364,9 @@ export function InteractiveCanvas() {
       <div
         className="canvas-player-wrapper"
         style={{
-          transform: `translate(-50%, -50%) scale(${isFullscreen ? fullscreenZoom : effectiveZoom})`,
+          transform: isFullscreen
+            ? `translate(-50%, -50%) scale(${fullscreenZoom})`
+            : `scale(${effectiveZoom})`,
         }}
       >
         <Player
@@ -379,6 +389,7 @@ export function InteractiveCanvas() {
           numberOfSharedAudioTags={4}
         />
       </div>
+
     </div>
   );
 }

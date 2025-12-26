@@ -20,6 +20,9 @@ COPY src/ ./src/
 # Copy dashboard files
 COPY dashboard/ ./dashboard/
 
+# Copy priv/static for carousel previews
+COPY priv/ ./priv/
+
 # Build and export
 RUN set -ex && \
     rm -rf build && \
@@ -38,6 +41,9 @@ RUN mv build/erlang-shipment /app
 
 # Copy dashboard to /app
 RUN cp -r dashboard /app/dashboard
+
+# Copy priv to /app
+RUN cp -r priv /app/priv
 
 # Verify after move
 RUN set -ex && \

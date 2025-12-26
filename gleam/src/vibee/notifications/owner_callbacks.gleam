@@ -27,7 +27,7 @@ pub type OwnerCallback {
   AllowChat(chat_id: Int)
   BlockChat(chat_id: Int)
   MuteChat(chat_id: Int, duration: String)
-  ReplyToChat(chat_id: Int)
+  ReplyToChat(chat_id: Int, message_id: Int)
   ViewLead(user_id: Int)
   ContactUser(user_id: Int)
   ViewLogs
@@ -97,9 +97,9 @@ fn process_with_pool(pool: pog.Connection, callback: OwnerCallback) -> CallbackR
       CallbackSuccess("🔇 Уведомления отключены на " <> duration, False)
     }
 
-    ReplyToChat(chat_id) -> {
-      // Формируем deep link для открытия чата
-      let url = make_chat_link(chat_id)
+    ReplyToChat(chat_id, message_id) -> {
+      // Формируем deep link для открытия конкретного сообщения
+      let url = make_chat_link(chat_id, message_id)
       CallbackUrl(url)
     }
 
@@ -150,10 +150,10 @@ fn parse_callback(data: String) -> Result(OwnerCallback, Nil) {
         Error(_) -> Error(Nil)
       }
     }
-    ["owner", "reply", chat_id_str] -> {
-      case int.parse(chat_id_str) {
-        Ok(chat_id) -> Ok(ReplyToChat(chat_id))
-        Error(_) -> Error(Nil)
+    ["owner", "reply", chat_id_str, message_id_str] -> {
+      case int.parse(chat_id_str), int.parse(message_id_str) {
+        Ok(chat_id), Ok(message_id) -> Ok(ReplyToChat(chat_id, message_id))
+        _, _ -> Error(Nil)
       }
     }
     ["owner", "view", user_id_str] -> {
@@ -203,11 +203,11 @@ fn mute_notifications_for_chat(pool: pog.Connection, chat_id: Int, duration: Str
   |> result.replace(Nil)
 }
 
-fn make_chat_link(chat_id: Int) -> String {
+fn make_chat_link(chat_id: Int, message_id: Int) -> String {
   case chat_id > 0 {
-    // Private chat - use tg://user
-    True -> "tg://user?id=" <> int.to_string(chat_id)
-    // Group/Supergroup - use t.me/c/
+    // Private chat - use tg://openmessage для конкретного сообщения
+    True -> "tg://openmessage?user_id=" <> int.to_string(chat_id) <> "&message_id=" <> int.to_string(message_id)
+    // Group/Supergroup - use t.me/c/{channel_id}/{message_id}
     False -> {
       let abs_id = int.absolute_value(chat_id)
       // Remove -100 prefix for supergroups
@@ -215,7 +215,7 @@ fn make_chat_link(chat_id: Int) -> String {
         True -> abs_id - 1_000_000_000_000
         False -> abs_id
       }
-      "https://t.me/c/" <> int.to_string(channel_id)
+      "https://t.me/c/" <> int.to_string(channel_id) <> "/" <> int.to_string(message_id)
     }
   }
 }

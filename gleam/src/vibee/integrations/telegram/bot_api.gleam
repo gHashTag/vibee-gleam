@@ -25,11 +25,15 @@ pub type BotApiConfig {
   )
 }
 
-/// Inline keyboard button
+/// Inline keyboard button (callback or URL)
 pub type InlineButton {
   InlineButton(
     text: String,
     callback_data: String,
+  )
+  UrlButton(
+    text: String,
+    url: String,
   )
 }
 
@@ -92,10 +96,18 @@ pub fn send_with_buttons(
 
   let buttons_json = json.array(buttons, fn(row) {
     json.array(row, fn(btn) {
-      json.object([
-        #("text", json.string(btn.text)),
-        #("callback_data", json.string(btn.callback_data)),
-      ])
+      case btn {
+        InlineButton(btn_text, callback_data) ->
+          json.object([
+            #("text", json.string(btn_text)),
+            #("callback_data", json.string(callback_data)),
+          ])
+        UrlButton(btn_text, url) ->
+          json.object([
+            #("text", json.string(btn_text)),
+            #("url", json.string(url)),
+          ])
+      }
     })
   })
 

@@ -1,0 +1,5 @@
+{
+  "name": "AI Carousel Creator",
+  "description": "An AI-powered tool for bloggers to generate stunning images using Gemini and design beautiful carousels for social media. Customize aspect ratios, text overlays, and fonts with ease.",
+  "requestFramePermissions": []
+}

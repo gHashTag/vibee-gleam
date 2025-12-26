@@ -146,6 +146,22 @@
   font-family: monospace;
 }
 
+/* Canvas Zoom Controls (Preview) */
+.canvas-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #1e1e1e;
+  border-radius: 6px;
+  border: 1px solid #333;
+}
+
+.canvas-zoom-controls .zoom-label {
+  color: #888;
+  min-width: 40px;
+}
+
 /* Timeline Content */
 .timeline-content {
   display: flex;
