@@ -71,6 +71,30 @@ export const SplitTalkingHeadSchema = z.object({
   faceOffsetX: z.number().default(0),  // -50 to 50 (%)
   faceOffsetY: z.number().default(0),  // -50 to 50 (%)
   faceScale: z.number().default(1),    // 1.0 = no zoom
+  // 🔵 Circle/Avatar styling (for rounded avatar display)
+  circleSizePercent: z.number().default(25.2),  // Size as % of height
+  circleBottomPercent: z.number().default(15),  // Bottom offset as %
+  circleLeftPercent: z.number().default(0),     // Left offset as % (0 = center)
+  // 🔵 Circle mode (legacy - kept for compatibility)
+  isCircleAvatar: z.boolean().default(false),
+  avatarBorderRadius: z.number().default(50),   // 0-50% (50 = full circle)
+  // 🎭 Split mode settings (when video background is shown)
+  splitCircleSize: z.number().default(25),
+  splitPositionX: z.number().default(0),
+  splitPositionY: z.number().default(0),
+  splitFaceScale: z.number().default(1),
+  splitIsCircle: z.boolean().default(true),
+  splitBorderRadius: z.number().default(50),
+  // 🎭 Fullscreen mode settings (avatar fills screen)
+  fullscreenCircleSize: z.number().default(50),
+  fullscreenPositionX: z.number().default(0),
+  fullscreenPositionY: z.number().default(0),
+  fullscreenFaceScale: z.number().default(1),
+  fullscreenIsCircle: z.boolean().default(false),
+  fullscreenBorderRadius: z.number().default(50),
+  // Visual effects
+  vignetteStrength: z.number().default(0),
+  colorCorrection: z.number().default(1),
 });
 
 export type SplitTalkingHeadProps = z.infer<typeof SplitTalkingHeadSchema>;
@@ -152,10 +176,34 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
   captions = [],
   showCaptions = true,
   captionStyle = {},
-  // 👤 Face centering
+  // 👤 Face centering (legacy)
   faceOffsetX = 0,
   faceOffsetY = 0,
   faceScale = 1,
+  // 🔵 Circle/Avatar styling (legacy)
+  circleSizePercent = 25.2,
+  circleBottomPercent = 15,
+  circleLeftPercent = 0,
+  // 🔵 Circle mode (legacy)
+  isCircleAvatar = false,
+  avatarBorderRadius = 50,
+  // 🎭 Split mode settings
+  splitCircleSize = 25,
+  splitPositionX = 0,
+  splitPositionY = 0,
+  splitFaceScale = 1,
+  splitIsCircle = true,
+  splitBorderRadius = 50,
+  // 🎭 Fullscreen mode settings
+  fullscreenCircleSize = 50,
+  fullscreenPositionX = 0,
+  fullscreenPositionY = 0,
+  fullscreenFaceScale = 1,
+  fullscreenIsCircle = false,
+  fullscreenBorderRadius = 50,
+  // Visual effects
+  vignetteStrength = 0,
+  colorCorrection = 1,
 }) => {
   const frame = useCurrentFrame();
   const { height } = useVideoConfig();
@@ -171,6 +219,14 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
   // Calculate lipsync container position based on current mode
   const lipSyncTop = isSplit ? height * splitRatio : 0;
   const lipSyncHeight = isSplit ? height * (1 - splitRatio) : height;
+
+  // 🎭 Select settings based on current mode (split vs fullscreen)
+  const currentSize = isSplit ? splitCircleSize : fullscreenCircleSize;
+  const currentPosX = isSplit ? splitPositionX : fullscreenPositionX;
+  const currentPosY = isSplit ? splitPositionY : fullscreenPositionY;
+  const currentScale = isSplit ? splitFaceScale : fullscreenFaceScale;
+  const currentIsCircle = isSplit ? splitIsCircle : fullscreenIsCircle;
+  const currentRadius = isSplit ? splitBorderRadius : fullscreenBorderRadius;
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>
@@ -189,6 +245,7 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
         ))}
 
       {/* ========== LIPSYNC LAYER (ONE continuous video) ========== */}
+      {/* Container for lipsync video with Size and Position controls */}
       <div
         style={{
           position: 'absolute',
@@ -198,19 +255,37 @@ export const SplitTalkingHead: React.FC<SplitTalkingHeadProps> = ({
           height: lipSyncHeight,
           overflow: 'hidden',
           zIndex: 10,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
         }}
       >
-        <Video
-          src={resolveMediaPath(lipSyncVideo)}
-          volume={videoVolume}
+        {/* Inner container: Size controls width/height, Position X/Y control offset */}
+        {/* When Circle is OFF - fill entire container, when ON - use square aspect ratio */}
+        <div
           style={{
-            width: `${100 * faceScale}%`,
-            height: `${100 * faceScale}%`,
-            objectFit: 'cover',
-            transform: `translate(${faceOffsetX}%, ${faceOffsetY}%)`,
-            transformOrigin: 'center center',
+            width: currentIsCircle ? `${currentSize * 4}%` : '100%',
+            height: currentIsCircle ? undefined : '100%',
+            aspectRatio: currentIsCircle ? '1 / 1' : undefined,
+            overflow: 'hidden',
+            position: 'relative',
+            transform: currentIsCircle ? `translate(${currentPosX}%, ${currentPosY}%)` : undefined,
+            borderRadius: currentIsCircle ? `${currentRadius}%` : 0,
           }}
-        />
+        >
+          {/* Video: Face Scale zooms in/out, faceOffset fine-tunes position */}
+          <Video
+            src={resolveMediaPath(lipSyncVideo)}
+            volume={videoVolume}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              transform: `scale(${currentScale}) translate(${faceOffsetX}%, ${faceOffsetY}%)`,
+              transformOrigin: 'center center',
+            }}
+          />
+        </div>
       </div>
 
       {/* ========== 📝 reel_01.mp4 style CAPTIONS ========== */}

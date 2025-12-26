@@ -158,6 +158,7 @@ const en: Translations = {
   "quota.free": "free",
 
   // Properties Panel
+  "props.properties": "Properties",
   "props.batchEdit": "Batch Edit",
   "props.items": "items",
   "props.adjustDuration": "Adjust Duration",
@@ -211,6 +212,10 @@ const en: Translations = {
   "section.effects": "Effects",
   "section.avatar": "Avatar Circle",
   "section.backgrounds": "Backgrounds",
+  "section.audio": "Audio",
+
+  // Properties - Volume
+  "props.volume": "Volume",
 
   // Font weights
   "font.light": "Light",
@@ -244,6 +249,7 @@ const en: Translations = {
   "captions.hide": "Hide captions",
   "captions.show": "Show captions",
   "captions.addAt": "Add at",
+  "captions.add": "Add",
   "captions.uploadHint": "Upload .srt or .vtt file",
   "captions.import": "Import",
   "captions.transcribeHint": "Auto-transcribe Russian audio using Whisper",
@@ -397,6 +403,7 @@ const en: Translations = {
   // Tab Tooltips
   "tabs.templates": "Templates",
   "tabs.assets": "Assets",
+  "tabs.player": "Player",
   "tabs.layers": "Layers",
   "tabs.properties": "Properties",
   "tabs.captions": "Captions",
@@ -404,6 +411,30 @@ const en: Translations = {
   // Player
   "player.pause": "Pause",
   "player.play": "Play",
+
+  // Player Panel Settings
+  "player.music": "Music",
+  "player.musicVolume": "Volume",
+  "player.effects": "Effects",
+  "player.vignette": "Vignette",
+  "player.colorCorrection": "Color",
+  "player.avatar": "Avatar",
+  "player.autoDetect": "Face Detection",
+  "player.detect": "Detect",
+  "player.detecting": "Detecting...",
+  "player.circle": "Circle",
+  "player.borderRadius": "Radius",
+  "player.avatarSize": "Size",
+  "player.positionX": "Position X",
+  "player.positionY": "Position Y",
+  "player.faceScale": "Face Scale",
+  "player.captions": "Captions",
+  "player.showCaptions": "Show",
+  "player.playback": "Playback",
+  "player.playbackSpeed": "Speed",
+  "player.split": "Split",
+  "player.fullscreen": "Fullscreen",
+  "player.reset": "Reset to defaults",
 
   // WebSocket
   "ws.syncActive": "Real-time sync active",
@@ -476,6 +507,43 @@ const en: Translations = {
 
   // Layers - additional
   "layers.newText": "New Text",
+
+  // Generate Panel
+  "generate.title": "Generate",
+  "generate.image": "Photo",
+  "generate.video": "Video",
+  "generate.audio": "Voice",
+  "generate.lipsync": "Lipsync",
+  "generate.model": "Model",
+  "generate.prompt": "Prompt",
+  "generate.promptPlaceholder": "Describe what you want to generate...",
+  "generate.videoPromptPlaceholder": "Describe the video scene...",
+  "generate.textPlaceholder": "Enter text to convert to speech...",
+  "generate.aspectRatio": "Aspect Ratio",
+  "generate.duration": "Duration",
+  "generate.resolution": "Resolution",
+  "generate.voice": "Voice",
+  "generate.text": "Text",
+  "generate.speed": "Speed",
+  "generate.audioUrl": "Audio URL",
+  "generate.imageUrl": "Image URL",
+  "generate.generating": "Generating...",
+  "generate.generateImage": "Generate Image",
+  "generate.generateVideo": "Generate Video",
+  "generate.generateAudio": "Generate Audio",
+  "generate.generateLipsync": "Generate Lipsync",
+  "generate.error": "Generation failed. Please try again.",
+  "tabs.generate": "Generate",
+  "generate.audioSource": "Voice Audio",
+  "generate.uploadAudio": "Upload",
+  "generate.recordAudio": "Record",
+  "generate.saveRecording": "Save",
+  "generate.imageSource": "Avatar Image",
+  "generate.uploadImage": "Upload Photo",
+  "generate.results": "Results",
+  "generate.dragHint": "Drag to timeline",
+  "generate.addToTimeline": "Add to timeline",
+  "generate.remove": "Remove",
 };
 
 const ru: Translations = {
@@ -621,6 +689,7 @@ const ru: Translations = {
   "quota.free": "бесплатно",
 
   // Properties Panel
+  "props.properties": "Свойства",
   "props.batchEdit": "Групповое редактирование",
   "props.items": "элементов",
   "props.adjustDuration": "Изменить длительность",
@@ -674,6 +743,10 @@ const ru: Translations = {
   "section.effects": "Эффекты",
   "section.avatar": "Круг аватара",
   "section.backgrounds": "Фоны",
+  "section.audio": "Аудио",
+
+  // Properties - Volume
+  "props.volume": "Громкость",
 
   // Font weights
   "font.light": "Тонкий",
@@ -707,6 +780,7 @@ const ru: Translations = {
   "captions.hide": "Скрыть субтитры",
   "captions.show": "Показать субтитры",
   "captions.addAt": "Добавить в",
+  "captions.add": "Добавить",
   "captions.uploadHint": "Загрузить .srt или .vtt файл",
   "captions.import": "Импорт",
   "captions.transcribeHint": "Авто-транскрибация русской речи через Whisper",
@@ -860,6 +934,7 @@ const ru: Translations = {
   // Tab Tooltips
   "tabs.templates": "Шаблоны",
   "tabs.assets": "Ассеты",
+  "tabs.player": "Плеер",
   "tabs.layers": "Слои",
   "tabs.properties": "Свойства",
   "tabs.captions": "Субтитры",
@@ -867,6 +942,30 @@ const ru: Translations = {
   // Player
   "player.pause": "Пауза",
   "player.play": "Воспроизвести",
+
+  // Player Panel Settings
+  "player.music": "Музыка",
+  "player.musicVolume": "Громкость",
+  "player.effects": "Эффекты",
+  "player.vignette": "Виньетка",
+  "player.colorCorrection": "Цвет",
+  "player.avatar": "Аватар",
+  "player.autoDetect": "Авто-лицо",
+  "player.detect": "Найти",
+  "player.detecting": "Поиск...",
+  "player.circle": "Круг",
+  "player.borderRadius": "Радиус",
+  "player.avatarSize": "Размер",
+  "player.positionX": "Позиция X",
+  "player.positionY": "Позиция Y",
+  "player.faceScale": "Масштаб лица",
+  "player.captions": "Субтитры",
+  "player.showCaptions": "Показать",
+  "player.playback": "Воспроизведение",
+  "player.playbackSpeed": "Скорость",
+  "player.split": "Сплит",
+  "player.fullscreen": "На весь экран",
+  "player.reset": "Сбросить",
 
   // WebSocket
   "ws.syncActive": "Синхронизация активна",
@@ -939,6 +1038,43 @@ const ru: Translations = {
 
   // Layers - additional
   "layers.newText": "Новый текст",
+
+  // Generate Panel
+  "generate.title": "Генерация",
+  "generate.image": "Фото",
+  "generate.video": "Видео",
+  "generate.audio": "Голос",
+  "generate.lipsync": "Липсинк",
+  "generate.model": "Модель",
+  "generate.prompt": "Промпт",
+  "generate.promptPlaceholder": "Опишите, что хотите сгенерировать...",
+  "generate.videoPromptPlaceholder": "Опишите видео сцену...",
+  "generate.textPlaceholder": "Введите текст для озвучки...",
+  "generate.aspectRatio": "Соотношение",
+  "generate.duration": "Длительность",
+  "generate.resolution": "Разрешение",
+  "generate.voice": "Голос",
+  "generate.text": "Текст",
+  "generate.speed": "Скорость",
+  "generate.audioUrl": "URL аудио",
+  "generate.imageUrl": "URL картинки",
+  "generate.generating": "Генерация...",
+  "generate.generateImage": "Сгенерировать фото",
+  "generate.generateVideo": "Сгенерировать видео",
+  "generate.generateAudio": "Сгенерировать аудио",
+  "generate.generateLipsync": "Сгенерировать липсинк",
+  "generate.error": "Ошибка генерации. Попробуйте еще раз.",
+  "tabs.generate": "Генерация",
+  "generate.audioSource": "Голосовое аудио",
+  "generate.uploadAudio": "Загрузить",
+  "generate.recordAudio": "Записать",
+  "generate.saveRecording": "Сохранить",
+  "generate.imageSource": "Фото аватара",
+  "generate.uploadImage": "Загрузить фото",
+  "generate.results": "Результаты",
+  "generate.dragHint": "Перетащите на таймлайн",
+  "generate.addToTimeline": "Добавить на таймлайн",
+  "generate.remove": "Удалить",
 };
 
 const translations: Record<Language, Translations> = { en, ru };

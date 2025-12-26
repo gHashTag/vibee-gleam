@@ -54,19 +54,48 @@ export const circleSizePercentAtom = atomWithStorage(
 );
 
 export const circleBottomPercentAtom = atomWithStorage(
-  'vibee-circle-bottom',
-  15
+  'vibee-circle-bottom-v2',  // New key to reset old values
+  0  // Center by default
 );
 
-export const circleLeftPxAtom = atomWithStorage(
-  'vibee-circle-left',
-  40
+export const circleLeftPercentAtom = atomWithStorage(
+  'vibee-circle-left-percent',
+  0  // Center by default (0 = centered)
 );
 
-// Face centering (from /analyze-face endpoint)
-export const faceOffsetXAtom = atom<number | undefined>(undefined);
-export const faceOffsetYAtom = atom<number | undefined>(undefined);
-export const faceScaleAtom = atom<number | undefined>(undefined);
+// Face centering (from /analyze-face endpoint or manual adjustment)
+export const faceOffsetXAtom = atomWithStorage('vibee-face-offset-x', 0);
+export const faceOffsetYAtom = atomWithStorage('vibee-face-offset-y', 0);
+export const faceScaleAtom = atomWithStorage('vibee-face-scale', 1.0);
+
+// Circle avatar mode (legacy - kept for compatibility)
+export const isCircleAvatarAtom = atomWithStorage('vibee-is-circle-avatar', false);
+export const avatarBorderRadiusAtom = atomWithStorage('vibee-avatar-border-radius', 50); // 0-50%
+
+// ===============================
+// Split/Fullscreen Mode Settings
+// ===============================
+
+// Tab selection in UI
+export const avatarSettingsTabAtom = atom<'split' | 'fullscreen'>('fullscreen');
+
+// Split mode settings (when video background is shown)
+// NOTE: -v2 keys to reset old localStorage values
+export const splitCircleSizeAtom = atomWithStorage('vibee-split-circle-size-v2', 25);
+export const splitPositionXAtom = atomWithStorage('vibee-split-position-x-v2', 0);
+export const splitPositionYAtom = atomWithStorage('vibee-split-position-y-v2', 0);
+export const splitFaceScaleAtom = atomWithStorage('vibee-split-face-scale-v2', 1.0);
+export const splitIsCircleAtom = atomWithStorage('vibee-split-is-circle-v2', false);
+export const splitBorderRadiusAtom = atomWithStorage('vibee-split-border-radius-v2', 50);
+
+// Fullscreen mode settings (avatar fills screen)
+// NOTE: -v2 keys to reset old localStorage values
+export const fullscreenCircleSizeAtom = atomWithStorage('vibee-fullscreen-circle-size-v2', 50);
+export const fullscreenPositionXAtom = atomWithStorage('vibee-fullscreen-position-x-v2', 0);
+export const fullscreenPositionYAtom = atomWithStorage('vibee-fullscreen-position-y-v2', 0);
+export const fullscreenFaceScaleAtom = atomWithStorage('vibee-fullscreen-face-scale-v2', 1.0);
+export const fullscreenIsCircleAtom = atomWithStorage('vibee-fullscreen-is-circle-v2', false);
+export const fullscreenBorderRadiusAtom = atomWithStorage('vibee-fullscreen-border-radius-v2', 50);
 
 // ===============================
 // Captions Atoms
@@ -94,6 +123,16 @@ export const captionStyleAtom = atomWithStorage<CaptionStyle>(
 export const showCaptionsAtom = atomWithStorage('vibee-show-captions', true);
 
 // ===============================
+// Force Refresh Atom
+// ===============================
+
+/**
+ * forceRefreshAtom - Used to force re-render when atomWithStorage
+ * doesn't trigger React subscriptions properly via editorStore.set()
+ */
+export const forceRefreshAtom = atom(0);
+
+// ===============================
 // Composite templateProps Atom
 // ===============================
 
@@ -102,25 +141,46 @@ export const showCaptionsAtom = atomWithStorage('vibee-show-captions', true);
  *
  * backgroundVideos is AUTO-DERIVED from video track!
  */
-export const templatePropsAtom = atom((get): LipSyncMainProps => ({
-  lipSyncVideo: get(lipSyncVideoAtom),
-  coverImage: get(coverImageAtom),
-  backgroundMusic: get(backgroundMusicAtom),
-  backgroundVideos: get(backgroundVideosAtom), // AUTO-DERIVED!
-  musicVolume: get(musicVolumeAtom),
-  coverDuration: get(coverDurationAtom),
-  vignetteStrength: get(vignetteStrengthAtom),
-  colorCorrection: get(colorCorrectionAtom),
-  circleSizePercent: get(circleSizePercentAtom),
-  circleBottomPercent: get(circleBottomPercentAtom),
-  circleLeftPx: get(circleLeftPxAtom),
-  captions: get(captionsAtom),
-  captionStyle: get(captionStyleAtom),
-  showCaptions: get(showCaptionsAtom),
-  faceOffsetX: get(faceOffsetXAtom),
-  faceOffsetY: get(faceOffsetYAtom),
-  faceScale: get(faceScaleAtom),
-}));
+export const templatePropsAtom = atom((get): LipSyncMainProps => {
+  // Subscribe to forceRefresh to ensure re-render when agent updates props
+  get(forceRefreshAtom);
+
+  return {
+    lipSyncVideo: get(lipSyncVideoAtom),
+    coverImage: get(coverImageAtom),
+    backgroundMusic: get(backgroundMusicAtom),
+    backgroundVideos: get(backgroundVideosAtom), // AUTO-DERIVED!
+    musicVolume: get(musicVolumeAtom),
+    coverDuration: get(coverDurationAtom),
+    vignetteStrength: get(vignetteStrengthAtom),
+    colorCorrection: get(colorCorrectionAtom),
+    circleSizePercent: get(circleSizePercentAtom),
+    circleBottomPercent: get(circleBottomPercentAtom),
+    circleLeftPercent: get(circleLeftPercentAtom),
+    captions: get(captionsAtom),
+    captionStyle: get(captionStyleAtom),
+    showCaptions: get(showCaptionsAtom),
+    faceOffsetX: get(faceOffsetXAtom),
+    faceOffsetY: get(faceOffsetYAtom),
+    faceScale: get(faceScaleAtom),
+    isCircleAvatar: get(isCircleAvatarAtom),
+    avatarBorderRadius: get(avatarBorderRadiusAtom),
+    // Split mode settings
+    splitCircleSize: get(splitCircleSizeAtom),
+    splitPositionX: get(splitPositionXAtom),
+    splitPositionY: get(splitPositionYAtom),
+    splitFaceScale: get(splitFaceScaleAtom),
+    splitIsCircle: get(splitIsCircleAtom),
+    splitBorderRadius: get(splitBorderRadiusAtom),
+    // Fullscreen mode settings
+    fullscreenCircleSize: get(fullscreenCircleSizeAtom),
+    fullscreenPositionX: get(fullscreenPositionXAtom),
+    fullscreenPositionY: get(fullscreenPositionYAtom),
+    fullscreenFaceScale: get(fullscreenFaceScaleAtom),
+    fullscreenIsCircle: get(fullscreenIsCircleAtom),
+    fullscreenBorderRadius: get(fullscreenBorderRadiusAtom),
+  };
+});
 
 // ===============================
 // Update Template Prop Action
@@ -138,13 +198,29 @@ const propAtomMap: Record<string, any> = {
   colorCorrection: colorCorrectionAtom,
   circleSizePercent: circleSizePercentAtom,
   circleBottomPercent: circleBottomPercentAtom,
-  circleLeftPx: circleLeftPxAtom,
+  circleLeftPercent: circleLeftPercentAtom,
   captions: captionsAtom,
   captionStyle: captionStyleAtom,
   showCaptions: showCaptionsAtom,
   faceOffsetX: faceOffsetXAtom,
   faceOffsetY: faceOffsetYAtom,
   faceScale: faceScaleAtom,
+  isCircleAvatar: isCircleAvatarAtom,
+  avatarBorderRadius: avatarBorderRadiusAtom,
+  // Split mode
+  splitCircleSize: splitCircleSizeAtom,
+  splitPositionX: splitPositionXAtom,
+  splitPositionY: splitPositionYAtom,
+  splitFaceScale: splitFaceScaleAtom,
+  splitIsCircle: splitIsCircleAtom,
+  splitBorderRadius: splitBorderRadiusAtom,
+  // Fullscreen mode
+  fullscreenCircleSize: fullscreenCircleSizeAtom,
+  fullscreenPositionX: fullscreenPositionXAtom,
+  fullscreenPositionY: fullscreenPositionYAtom,
+  fullscreenFaceScale: fullscreenFaceScaleAtom,
+  fullscreenIsCircle: fullscreenIsCircleAtom,
+  fullscreenBorderRadius: fullscreenBorderRadiusAtom,
 };
 
 export const updateTemplatePropAtom = atom(
