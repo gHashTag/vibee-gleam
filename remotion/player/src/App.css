@@ -42,9 +42,15 @@
 }
 
 .sidebar-left {
-  width: var(--sidebar-width);
+  width: var(--assets-width, 240px);
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
   border-right: 1px solid var(--vibee-border);
+  background: #0d0d0d;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.3s ease-out;
 }
 
 /* Hide left sidebar on mobile - replaced by BottomSheet */
@@ -291,9 +297,9 @@
    =============================== */
 
 .timeline-area {
-  min-height: 220px;
-  height: auto;
-  max-height: 300px;
+  height: var(--timeline-height, 220px);
+  min-height: 140px;
+  max-height: 400px;
   flex-shrink: 0;
   border-top: 1px solid var(--vibee-border);
   background: #0f0f0f;

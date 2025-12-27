@@ -9,6 +9,71 @@ import { nanoid } from 'nanoid';
 import { produce } from 'immer';
 import { STORAGE_KEYS } from './storageKeys';
 
+// ===============================
+// Layout Presets - Practical layouts for 9:16 Reels editing
+// Timeline ALWAYS horizontal at bottom, Assets ALWAYS vertical on left (or hidden)
+// ===============================
+
+// 4 Layout presets (simplified from broken 5)
+export type LayoutPreset = 'classic' | 'compact' | 'focus' | 'full';
+
+export const layoutPresetAtom = atomWithStorage<LayoutPreset>(
+  'vibee-layout-preset',
+  'classic'
+);
+
+export const LAYOUT_PRESETS: Record<LayoutPreset, {
+  label: string;
+  labelRu: string;
+  icon: string;           // Lucide icon name
+  description: string;
+  descriptionRu: string;
+  showAssets: boolean;
+  assetsWidth: number;    // px
+  timelineHeight: number; // px
+}> = {
+  classic: {
+    label: 'Classic',
+    labelRu: 'Классика',
+    icon: 'LayoutGrid',
+    description: 'Full editor with all panels',
+    descriptionRu: 'Полный редактор со всеми панелями',
+    showAssets: true,
+    assetsWidth: 300,
+    timelineHeight: 220,
+  },
+  compact: {
+    label: 'Compact',
+    labelRu: 'Компактный',
+    icon: 'Minimize2',
+    description: 'Smaller panels, bigger canvas',
+    descriptionRu: 'Меньше панели, больше холст',
+    showAssets: true,
+    assetsWidth: 280,
+    timelineHeight: 180,
+  },
+  focus: {
+    label: 'Focus',
+    labelRu: 'Фокус',
+    icon: 'Maximize2',
+    description: 'Canvas only, minimal timeline',
+    descriptionRu: 'Только холст и минимум таймлайна',
+    showAssets: false,
+    assetsWidth: 0,
+    timelineHeight: 140,
+  },
+  full: {
+    label: 'Timeline',
+    labelRu: 'Таймлайн',
+    icon: 'Layers',
+    description: 'Large timeline for detailed editing',
+    descriptionRu: 'Большой таймлайн для детальной работы',
+    showAssets: false,
+    assetsWidth: 0,
+    timelineHeight: 320,
+  },
+};
+
 // Unified sidebar tab (7 tabs in single row + feed)
 export type SidebarTab = 'feed' | 'templates' | 'image' | 'video' | 'audio' | 'lipsync' | 'player';
 export const sidebarTabAtom = atom<SidebarTab>('feed'); // Default to feed tab

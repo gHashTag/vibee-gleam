@@ -1165,7 +1165,7 @@ func (r *Router) handleBotWebhook(w http.ResponseWriter, req *http.Request) {
 
 	// STEP 4: Parse webhook
 	fmt.Fprintf(os.Stderr, "[STEP 4] Parsing webhook body...\n")
-	callbackData, err := r.botClient.HandleWebhook(req)
+	updateResult, err := r.botClient.HandleWebhook(req)
 	if err != nil {
 		webhookDebugMu.Lock()
 		lastWebhookDebug.Error = "parse error: " + err.Error()
@@ -1174,71 +1174,119 @@ func (r *Router) handleBotWebhook(w http.ResponseWriter, req *http.Request) {
 		respondError(w, http.StatusBadRequest, "webhook error: "+err.Error())
 		return
 	}
-	fmt.Fprintf(os.Stderr, "[STEP 4] ✅ Parsed OK, callbackData=%v\n", callbackData != nil)
 
-	// STEP 5: Check if callback
-	if callbackData == nil {
+	// STEP 5: Check what type of update we got
+	if updateResult == nil {
 		webhookDebugMu.Lock()
-		lastWebhookDebug.Error = "not a callback query"
+		lastWebhookDebug.Error = "unsupported update type"
 		webhookDebugMu.Unlock()
-		fmt.Fprintf(os.Stderr, "[STEP 5] ⚠️ Not a callback query, ignoring\n")
+		fmt.Fprintf(os.Stderr, "[STEP 5] ⚠️ Unsupported update type, ignoring\n")
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ignored"})
 		return
 	}
-	fmt.Fprintf(os.Stderr, "[STEP 5] ✅ Callback: query_id=%s, data=%s, user=%d, chat=%d\n",
-		callbackData.QueryID, callbackData.Data, callbackData.UserID, callbackData.ChatID)
 
-	// Update debug
-	webhookDebugMu.Lock()
-	lastWebhookDebug.CallbackID = callbackData.QueryID
-	lastWebhookDebug.Data = callbackData.Data
-	lastWebhookDebug.Error = "forwarding to gleam..."
-	webhookDebugMu.Unlock()
-
-	// STEP 6: Answer callback IMMEDIATELY to remove loading indicator
-	fmt.Fprintf(os.Stderr, "[STEP 6] Answering callback immediately...\n")
-	if err := r.botClient.AnswerCallback(callbackData.QueryID, "⏳", false); err != nil {
-		fmt.Fprintf(os.Stderr, "[STEP 6] ⚠️ AnswerCallback failed: %v\n", err)
-	} else {
-		fmt.Fprintf(os.Stderr, "[STEP 6] ✅ Callback answered\n")
-	}
-
-	// STEP 7: Forward to Gleam asynchronously (don't block webhook response)
-	fmt.Fprintf(os.Stderr, "[STEP 7] Forwarding to Gleam async...\n")
-	go func() {
-		var forwardErr error
-		for attempt := 1; attempt <= 3; attempt++ {
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			forwardErr = r.botClient.ForwardCallbackToGleam(ctx, callbackData)
-			cancel()
-
-			if forwardErr == nil {
-				fmt.Fprintf(os.Stderr, "[STEP 7] ✅ Forward succeeded on attempt %d\n", attempt)
-				break
-			}
-			fmt.Fprintf(os.Stderr, "[STEP 7] ⚠️ Attempt %d failed: %v\n", attempt, forwardErr)
-			if attempt < 3 {
-				time.Sleep(time.Duration(attempt) * time.Second)
-			}
-		}
+	// STEP 5a: Handle callback query (button press)
+	if updateResult.Callback != nil {
+		callbackData := updateResult.Callback
+		fmt.Fprintf(os.Stderr, "[STEP 5] ✅ Callback: query_id=%s, data=%s, user=%d, chat=%d\n",
+			callbackData.QueryID, callbackData.Data, callbackData.UserID, callbackData.ChatID)
 
 		webhookDebugMu.Lock()
-		if forwardErr != nil {
-			lastWebhookDebug.Error = "FORWARD ERROR: " + forwardErr.Error()
-			fmt.Fprintf(os.Stderr, "[STEP 7] ❌ FORWARD FAILED: %v\n", forwardErr)
-		} else {
-			lastWebhookDebug.Error = "SUCCESS: forwarded to gleam"
-			fmt.Fprintf(os.Stderr, "[STEP 7] ✅ FORWARD SUCCESS\n")
-		}
+		lastWebhookDebug.CallbackID = callbackData.QueryID
+		lastWebhookDebug.Data = callbackData.Data
+		lastWebhookDebug.Error = "forwarding callback to gleam..."
 		webhookDebugMu.Unlock()
-	}()
 
-	// STEP 8: Response to Telegram webhook
-	elapsed := time.Since(startTime)
-	fmt.Fprintf(os.Stderr, "[STEP 8] Responding OK, elapsed=%v\n", elapsed)
-	fmt.Fprintf(os.Stderr, "========== WEBHOOK END ==========\n\n")
+		// Answer callback IMMEDIATELY
+		fmt.Fprintf(os.Stderr, "[STEP 6] Answering callback immediately...\n")
+		if err := r.botClient.AnswerCallback(callbackData.QueryID, "⏳", false); err != nil {
+			fmt.Fprintf(os.Stderr, "[STEP 6] ⚠️ AnswerCallback failed: %v\n", err)
+		} else {
+			fmt.Fprintf(os.Stderr, "[STEP 6] ✅ Callback answered\n")
+		}
 
-	respondJSON(w, http.StatusOK, callbackData)
+		// Forward to Gleam asynchronously
+		go func() {
+			var forwardErr error
+			for attempt := 1; attempt <= 3; attempt++ {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				forwardErr = r.botClient.ForwardCallbackToGleam(ctx, callbackData)
+				cancel()
+
+				if forwardErr == nil {
+					fmt.Fprintf(os.Stderr, "[CALLBACK FWD] ✅ Forward succeeded on attempt %d\n", attempt)
+					break
+				}
+				fmt.Fprintf(os.Stderr, "[CALLBACK FWD] ⚠️ Attempt %d failed: %v\n", attempt, forwardErr)
+				if attempt < 3 {
+					time.Sleep(time.Duration(attempt) * time.Second)
+				}
+			}
+
+			webhookDebugMu.Lock()
+			if forwardErr != nil {
+				lastWebhookDebug.Error = "CALLBACK FORWARD ERROR: " + forwardErr.Error()
+			} else {
+				lastWebhookDebug.Error = "SUCCESS: callback forwarded"
+			}
+			webhookDebugMu.Unlock()
+		}()
+
+		elapsed := time.Since(startTime)
+		fmt.Fprintf(os.Stderr, "[STEP 8] Responding OK (callback), elapsed=%v\n", elapsed)
+		respondJSON(w, http.StatusOK, callbackData)
+		return
+	}
+
+	// STEP 5b: Handle regular message (commands, text, photos)
+	if updateResult.Message != nil {
+		msgData := updateResult.Message
+		fmt.Fprintf(os.Stderr, "[STEP 5] ✅ Message: id=%d, user=%d, chat=%d, text=%q\n",
+			msgData.MessageID, msgData.UserID, msgData.ChatID, msgData.Text)
+
+		webhookDebugMu.Lock()
+		lastWebhookDebug.Data = msgData.Text
+		lastWebhookDebug.Error = "forwarding message to gleam..."
+		webhookDebugMu.Unlock()
+
+		// Forward message to Gleam asynchronously
+		go func() {
+			var forwardErr error
+			for attempt := 1; attempt <= 3; attempt++ {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				forwardErr = r.botClient.ForwardMessageToGleam(ctx, msgData)
+				cancel()
+
+				if forwardErr == nil {
+					fmt.Fprintf(os.Stderr, "[MESSAGE FWD] ✅ Forward succeeded on attempt %d\n", attempt)
+					break
+				}
+				fmt.Fprintf(os.Stderr, "[MESSAGE FWD] ⚠️ Attempt %d failed: %v\n", attempt, forwardErr)
+				if attempt < 3 {
+					time.Sleep(time.Duration(attempt) * time.Second)
+				}
+			}
+
+			webhookDebugMu.Lock()
+			if forwardErr != nil {
+				lastWebhookDebug.Error = "MESSAGE FORWARD ERROR: " + forwardErr.Error()
+				fmt.Fprintf(os.Stderr, "[MESSAGE FWD] ❌ FORWARD FAILED: %v\n", forwardErr)
+			} else {
+				lastWebhookDebug.Error = "SUCCESS: message forwarded"
+				fmt.Fprintf(os.Stderr, "[MESSAGE FWD] ✅ FORWARD SUCCESS\n")
+			}
+			webhookDebugMu.Unlock()
+		}()
+
+		elapsed := time.Since(startTime)
+		fmt.Fprintf(os.Stderr, "[STEP 8] Responding OK (message), elapsed=%v\n", elapsed)
+		respondJSON(w, http.StatusOK, msgData)
+		return
+	}
+
+	// Shouldn't reach here
+	fmt.Fprintf(os.Stderr, "========== WEBHOOK END (no action) ==========\n\n")
+	respondJSON(w, http.StatusOK, map[string]string{"status": "no_action"})
 }
 
 // BotAnswerRequest is the request for /bot/answer

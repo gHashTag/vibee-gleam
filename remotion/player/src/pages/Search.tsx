@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search as SearchIcon, TrendingUp, Users, X } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { Header } from '@/components/Header';
 import { Skeleton } from '@/components/Skeleton';
 import './Search.css';
 
@@ -66,7 +67,8 @@ export function SearchPage() {
 
   return (
     <div className="search-page">
-      {/* Search Header */}
+      <Header />
+      {/* Search Bar */}
       <div className="search-header">
         <div className="search-input-wrapper">
           <SearchIcon size={20} className="search-input-icon" />

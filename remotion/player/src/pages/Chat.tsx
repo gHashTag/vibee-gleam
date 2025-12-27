@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { Header } from '@/components/Header';
 import './Chat.css';
 
 interface Message {
@@ -263,7 +264,8 @@ function ChatPage() {
 
   return (
     <div className="chat-page">
-      <div className="chat-header">
+      <Header />
+      <div className="chat-title">
         <h1>🎬 VIBEE Reels Creator</h1>
         <p>AI-powered Instagram Reels клонирование</p>
       </div>

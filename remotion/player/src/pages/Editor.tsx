@@ -1,9 +1,12 @@
 import { useEffect, useState, Suspense, useRef } from 'react';
 import { useSetAtom, useAtomValue } from 'jotai';
 import { loadCaptionsAtom, updateDurationFromLipSyncAtom, lipSyncVideoAtom, transcribeVideoAtom, ensureAudioTrackAtom, ensureImageTrackAtom, selectedItemIdsAtom } from '@/atoms';
+import { layoutPresetAtom, LAYOUT_PRESETS } from '@/atoms/ui';
 import { useAutoRecordHistory } from '@/atoms/hooks';
+import { AssetsPanel } from '@/components/Panels/AssetsPanel';
 import { Header } from '@/components/Header';
 import { PropertiesPanel } from '@/components/Panels/PropertiesPanel';
+import { LayoutSettings } from '@/components/Panels/LayoutSettings';
 import { InteractiveCanvas } from '@/components/Canvas/InteractiveCanvas';
 import { Timeline } from '@/components/Timeline/Timeline';
 import { ShortcutsModal } from '@/components/Modals/ShortcutsModal';
@@ -29,7 +32,12 @@ function EditorContent() {
   const ensureAudioTrack = useSetAtom(ensureAudioTrackAtom);
   const ensureImageTrack = useSetAtom(ensureImageTrackAtom);
   const selectedItemIds = useAtomValue(selectedItemIdsAtom);
+  const layoutPreset = useAtomValue(layoutPresetAtom);
   const prevLipSyncRef = useRef<string | null>(null);
+
+  // Get layout config
+  const layoutConfig = LAYOUT_PRESETS[layoutPreset] || LAYOUT_PRESETS.classic;
+  const showAssets = layoutConfig.showAssets;
 
   // Enable keyboard shortcuts
   useKeyboardShortcuts();
@@ -102,14 +110,30 @@ function EditorContent() {
   }, []);
 
   return (
-    <div className="editor">
+    <div
+      className={`editor layout-${layoutPreset} ${showAssets ? 'has-assets' : 'no-assets'}`}
+      style={{
+        '--assets-width': `${layoutConfig.assetsWidth}px`,
+        '--timeline-height': `${layoutConfig.timelineHeight}px`,
+      } as React.CSSProperties}
+    >
       <Header
         wsStatus={isConnected ? 'connected' : 'disconnected'}
         wsClientId={clientId}
       />
 
       <main id="main-content" className="editor-main" role="main">
-        {/* Canvas - now takes full width minus right sidebar */}
+        {/* Left sidebar: Settings + Assets (based on layout) */}
+        {showAssets && (
+          <aside className="sidebar sidebar-left">
+            <ErrorBoundary fallback={<PanelError />}>
+              <LayoutSettings />
+              <AssetsPanel />
+            </ErrorBoundary>
+          </aside>
+        )}
+
+        {/* Canvas */}
         <section className="canvas-area">
           <ErrorBoundary fallback={<PanelError />}>
             <InteractiveCanvas />
@@ -126,7 +150,7 @@ function EditorContent() {
         )}
       </main>
 
-      {/* Timeline - includes integrated asset browser */}
+      {/* Timeline */}
       <footer className="timeline-area">
         <ErrorBoundary fallback={<PanelError />}>
           <Timeline />

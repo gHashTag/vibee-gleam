@@ -15,7 +15,7 @@ export function UserCard({ user }: UserCardProps) {
   const unfollow = useSetAtom(unfollowUserAtom);
   const setShowLogin = useSetAtom(showLoginModalAtom);
 
-  const isOwnProfile = currentUser?.id !== undefined && String(currentUser.id) === user.id;
+  const isOwnProfile = currentUser?.id !== undefined && user?.id !== undefined && String(currentUser.id) === String(user.id);
 
   const handleFollowClick = async () => {
     if (!currentUser) {

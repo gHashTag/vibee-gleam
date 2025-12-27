@@ -8,21 +8,21 @@
 }
 
 /* Header */
-.chat-header {
+.chat-title {
   background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
   padding: 24px 20px;
   text-align: center;
   box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
 }
 
-.chat-header h1 {
+.chat-title h1 {
   margin: 0 0 8px 0;
   font-size: 28px;
   font-weight: 700;
   color: #ffffff;
 }
 
-.chat-header p {
+.chat-title p {
   margin: 0;
   font-size: 15px;
   color: rgba(255, 255, 255, 0.9);
@@ -336,11 +336,11 @@
     height: 100dvh;
   }
 
-  .chat-header h1 {
+  .chat-title h1 {
     font-size: 24px;
   }
 
-  .chat-header p {
+  .chat-title p {
     font-size: 13px;
   }
 
@@ -397,11 +397,11 @@
 
 /* Small phones */
 @media (max-width: 480px) {
-  .chat-header {
+  .chat-title {
     padding: 16px;
   }
 
-  .chat-header h1 {
+  .chat-title h1 {
     font-size: 20px;
   }
 

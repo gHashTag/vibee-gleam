@@ -5,14 +5,14 @@
   height: 100%;
 }
 
-/* Sub-tabs */
+/* Sub-tabs - borderless design */
 .generate-tabs {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 4px;
-  background: #1a1a1a;
-  border-radius: 8px;
-  padding: 4px;
+  background: transparent;
+  border: none;
+  padding: 0;
 }
 
 .generate-tab {
@@ -23,17 +23,18 @@
   padding: 8px 4px;
   background: transparent;
   border: none;
+  outline: none;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .generate-tab:hover {
-  background: #2a2a2a;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .generate-tab.active {
-  background: #f59e0b;
+  background: rgba(245, 158, 11, 0.2);
 }
 
 .generate-tab .tab-emoji {
@@ -50,7 +51,7 @@
 }
 
 .generate-tab.active .tab-label {
-  color: #000;
+  color: #f59e0b;
 }
 
 .generate-tab:hover .tab-label {
@@ -58,7 +59,7 @@
 }
 
 .generate-tab.active:hover .tab-label {
-  color: #000;
+  color: #fbbf24;
 }
 
 /* Content */

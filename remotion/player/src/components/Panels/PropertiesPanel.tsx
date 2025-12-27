@@ -480,7 +480,7 @@ export function PropertiesPanel() {
     }
   };
 
-  // Nothing selected - hide panel
+  // Nothing selected - return null (Layout is now in CanvasControls)
   if (selectedItems.length === 0) {
     return null;
   }

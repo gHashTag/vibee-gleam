@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
-import { Grid3X3, Square, Maximize2, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Grid3X3, Square, Maximize2, ZoomIn, ZoomOut, RotateCcw, LayoutGrid, Minimize2, Layers } from 'lucide-react';
+import { useAtom } from 'jotai';
+import { layoutPresetAtom, LAYOUT_PRESETS, type LayoutPreset } from '@/atoms/ui';
 import { useLanguage } from '@/hooks/useLanguage';
 import './CanvasOverlays.css';
 
@@ -131,6 +133,14 @@ interface CanvasControlsProps {
   onZoomChange: (zoom: number) => void;
 }
 
+// Layout icon mapping
+const LAYOUT_ICONS: Record<LayoutPreset, React.ComponentType<{ size?: number }>> = {
+  classic: LayoutGrid,
+  compact: Minimize2,
+  focus: Maximize2,
+  full: Layers,
+};
+
 export function CanvasControls({
   showGrid,
   showSafeZone,
@@ -141,8 +151,10 @@ export function CanvasControls({
   onChangeSafeZone,
   onZoomChange,
 }: CanvasControlsProps) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const [layout, setLayout] = useAtom(layoutPresetAtom);
   const [showSafeZoneMenu, setShowSafeZoneMenu] = useState(false);
+  const [showLayoutMenu, setShowLayoutMenu] = useState(false);
 
   const zoomPresets = [
     { value: 0.5, label: '50%' },
@@ -246,6 +258,47 @@ export function CanvasControls({
       >
         <ZoomIn size={16} />
       </button>
+
+      <div className="canvas-control-divider" />
+
+      {/* Layout Switcher */}
+      <div className="canvas-control-group">
+        {(() => {
+          const CurrentIcon = LAYOUT_ICONS[layout] || LayoutGrid;
+          return (
+            <button
+              className="canvas-control-btn"
+              onClick={() => setShowLayoutMenu(!showLayoutMenu)}
+              title="Layout"
+            >
+              <CurrentIcon size={16} />
+            </button>
+          );
+        })()}
+
+        {showLayoutMenu && (
+          <div className="canvas-control-menu canvas-control-menu--layout">
+            {(Object.entries(LAYOUT_PRESETS) as [LayoutPreset, typeof LAYOUT_PRESETS[LayoutPreset]][]).map(
+              ([key, config]) => {
+                const Icon = LAYOUT_ICONS[key];
+                return (
+                  <button
+                    key={key}
+                    className={`canvas-control-menu-item ${layout === key ? 'active' : ''}`}
+                    onClick={() => {
+                      setLayout(key);
+                      setShowLayoutMenu(false);
+                    }}
+                  >
+                    <Icon size={14} />
+                    <span>{lang === 'ru' ? config.labelRu : config.label}</span>
+                  </button>
+                );
+              }
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

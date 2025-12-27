@@ -58,7 +58,6 @@ export function LikeAnimation({ onDoubleTap, children }: LikeAnimationProps) {
     <div
       className="like-animation-container"
       onClick={handleClick}
-      onTouchEnd={handleClick}
     >
       {children}
       {hearts.map(heart => (

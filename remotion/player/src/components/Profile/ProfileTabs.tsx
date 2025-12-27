@@ -86,7 +86,7 @@ export function ProfileTabs() {
           >
             {tab.icon}
             <span>{tab.label}</span>
-            <span className="profile-tabs__count">{tab.count}</span>
+            <span className="profile-tabs__count">{tab.count ?? 0}</span>
           </button>
         ))}
       </div>

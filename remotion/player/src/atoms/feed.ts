@@ -21,6 +21,9 @@ export interface RemixSource {
 // Current remix source (set when using a template from feed)
 export const currentRemixSourceAtom = atom<RemixSource | null>(null);
 
+// Global muted state for all feed videos (starts muted for autoplay)
+export const feedMutedAtom = atom(true);
+
 // API Base URL
 const API_BASE = import.meta.env.VITE_API_BASE_URL ||
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -206,9 +209,11 @@ async function useTemplate(id: number): Promise<FeedTemplate> {
   return transformTemplate(data.template || data);
 }
 
-async function trackView(id: number): Promise<{ viewsCount: number }> {
+async function trackView(id: number, userId: number): Promise<{ viewsCount: number }> {
   const response = await fetch(`${API_BASE}/api/feed/${id}/view`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId }),
   });
   if (!response.ok) {
     throw new Error(`Failed to track view: ${response.statusText}`);
@@ -373,26 +378,26 @@ export const likeTemplateAtom = atom(
 const viewedTemplates = new Set<number>();
 
 // Track view for a template (call when video starts playing)
+// Views are unique per user - backend handles deduplication
 export const trackViewAtom = atom(
   null,
   async (get, set, templateId: number) => {
-    // Only track once per session
+    // Only track once per session (frontend guard)
     if (viewedTemplates.has(templateId)) {
       return;
     }
     viewedTemplates.add(templateId);
 
-    // Optimistic UI: increment immediately
-    const templates = get(feedTemplatesAtom);
-    set(feedTemplatesAtom, templates.map(t =>
-      t.id === templateId
-        ? { ...t, viewsCount: t.viewsCount + 1 }
-        : t
-    ));
+    // Get user for unique tracking
+    const user = get(userAtom);
+    if (!user) {
+      console.log('[Feed] Cannot track view - user not authenticated');
+      return;
+    }
 
     try {
-      const result = await trackView(templateId);
-      // Update with server response
+      const result = await trackView(templateId, user.id);
+      // Update with server response (reflects actual unique count)
       const currentTemplates = get(feedTemplatesAtom);
       set(feedTemplatesAtom, currentTemplates.map(t =>
         t.id === templateId
@@ -401,7 +406,6 @@ export const trackViewAtom = atom(
       ));
     } catch (error) {
       console.error('[Feed] Failed to track view:', error);
-      // Don't revert - view was likely counted anyway
     }
   }
 );

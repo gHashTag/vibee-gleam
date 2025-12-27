@@ -56,7 +56,7 @@
   gap: 8px;
 }
 
-/* Header Emoji Tabs - Desktop: centered in header with Glassmorphism */
+/* Header Emoji Tabs - Desktop: centered in header, no container */
 .header-tabs {
   position: absolute;
   left: 50%;
@@ -65,29 +65,84 @@
   align-items: center;
   gap: 4px;
   padding: 6px 10px;
-  background: rgba(17, 17, 17, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  z-index: 10; /* Above other header elements */
 }
 
-/* Slide indicator for active tab */
+/* Slide indicator - hidden, using individual tab backgrounds instead */
 .header-tabs-indicator {
-  position: absolute;
-  top: 6px;
-  bottom: 6px;
-  width: calc((100% - 20px) / 8); /* 8 tabs */
-  left: calc(10px + var(--active-index, 0) * ((100% - 20px) / 8));
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(251, 191, 36, 0.15));
-  border-radius: 12px;
-  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  pointer-events: none;
-  z-index: 0;
+  display: none;
 }
 
-/* Mobile/Tablet: Fixed bottom navigation with Glassmorphism */
+/* Tab wrapper for submenu positioning */
+.header-tab-wrapper {
+  position: relative;
+  z-index: 20;
+}
+
+/* AI Hover Submenu */
+.header-submenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  background: rgba(26, 26, 26, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  min-width: 140px;
+  z-index: 200;
+  animation: submenuFadeIn 0.15s ease-out;
+}
+
+@keyframes submenuFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.header-submenu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #999;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.header-submenu-item:hover {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fff;
+}
+
+.submenu-emoji {
+  font-size: 18px;
+}
+
+.submenu-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Mobile/Tablet: Fixed bottom navigation - clean design */
 @media (max-width: 1023px) {
   .header-tabs {
     position: fixed;
@@ -99,15 +154,10 @@
     justify-content: space-around;
     padding: 8px 4px;
     padding-bottom: max(8px, env(safe-area-inset-bottom));
-    background: rgba(13, 13, 13, 0.9);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    border-left: none;
-    border-right: none;
-    border-bottom: none;
+    background: #0d0d0d;
+    border: none;
     border-radius: 0;
-    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
+    box-shadow: none;
     z-index: 100;
     gap: 0;
   }
@@ -115,106 +165,77 @@
   .header-tabs-indicator {
     display: none;
   }
+
+  /* Hide hover submenu on mobile - use tap instead */
+  .header-submenu {
+    display: none;
+  }
+
+  .header-tab-wrapper {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+  }
 }
 
+/* Individual tab - minimal */
 .header-tab {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
-  min-width: 44px;
-  padding: 6px 8px;
+  min-width: 56px;
+  padding: 8px 12px;
   border-radius: 10px;
   text-decoration: none;
-  transition: all 0.2s ease;
-  z-index: 1;
-}
-
-.header-tab:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .header-tab.active {
-  background: transparent; /* Indicator handles this on desktop */
+  background: rgba(245, 158, 11, 0.15);
 }
 
-/* Glow effect on active tab */
-.header-tab.active::after {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  background: radial-gradient(circle at center, rgba(245, 158, 11, 0.3), transparent 70%);
-  border-radius: 12px;
-  z-index: -1;
-  opacity: 0;
-  animation: glowPulse 2s ease-in-out infinite;
-}
-
-@keyframes glowPulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-}
-
+/* Tab emoji */
 .header-tab-emoji {
   font-size: 20px;
   line-height: 1;
-  filter: grayscale(0.4);
-  transition: all 0.2s ease;
-}
-
-.header-tab:hover .header-tab-emoji {
-  filter: grayscale(0);
-  transform: scale(1.1);
-}
-
-.header-tab.active .header-tab-emoji {
-  filter: grayscale(0);
-  transform: scale(1.05);
 }
 
 /* Tab label */
 .header-tab-label {
   font-size: 9px;
-  font-weight: 500;
+  font-weight: 600;
   color: #666;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
   white-space: nowrap;
-  transition: color 0.2s ease;
-}
-
-.header-tab:hover .header-tab-label {
-  color: #999;
 }
 
 .header-tab.active .header-tab-label {
   color: #f59e0b;
-  text-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
 }
 
-/* Mobile/Tablet: bottom nav tabs - 8 tabs */
+/* Mobile/Tablet: bottom nav tabs - 5 tabs */
 @media (max-width: 1023px) {
   .header-tab {
     flex: 1;
-    max-width: 48px;
+    max-width: 64px;
     min-width: unset;
-    padding: 6px 2px;
+    padding: 8px 4px;
     gap: 2px;
-  }
-
-  .header-tab.active {
-    background: rgba(245, 158, 11, 0.15);
-    border-radius: 8px;
+    border-radius: 10px;
   }
 
   .header-tab-emoji {
-    font-size: 18px;
+    font-size: 20px;
   }
 
   .header-tab-label {
-    font-size: 8px;
+    font-size: 9px;
     letter-spacing: 0;
   }
 }
@@ -242,6 +263,11 @@
   justify-content: flex-end;
   gap: 12px;
   padding-right: 16px;
+  pointer-events: none; /* Allow clicks to pass through to tabs */
+}
+
+.header-center > * {
+  pointer-events: auto; /* Re-enable for children */
 }
 
 /* Logo */
@@ -1328,5 +1354,53 @@
 
   .login-modal-overlay {
     align-items: stretch;
+  }
+}
+
+/* ===============================
+   Layout Switcher
+   =============================== */
+
+.layout-switcher {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: #1a1a1a;
+  border-radius: 8px;
+  margin-left: 8px;
+}
+
+.layout-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.layout-btn:hover {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+.layout-btn.active {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.layout-icon {
+  font-size: 14px;
+}
+
+/* Hide on tablet and mobile */
+@media (max-width: 1023px) {
+  .layout-switcher {
+    display: none;
   }
 }

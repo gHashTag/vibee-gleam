@@ -234,37 +234,84 @@ type CallbackData struct {
 	MessageID int    `json:"message_id"`
 }
 
+// MessageData represents incoming message for forwarding to Gleam
+type MessageData struct {
+	MessageID   int    `json:"message_id"`
+	ChatID      int64  `json:"chat_id"`
+	UserID      int64  `json:"user_id"`
+	Username    string `json:"username"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	Text        string `json:"text"`
+	PhotoFileID string `json:"photo_file_id,omitempty"`
+	Caption     string `json:"caption,omitempty"`
+}
+
+// UpdateResult holds parsed webhook update - either callback or message
+type UpdateResult struct {
+	Callback *CallbackData
+	Message  *MessageData
+}
+
 // HandleWebhook processes incoming webhook updates
-// Returns the callback data if it's a callback query, nil otherwise
-func (c *BotClient) HandleWebhook(r *http.Request) (*CallbackData, error) {
+// Returns UpdateResult with either callback or message data
+func (c *BotClient) HandleWebhook(r *http.Request) (*UpdateResult, error) {
 	var update tgbotapi.Update
 	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 		return nil, fmt.Errorf("decode update: %w", err)
 	}
 
-	// Only handle callback queries
-	if update.CallbackQuery == nil {
-		log.Printf("[BotAPI] Ignoring non-callback update")
-		return nil, nil
+	result := &UpdateResult{}
+
+	// Handle callback queries (button presses)
+	if update.CallbackQuery != nil {
+		cq := update.CallbackQuery
+		log.Printf("[BotAPI] Received callback: query_id=%s, data=%s, from=%d", cq.ID, cq.Data, cq.From.ID)
+
+		result.Callback = &CallbackData{
+			QueryID:  cq.ID,
+			UserID:   cq.From.ID,
+			Username: cq.From.UserName,
+			Data:     cq.Data,
+		}
+
+		if cq.Message != nil {
+			result.Callback.ChatID = cq.Message.Chat.ID
+			result.Callback.MessageID = cq.Message.MessageID
+		}
+
+		return result, nil
 	}
 
-	cq := update.CallbackQuery
-	log.Printf("[BotAPI] Received callback: query_id=%s, data=%s, from=%d", cq.ID, cq.Data, cq.From.ID)
+	// Handle regular messages (commands, text, photos)
+	if update.Message != nil {
+		msg := update.Message
+		log.Printf("[BotAPI] Received message: id=%d, from=%d, text=%q", msg.MessageID, msg.From.ID, msg.Text)
 
-	// Extract callback data
-	data := &CallbackData{
-		QueryID:  cq.ID,
-		UserID:   cq.From.ID,
-		Username: cq.From.UserName,
-		Data:     cq.Data,
+		result.Message = &MessageData{
+			MessageID: msg.MessageID,
+			ChatID:    msg.Chat.ID,
+			UserID:    msg.From.ID,
+			Username:  msg.From.UserName,
+			FirstName: msg.From.FirstName,
+			LastName:  msg.From.LastName,
+			Text:      msg.Text,
+		}
+
+		// Handle photo messages
+		if msg.Photo != nil && len(msg.Photo) > 0 {
+			// Get highest resolution photo
+			bestPhoto := msg.Photo[len(msg.Photo)-1]
+			result.Message.PhotoFileID = bestPhoto.FileID
+			result.Message.Caption = msg.Caption
+			log.Printf("[BotAPI] Message has photo: file_id=%s", bestPhoto.FileID)
+		}
+
+		return result, nil
 	}
 
-	if cq.Message != nil {
-		data.ChatID = cq.Message.Chat.ID
-		data.MessageID = cq.Message.MessageID
-	}
-
-	return data, nil
+	log.Printf("[BotAPI] Ignoring unsupported update type")
+	return nil, nil
 }
 
 // ForwardCallbackToGleam forwards callback data to Gleam service
@@ -332,6 +379,48 @@ func (c *BotClient) ForwardCallbackToGleam(ctx context.Context, data *CallbackDa
 
 	fmt.Fprintf(os.Stderr, "[FWD 6] ✅ SUCCESS\n")
 	fmt.Fprintf(os.Stderr, "--- ForwardCallbackToGleam END (OK) ---\n\n")
+	return nil
+}
+
+// ForwardMessageToGleam forwards message data to Gleam service
+func (c *BotClient) ForwardMessageToGleam(ctx context.Context, data *MessageData) error {
+	log.Printf("[BotAPI] ForwardMessageToGleam: chat=%d, user=%d, text=%q", data.ChatID, data.UserID, data.Text)
+
+	if c.gleamURL == "" {
+		return fmt.Errorf("gleam URL not configured")
+	}
+
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("marshal message: %w", err)
+	}
+
+	url := c.gleamURL + "/api/v1/bot/message"
+	log.Printf("[BotAPI] Forwarding message to: %s", url)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	if c.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("forward message: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	log.Printf("[BotAPI] Gleam response: status=%d, body=%s", resp.StatusCode, string(body))
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("gleam returned %d: %s", resp.StatusCode, string(body))
+	}
+
 	return nil
 }
 

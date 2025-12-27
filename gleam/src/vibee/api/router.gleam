@@ -60,6 +60,12 @@ import vibee/api/feed_handlers
 import vibee/api/profile_handlers
 import vibee/notifications/owner_callbacks
 import vibee/carousel/api_handlers as carousel_handlers
+import vibee/bot/router as bot_router
+import vibee/bot/scene.{
+  type IncomingMessage, type OutgoingMessage, CallbackQuery, Command,
+  PhotoMessage, TextMessage, TextReply, TextWithKeyboard,
+}
+import vibee/bot/session_store
 
 /// WebSocket message types
 pub type WsMessage {
@@ -367,7 +373,7 @@ fn route_request(
     // POST /api/feed/:id/view - Track view
     http.Post, ["api", "feed", id, "view"] -> {
       case int.parse(id) {
-        Ok(template_id) -> feed_handlers.view_template_handler(template_id)
+        Ok(template_id) -> feed_handlers.view_template_handler(req, template_id)
         Error(_) -> not_found_handler()
       }
     }
@@ -447,8 +453,9 @@ fn route_request(
     http.Post, ["api", "webhooks", "ton"] -> payment_webhooks.handle_ton(req)
     http.Post, ["api", "webhooks", "stars"] -> payment_webhooks.handle_stars(req)
 
-    // Bot API callback (forwarded from Go bridge webhook)
+    // Bot API (forwarded from Go bridge webhook)
     http.Post, ["api", "v1", "bot", "callback"] -> handle_bot_callback(req)
+    http.Post, ["api", "v1", "bot", "message"] -> handle_bot_message(req)
     http.Get, ["api", "v1", "bot", "status"] -> handle_bot_status(req)
 
     // AI Service Webhooks (Replicate, Hedra, HeyGen, Kling, KIE.ai, BFL, ElevenLabs)
@@ -2954,5 +2961,253 @@ fn handle_bot_status(_req: Request(Connection)) -> Response(ResponseData) {
       ])
       json_response(200, body)
     }
+  }
+}
+
+/// Handle incoming bot message (forwarded from Go bridge)
+/// Routes through scene FSM for proper command handling
+fn handle_bot_message(req: Request(Connection)) -> Response(ResponseData) {
+  io.println("[BOT MESSAGE] >>> handle_bot_message called <<<")
+
+  let log = vibe_logger.new("bot_message")
+  vibe_logger.info(log, "Received message from Go bridge")
+
+  case mist.read_body(req, 1024 * 1024) {
+    Ok(req_with_body) -> {
+      let body = bit_array.to_string(req_with_body.body)
+      case body {
+        Ok(json_body) -> {
+          vibe_logger.info(
+            log |> vibe_logger.with_data("body", json.string(string.slice(json_body, 0, 200))),
+            "Parsing message body"
+          )
+
+          // Parse the message data
+          case parse_bot_message(json_body) {
+            Ok(msg_data) -> {
+              vibe_logger.info(
+                log
+                |> vibe_logger.with_data("chat_id", json.int(msg_data.chat_id))
+                |> vibe_logger.with_data("user_id", json.int(msg_data.user_id))
+                |> vibe_logger.with_data("text", json.string(msg_data.text)),
+                "Message parsed successfully"
+              )
+
+              // Get database connection
+              case postgres.get_pool() {
+                Ok(pool) -> {
+                  // Convert to IncomingMessage
+                  let incoming_msg = case msg_data.photo_file_id {
+                    "" -> parse_text_to_incoming(msg_data.text)
+                    file_id -> PhotoMessage(
+                      file_id: file_id,
+                      caption: case msg_data.caption {
+                        "" -> None
+                        c -> Some(c)
+                      }
+                    )
+                  }
+
+                  // Route through bot router
+                  let chat_id_str = int.to_string(msg_data.chat_id)
+                  let username = case msg_data.username {
+                    "" -> None
+                    u -> Some(u)
+                  }
+
+                  case bot_router.route_message(pool, msg_data.user_id, chat_id_str, username, incoming_msg) {
+                    Ok(router_result) -> {
+                      // Send response if any
+                      case router_result.response {
+                        Some(response) -> {
+                          let _ = send_bot_response(msg_data.chat_id, response)
+                          Nil
+                        }
+                        None -> Nil
+                      }
+
+                      let response_body = json.object([
+                        #("success", json.bool(True)),
+                        #("action", json.string("message_processed")),
+                      ])
+                      json_response(200, response_body)
+                    }
+                    Error(err) -> {
+                      let err_str = case err {
+                        bot_router.SessionError(_) -> "session_error"
+                        bot_router.SceneError(msg) -> "scene_error: " <> msg
+                        bot_router.UnhandledMessage -> "unhandled_message"
+                      }
+                      vibe_logger.info(
+                        log |> vibe_logger.with_data("error", json.string(err_str)),
+                        "Router error"
+                      )
+                      let response_body = json.object([
+                        #("success", json.bool(False)),
+                        #("error", json.string(err_str)),
+                      ])
+                      json_response(500, response_body)
+                    }
+                  }
+                }
+                Error(_) -> {
+                  let response_body = json.object([
+                    #("success", json.bool(False)),
+                    #("error", json.string("Database connection failed")),
+                  ])
+                  json_response(500, response_body)
+                }
+              }
+            }
+            Error(err) -> {
+              vibe_logger.info(log, "Failed to parse message: " <> err)
+              let body = json.object([#("error", json.string("Invalid message format: " <> err))])
+              json_response(400, body)
+            }
+          }
+        }
+        Error(_) -> {
+          let body = json.object([#("error", json.string("Invalid body encoding"))])
+          json_response(400, body)
+        }
+      }
+    }
+    Error(_) -> {
+      let body = json.object([#("error", json.string("Failed to read body"))])
+      json_response(500, body)
+    }
+  }
+}
+
+/// Message data from Go bridge
+type BotMessageData {
+  BotMessageData(
+    message_id: Int,
+    chat_id: Int,
+    user_id: Int,
+    username: String,
+    first_name: String,
+    last_name: String,
+    text: String,
+    photo_file_id: String,
+    caption: String,
+  )
+}
+
+/// Parse bot message JSON from Go bridge
+fn parse_bot_message(json_str: String) -> Result(BotMessageData, String) {
+  let message_id = extract_int_field(json_str, "message_id")
+  let chat_id = extract_int_field(json_str, "chat_id")
+  let user_id = extract_int_field(json_str, "user_id")
+  let username = extract_string_field_simple(json_str, "username")
+  let first_name = extract_string_field_simple(json_str, "first_name")
+  let last_name = extract_string_field_simple(json_str, "last_name")
+  let text = extract_string_field_simple(json_str, "text")
+  let photo_file_id = extract_string_field_simple(json_str, "photo_file_id")
+  let caption = extract_string_field_simple(json_str, "caption")
+
+  case chat_id, user_id {
+    0, _ -> Error("Missing chat_id")
+    _, 0 -> Error("Missing user_id")
+    _, _ -> Ok(BotMessageData(
+      message_id: message_id,
+      chat_id: chat_id,
+      user_id: user_id,
+      username: username,
+      first_name: first_name,
+      last_name: last_name,
+      text: text,
+      photo_file_id: photo_file_id,
+      caption: caption,
+    ))
+  }
+}
+
+/// Extract string field from JSON (simple version)
+fn extract_string_field_simple(json_str: String, field: String) -> String {
+  let pattern = "\"" <> field <> "\":\""
+  case string.split(json_str, pattern) {
+    [_, rest, ..] -> {
+      case string.split(rest, "\"") {
+        [value, ..] -> value
+        _ -> ""
+      }
+    }
+    _ -> ""
+  }
+}
+
+/// Extract int field from JSON
+fn extract_int_field(json_str: String, field: String) -> Int {
+  let pattern = "\"" <> field <> "\":"
+  case string.split(json_str, pattern) {
+    [_, rest, ..] -> {
+      let trimmed = string.trim_start(rest)
+      let digits = trimmed
+        |> string.to_graphemes
+        |> list.take_while(fn(c) {
+          case c {
+            "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" -> True
+            _ -> False
+          }
+        })
+        |> string.join("")
+      case int.parse(digits) {
+        Ok(n) -> n
+        Error(_) -> 0
+      }
+    }
+    _ -> 0
+  }
+}
+
+/// Parse text message to IncomingMessage (command or text)
+fn parse_text_to_incoming(text: String) -> IncomingMessage {
+  case string.starts_with(text, "/") {
+    True -> {
+      let without_slash = string.drop_start(text, 1)
+      // Remove @bot_username suffix if present
+      let cmd_part = case string.split(without_slash, "@") {
+        [cmd, ..] -> cmd
+        _ -> without_slash
+      }
+      case string.split(cmd_part, " ") {
+        [cmd] -> Command(cmd: string.lowercase(cmd), args: None)
+        [cmd, ..rest] -> Command(
+          cmd: string.lowercase(cmd),
+          args: Some(string.join(rest, " ")),
+        )
+        _ -> TextMessage(text: text)
+      }
+    }
+    False -> TextMessage(text: text)
+  }
+}
+
+/// Send bot response via Bot API
+fn send_bot_response(chat_id: Int, response: OutgoingMessage) -> Result(Nil, String) {
+  let bridge_url = telegram_config.bridge_url()
+  let api_key = telegram_config.bridge_api_key()
+  let bot_config = bot_api.with_key(bridge_url, api_key)
+
+  case response {
+    TextReply(text) -> {
+      case bot_api.send_message(bot_config, chat_id, text) {
+        Ok(_) -> Ok(Nil)
+        Error(_) -> Error("Failed to send message")
+      }
+    }
+    TextWithKeyboard(text, keyboard) -> {
+      let bot_keyboard = list.map(keyboard, fn(row) {
+        list.map(row, fn(btn) {
+          bot_api.InlineButton(text: btn.text, callback_data: btn.callback_data)
+        })
+      })
+      case bot_api.send_with_buttons(bot_config, chat_id, text, bot_keyboard) {
+        Ok(_) -> Ok(Nil)
+        Error(_) -> Error("Failed to send message with keyboard")
+      }
+    }
+    _ -> Ok(Nil)
   }
 }

@@ -778,9 +778,15 @@ fn process_chat_messages_with_events(
           }
           False -> {
             // Проверяем, видели ли мы это сообщение
-            case set.contains(acc_seen, unique_id) {
+            // ВАЖНО: Для private чатов НЕ используем seen_ids, только last_processed!
+            // Это исправляет баг когда новые сообщения помечались как SEEN после рестарта
+            let skip_as_seen = case is_private {
+              True -> False  // Для private чатов НИКОГДА не пропускаем по seen_ids
+              False -> set.contains(acc_seen, unique_id)
+            }
+            case skip_as_seen {
               True -> {
-                // Уже обработали - пропускаем
+                // Уже обработали - пропускаем (только для групп!)
                 case should_log_info {
                   True -> vibe_logger.info(chat_log
                     |> vibe_logger.with_data("msg_id", json.int(msg_id))

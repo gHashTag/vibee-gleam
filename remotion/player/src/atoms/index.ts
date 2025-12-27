@@ -267,6 +267,7 @@ export {
   feedPageAtom,
   feedHasMoreAtom,
   feedSortAtom,
+  feedMutedAtom,
   loadFeedAtom,
   loadMoreFeedAtom,
   changeFeedSortAtom,

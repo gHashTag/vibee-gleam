@@ -136,7 +136,12 @@ async function downloadFile(url: string, filename: string): Promise<boolean> {
   }
 }
 
-export function Timeline() {
+interface TimelineProps {
+  orientation?: 'horizontal' | 'vertical';
+  hideBrowser?: boolean;
+}
+
+export function Timeline({ orientation = 'horizontal', hideBrowser = true }: TimelineProps) {
   const { t } = useLanguage();
   const toast = useToast();
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -1473,93 +1478,95 @@ export function Timeline() {
         </div>
       </div>
 
-      {/* Asset Browser - BELOW Play button */}
-      <div
-        className={`timeline-browser ${isDragOverBrowser ? 'drag-over' : ''}`}
-        onDragOver={handleBrowserDragOver}
-        onDragLeave={handleBrowserDragLeave}
-        onDrop={handleBrowserDrop}
-      >
-        <div className="timeline-browser-header">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept="video/*,audio/*,image/*"
-            onChange={handleBrowserFileChange}
-            style={{ display: 'none' }}
-          />
-          <button
-            className="browser-upload-btn"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            title={t('assets.upload')}
-          >
-            {isUploading ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}
-          </button>
-          <button
-            className={`browser-search-btn ${showBrowserSearch ? 'active' : ''}`}
-            onClick={() => setShowBrowserSearch(!showBrowserSearch)}
-            title={t('assets.search')}
-          >
-            <Search size={16} />
-          </button>
-          {showBrowserSearch && (
-            <input
-              type="text"
-              className="browser-search-input"
-              placeholder={t('assets.searchPlaceholder')}
-              value={browserSearch}
-              onChange={(e) => setBrowserSearch(e.target.value)}
-              autoFocus
-            />
-          )}
-          <div className="browser-categories">
-            {CATEGORIES.map((cat) => {
-              const config = CATEGORY_CONFIG[cat];
-              const count = counts[cat];
-              const isActive = category === cat;
-              return (
-                <button
-                  key={cat}
-                  className={`browser-category-chip ${isActive ? 'active' : ''}`}
-                  onClick={() => setCategory(cat)}
-                  style={{ '--chip-color': config.color } as React.CSSProperties}
-                >
-                  <span className="chip-icon">{config.icon}</span>
-                  <span className="chip-label">{config.label}</span>
-                  <span className="chip-count">{count}</span>
-                </button>
-              );
-            })}
-          </div>
-          {isUploading && (
-            <div className="browser-upload-progress">
-              <div className="upload-progress-bar" style={{ width: `${uploadProgress}%` }} />
-            </div>
-          )}
-        </div>
+      {/* Asset Browser - BELOW Play button (hidden when using standalone AssetBrowser) */}
+      {!hideBrowser && (
         <div
-          ref={browserScrollRef}
-          className="timeline-browser-assets"
-          onWheel={handleBrowserWheel}
+          className={`timeline-browser ${isDragOverBrowser ? 'drag-over' : ''}`}
+          onDragOver={handleBrowserDragOver}
+          onDragLeave={handleBrowserDragLeave}
+          onDrop={handleBrowserDrop}
         >
-          {filteredAssets.length === 0 ? (
-            <div className="browser-empty"><span>{t('assets.empty')}</span></div>
-          ) : (
-            filteredAssets.map((asset) => (
-              <div
-                key={asset.id}
-                className="browser-asset-wrapper"
-                draggable
-                onDragStart={(e) => handleAssetDragStart(e, asset)}
-              >
-                <AssetCard asset={asset} size="compact" />
+          <div className="timeline-browser-header">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="video/*,audio/*,image/*"
+              onChange={handleBrowserFileChange}
+              style={{ display: 'none' }}
+            />
+            <button
+              className="browser-upload-btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              title={t('assets.upload')}
+            >
+              {isUploading ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}
+            </button>
+            <button
+              className={`browser-search-btn ${showBrowserSearch ? 'active' : ''}`}
+              onClick={() => setShowBrowserSearch(!showBrowserSearch)}
+              title={t('assets.search')}
+            >
+              <Search size={16} />
+            </button>
+            {showBrowserSearch && (
+              <input
+                type="text"
+                className="browser-search-input"
+                placeholder={t('assets.searchPlaceholder')}
+                value={browserSearch}
+                onChange={(e) => setBrowserSearch(e.target.value)}
+                autoFocus
+              />
+            )}
+            <div className="browser-categories">
+              {CATEGORIES.map((cat) => {
+                const config = CATEGORY_CONFIG[cat];
+                const count = counts[cat];
+                const isActive = category === cat;
+                return (
+                  <button
+                    key={cat}
+                    className={`browser-category-chip ${isActive ? 'active' : ''}`}
+                    onClick={() => setCategory(cat)}
+                    style={{ '--chip-color': config.color } as React.CSSProperties}
+                  >
+                    <span className="chip-icon">{config.icon}</span>
+                    <span className="chip-label">{config.label}</span>
+                    <span className="chip-count">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {isUploading && (
+              <div className="browser-upload-progress">
+                <div className="upload-progress-bar" style={{ width: `${uploadProgress}%` }} />
               </div>
-            ))
-          )}
+            )}
+          </div>
+          <div
+            ref={browserScrollRef}
+            className="timeline-browser-assets"
+            onWheel={handleBrowserWheel}
+          >
+            {filteredAssets.length === 0 ? (
+              <div className="browser-empty"><span>{t('assets.empty')}</span></div>
+            ) : (
+              filteredAssets.map((asset) => (
+                <div
+                  key={asset.id}
+                  className="browser-asset-wrapper"
+                  draggable
+                  onDragStart={(e) => handleAssetDragStart(e, asset)}
+                >
+                  <AssetCard asset={asset} size="compact" />
+                </div>
+              ))
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Timeline Content */}
       <div className="timeline-content">

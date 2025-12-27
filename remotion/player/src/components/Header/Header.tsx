@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -40,7 +40,7 @@ const ROUTE_PATTERNS: Record<string, RegExp> = {
   'search': /^\/search/,
   'editor': /^\/editor/,
   'ai': /^\/generate/,
-  'profile': /^\/[^/]+$/, // matches /:username
+  'profile': /^\/(?!feed|search|editor|generate|templates|chat)[^/]+$/, // matches /:username but not known routes
 };
 
 // Export settings stored in localStorage
@@ -131,6 +131,21 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [exportSettings, setExportSettings] = useState<ExportSettings>(getExportSettings);
   const [showAiSubmenu, setShowAiSubmenu] = useState(false);
+  const aiSubmenuRef = useRef<HTMLDivElement>(null);
+
+  // Close AI submenu when clicking outside
+  useEffect(() => {
+    if (!showAiSubmenu) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (aiSubmenuRef.current && !aiSubmenuRef.current.contains(e.target as Node)) {
+        setShowAiSubmenu(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showAiSubmenu]);
 
   const handleSettingsChange = (key: keyof ExportSettings, value: string) => {
     const newSettings = { ...exportSettings, [key]: value };
@@ -167,6 +182,53 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
           {NAV_TABS.map((tab) => {
             const isActive = ROUTE_PATTERNS[tab.id]?.test(location.pathname);
             const tabRoute = getTabRoute(tab);
+            const hasSubmenu = 'hasSubmenu' in tab && tab.hasSubmenu;
+
+            // AI tab with click submenu
+            if (hasSubmenu) {
+              return (
+                <div
+                  key={tab.id}
+                  className="header-tab-wrapper"
+                  ref={aiSubmenuRef}
+                >
+                  <Link
+                    to={tabRoute}
+                    className={`header-tab ${isActive ? 'active' : ''}`}
+                    title={t(tab.labelKey)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      triggerHaptic();
+                      setShowAiSubmenu(!showAiSubmenu);
+                    }}
+                  >
+                    <span className="header-tab-emoji">{tab.emoji}</span>
+                    <span className="header-tab-label">{t(tab.labelKey)}</span>
+                  </Link>
+
+                  {/* AI Click Submenu */}
+                  {showAiSubmenu && (
+                    <div className="header-submenu" onClick={(e) => e.stopPropagation()}>
+                      {AI_SUBMENU.map((item) => (
+                        <Link
+                          key={item.id}
+                          to={item.route}
+                          className="header-submenu-item"
+                          onClick={() => {
+                            triggerHaptic();
+                            setShowAiSubmenu(false);
+                          }}
+                        >
+                          <span className="submenu-emoji">{item.emoji}</span>
+                          <span className="submenu-label">{t(item.labelKey)}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
 
             return (
               <Link

@@ -1,7 +1,7 @@
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAtomValue, useSetAtom } from 'jotai';
-import { likeTemplateAtom, useTemplateAtom, deleteTemplateAtom, trackViewAtom, userAtom, type FeedTemplate } from '@/atoms';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { likeTemplateAtom, useTemplateAtom, deleteTemplateAtom, trackViewAtom, userAtom, feedMutedAtom, type FeedTemplate } from '@/atoms';
 import { useLanguage } from '@/hooks/useLanguage';
 import { LikeAnimation } from '@/components/LikeAnimation';
 import { Heart, Eye, Users, Play, Loader2, Sparkles, Trash2, AlertCircle, RefreshCw, Volume2, VolumeX } from 'lucide-react';
@@ -26,7 +26,7 @@ export function FeedCard({ template }: FeedCardProps) {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
-  const [isMuted, setIsMuted] = useState(true); // Start muted for autoplay
+  const [isMuted, setIsMuted] = useAtom(feedMutedAtom); // Global muted state
   const videoRef = useRef<HTMLVideoElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -91,20 +91,24 @@ export function FeedCard({ template }: FeedCardProps) {
     return () => observer.disconnect();
   }, [template.videoUrl, shouldLoadVideo]);
 
+  // Sync video muted state with global atom
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.muted = isMuted;
+    }
+  }, [isMuted]);
+
   const handleLike = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     likeTemplate(template.id);
   }, [likeTemplate, template.id]);
 
-  // Sound toggle
+  // Sound toggle (global for all videos)
   const handleSoundToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    const video = videoRef.current;
-    if (video) {
-      video.muted = !video.muted;
-      setIsMuted(video.muted);
-    }
-  }, []);
+    setIsMuted(prev => !prev);
+  }, [setIsMuted]);
 
   // Double-tap like handler
   const handleDoubleTapLike = useCallback(() => {
