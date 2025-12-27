@@ -1,14 +1,18 @@
-import { useCallback, useState, useRef, useEffect } from 'react';
+import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { assetsAtom, addAssetAtom, removeAssetAtom, addItemAtom } from '@/atoms';
+import { templatesAtom, selectedTemplateIdAtom, selectTemplateAtom, removeTemplateAtom } from '@/atoms/templates';
 import { currentFrameAtom } from '@/atoms/playback';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useLongPress } from '@/hooks/useLongPress';
-import { Music, Trash2, Upload, Loader2, Play, Maximize, Minimize2, Film, Plus } from 'lucide-react';
+import { Music, Trash2, Upload, Loader2, Play, Maximize, Minimize2, Film, Plus, LayoutTemplate, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Asset, AssetType } from '@/store/types';
 import { broadcastAssetAdded, broadcastAssetRemoved } from '@/lib/websocket';
 import { toAbsoluteUrl } from '@/lib/mediaUrl';
 import { QuickActionsMenu, useAssetQuickActions } from '@/components/common/QuickActionsMenu';
+import { SearchBar, type AssetFilter } from '@/components/common/SearchBar';
+import { RecentFavorites, useRecentFavorites, type RecentAsset } from '@/components/Assets/RecentFavorites';
+import { SkeletonAssetGrid } from '@/components/common/Skeleton';
 import './AssetsPanel.css';
 
 // Render server URL (for S3 uploads)
@@ -100,11 +104,34 @@ export function AssetsPanel() {
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const [durations, setDurations] = useState<Record<string, number>>({});
   const [viewMode, setViewMode] = useState<'fill' | 'fit'>('fill');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [assetFilter, setAssetFilter] = useState<AssetFilter>('all');
+  const [thumbnailsLoading, setThumbnailsLoading] = useState<Set<string>>(new Set());
+  const [templatesExpanded, setTemplatesExpanded] = useState(true);
+
+  // Templates
+  const templates = useAtomValue(templatesAtom);
+  const selectedTemplateId = useAtomValue(selectedTemplateIdAtom);
+  const selectTemplate = useSetAtom(selectTemplateAtom);
+  const removeTemplate = useSetAtom(removeTemplateAtom);
+
+  // Recent/Favorites hook
+  const {
+    recentAssets,
+    favoriteAssets,
+    addRecent,
+    removeRecent,
+    clearRecent,
+    toggleFavorite,
+  } = useRecentFavorites();
 
   // Generate thumbnails for video assets
   useEffect(() => {
     assets.forEach(async (asset) => {
-      if (asset.type === 'video' && !thumbnails[asset.id]) {
+      if (asset.type === 'video' && !thumbnails[asset.id] && !thumbnailsLoading.has(asset.id)) {
+        // Mark as loading
+        setThumbnailsLoading(prev => new Set(prev).add(asset.id));
+
         const thumb = await generateVideoThumbnail(asset.url);
         if (thumb) {
           setThumbnails(prev => ({ ...prev, [asset.id]: thumb }));
@@ -113,6 +140,13 @@ export function AssetsPanel() {
         if (duration) {
           setDurations(prev => ({ ...prev, [asset.id]: duration }));
         }
+
+        // Mark as done loading
+        setThumbnailsLoading(prev => {
+          const next = new Set(prev);
+          next.delete(asset.id);
+          return next;
+        });
       }
     });
   }, [assets]);
@@ -254,6 +288,15 @@ export function AssetsPanel() {
       },
     });
 
+    // Add to recent
+    addRecent({
+      id: asset.id,
+      type: asset.type as 'video' | 'image' | 'audio',
+      name: asset.name,
+      thumbnail: thumbnails[asset.id],
+      url: asset.url,
+    });
+
     // Haptic feedback
     if ('vibrate' in navigator) {
       navigator.vibrate(50);
@@ -297,9 +340,55 @@ export function AssetsPanel() {
     }
   };
 
-  const videoAssets = assets.filter((a) => a.type === 'video');
-  const imageAssets = assets.filter((a) => a.type === 'image');
-  const audioAssets = assets.filter((a) => a.type === 'audio');
+  // Filter assets by search query and type
+  const filteredAssets = useMemo(() => {
+    return assets.filter((asset) => {
+      // Filter by type
+      if (assetFilter !== 'all' && asset.type !== assetFilter) {
+        return false;
+      }
+      // Filter by search query
+      if (searchQuery) {
+        return asset.name.toLowerCase().includes(searchQuery.toLowerCase());
+      }
+      return true;
+    });
+  }, [assets, assetFilter, searchQuery]);
+
+  const videoAssets = filteredAssets.filter((a) => a.type === 'video');
+  const imageAssets = filteredAssets.filter((a) => a.type === 'image');
+  const audioAssets = filteredAssets.filter((a) => a.type === 'audio');
+
+  // Count videos still loading thumbnails
+  const videosLoadingCount = useMemo(() => {
+    return videoAssets.filter(a => thumbnailsLoading.has(a.id)).length;
+  }, [videoAssets, thumbnailsLoading]);
+
+  // Convert asset to RecentAsset format for favorites
+  const assetToRecent = (asset: Asset): RecentAsset => ({
+    id: asset.id,
+    type: asset.type as 'video' | 'image' | 'audio',
+    name: asset.name,
+    thumbnail: thumbnails[asset.id],
+    url: asset.url,
+    usedAt: Date.now(),
+  });
+
+  // Handle selecting asset from recent/favorites
+  const handleSelectRecentAsset = (asset: RecentAsset | any) => {
+    const fullAsset = assets.find(a => a.id === asset.id);
+    if (fullAsset) {
+      handleAddToTimeline(fullAsset);
+    }
+  };
+
+  // Handle template delete
+  const handleDeleteTemplate = (e: React.MouseEvent, templateId: string) => {
+    e.stopPropagation();
+    if (confirm(t('templates.confirmDelete'))) {
+      removeTemplate(templateId);
+    }
+  };
 
   return (
     <div className="assets-panel">
@@ -328,6 +417,76 @@ export function AssetsPanel() {
           <span className="upload-hint">{t('assets.uploadsToCloud')}</span>
         </label>
       </div>
+
+      {/* Search Bar */}
+      <div className="assets-search">
+        <SearchBar
+          value={searchQuery}
+          onChange={setSearchQuery}
+          filter={assetFilter}
+          onFilterChange={setAssetFilter}
+          placeholder={t('search.placeholder')}
+        />
+      </div>
+
+      {/* Recent & Favorites */}
+      <RecentFavorites
+        recentAssets={recentAssets}
+        favoriteAssets={favoriteAssets}
+        onSelectAsset={handleSelectRecentAsset}
+        onRemoveRecent={removeRecent}
+        onToggleFavorite={toggleFavorite}
+        onClearRecent={clearRecent}
+      />
+
+      {/* Templates Section */}
+      {templates.length > 0 && (
+        <div className="templates-section">
+          <button
+            className="templates-header"
+            onClick={() => setTemplatesExpanded(!templatesExpanded)}
+          >
+            <LayoutTemplate size={14} />
+            <span>{t('templates.title')}</span>
+            <span className="templates-count">{templates.length}</span>
+            {templatesExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {templatesExpanded && (
+            <div className="templates-list">
+              {templates.map((template) => {
+                const isSelected = template.id === selectedTemplateId;
+                return (
+                  <div
+                    key={template.id}
+                    className={`template-item ${isSelected ? 'selected' : ''}`}
+                    onClick={() => selectTemplate(template.id)}
+                    title={template.description}
+                  >
+                    <div className="template-icon">
+                      <LayoutTemplate size={14} />
+                    </div>
+                    <span className="template-name">{template.name}</span>
+                    {isSelected && (
+                      <div className="template-check">
+                        <Check size={12} />
+                      </div>
+                    )}
+                    {template.isUserCreated && (
+                      <button
+                        className="template-delete"
+                        onClick={(e) => handleDeleteTemplate(e, template.id)}
+                        title={t('templates.delete')}
+                      >
+                        <Trash2 size={10} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* View Mode Toggle */}
       <div className="view-mode-toggle">
@@ -378,6 +537,7 @@ export function AssetsPanel() {
                 thumbnail={thumbnails[asset.id]}
                 duration={durations[asset.id]}
                 viewMode={viewMode}
+                isLoading={thumbnailsLoading.has(asset.id)}
                 onDragStart={handleDragStart}
                 onAddToTimeline={handleAddToTimeline}
                 onAddToStart={handleAddToStart}
@@ -387,6 +547,11 @@ export function AssetsPanel() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Skeleton placeholders for initial load */}
+      {uploads.length > 0 && videoAssets.length === 0 && imageAssets.length === 0 && (
+        <SkeletonAssetGrid count={uploads.length} />
       )}
 
       {/* Images - Grid View */}
@@ -444,6 +609,7 @@ interface VideoAssetCardProps {
   thumbnail?: string;
   duration?: number;
   viewMode: 'fill' | 'fit';
+  isLoading?: boolean;
   onDragStart: (e: React.DragEvent, asset: Asset) => void;
   onAddToTimeline: (asset: Asset) => void;
   onAddToStart: (asset: Asset) => void;
@@ -451,7 +617,7 @@ interface VideoAssetCardProps {
   t: (key: string) => string;
 }
 
-function VideoAssetCard({ asset, thumbnail, duration, viewMode, onDragStart, onAddToTimeline, onAddToStart, onRemove, t }: VideoAssetCardProps) {
+function VideoAssetCard({ asset, thumbnail, duration, viewMode, isLoading, onDragStart, onAddToTimeline, onAddToStart, onRemove, t }: VideoAssetCardProps) {
   const [isHovering, setIsHovering] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
@@ -539,6 +705,10 @@ function VideoAssetCard({ asset, thumbnail, duration, viewMode, onDragStart, onA
             />
           ) : thumbnail ? (
             <img src={thumbnail} alt={asset.name} className="asset-card-img" />
+          ) : isLoading ? (
+            <div className="asset-card-placeholder asset-card-loading">
+              <Loader2 size={16} className="spin" />
+            </div>
           ) : (
             <div className="asset-card-placeholder">
               <Play size={16} />

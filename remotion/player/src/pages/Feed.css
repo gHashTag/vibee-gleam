@@ -1,18 +1,36 @@
-/* Feed Page - Fullscreen TikTok-style */
+/* Feed Page Layout */
 
 .feed-page {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
   background: #000;
+}
+
+.feed-main {
+  flex: 1;
+  display: flex;
   overflow: hidden;
 }
 
-@media (min-width: 769px) {
-  .feed-page {
-    bottom: 0;
+.feed-content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Mobile: Account for bottom nav */
+@media (max-width: 767px) {
+  .feed-main {
+    padding-bottom: 60px;
+  }
+}
+
+/* Tablet: No vertical tabs */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .feed-content {
+    max-width: 600px;
+    margin: 0 auto;
   }
 }
 

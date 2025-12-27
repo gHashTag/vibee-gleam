@@ -11,19 +11,24 @@ import gleam/result
 import gleam/string
 import pog
 import vibee/bot/scene.{
-  type Scene, type UserSession, Avatar, AvatarEnterPrompt, AvatarEnterTriggerWord,
-  AvatarGenerating, AvatarResult, AvatarStart, AvatarTrainingComplete,
-  AvatarTrainingStarted, AvatarUploadPhotos, AvatarVideo, AvatarVideoEnterScript,
-  AvatarVideoGenerating, AvatarVideoResult, AvatarVideoSelectVoice,
-  AvatarVideoUploadPortrait, BRoll, BRollEnterScript, BRollGenerating,
-  BRollResult, BRollSelectStyle, Idle, ImageToVideo, ImageToVideoEnterPrompt,
-  ImageToVideoGenerating, ImageToVideoResult, ImageToVideoUploadImage, Main,
-  MainMenu, Morphing, MorphingEnterStyle, MorphingGenerating, MorphingResult,
-  MorphingUploadEnd, MorphingUploadStart, NeuroPhoto, NeuroPhotoEnterPrompt,
-  NeuroPhotoGenerating, NeuroPhotoResult, NeuroPhotoSelectModel, TextToVideo,
-  TextToVideoEnterPrompt, TextToVideoGenerating, TextToVideoResult,
-  TextToVideoSelectProvider, UserSession, VoiceClone, VoiceCloneEnterText,
-  VoiceCloneGenerating, VoiceCloneResult, VoiceCloneUploadSample,
+  type Scene, type UserBotSetupScene, type UserSession, Avatar, AvatarEnterPrompt,
+  AvatarEnterTriggerWord, AvatarGenerating, AvatarResult, AvatarStart,
+  AvatarTrainingComplete, AvatarTrainingStarted, AvatarUploadPhotos, AvatarVideo,
+  AvatarVideoEnterScript, AvatarVideoGenerating, AvatarVideoResult,
+  AvatarVideoSelectVoice, AvatarVideoUploadPortrait, BRoll, BRollEnterScript,
+  BRollGenerating, BRollResult, BRollSelectStyle, Idle, ImageToVideo,
+  ImageToVideoEnterPrompt, ImageToVideoGenerating, ImageToVideoResult,
+  ImageToVideoUploadImage, Main, MainMenu, Morphing, MorphingEnterStyle,
+  MorphingGenerating, MorphingResult, MorphingUploadEnd, MorphingUploadStart,
+  NeuroPhoto, NeuroPhotoEnterPrompt, NeuroPhotoGenerating, NeuroPhotoResult,
+  NeuroPhotoSelectModel, TextToVideo, TextToVideoEnterPrompt, TextToVideoGenerating,
+  TextToVideoResult, TextToVideoSelectProvider, UserBotActivating, UserBotAuthSuccess,
+  UserBotCharacterConfigured, UserBotChatsSelected, UserBotComplete,
+  UserBotConfigureMode, UserBotEnter2FA, UserBotEnterPhone, UserBotModesConfigured,
+  UserBotSelectChats, UserBotSetup, UserBotSetupCharacter, UserBotSetupTriggers,
+  UserBotSummary, UserBotTriggersConfigured, UserBotWaitingCode, UserBotWelcome,
+  UserSession, VoiceClone, VoiceCloneEnterText, VoiceCloneGenerating,
+  VoiceCloneResult, VoiceCloneUploadSample,
 }
 
 // ============================================================
@@ -275,7 +280,11 @@ fn parse_scene_json(json_str: String) -> Scene {
                             False ->
                               case string.contains(json_str, "\"avatar\"") {
                                 True -> parse_avatar_scene(json_str)
-                                False -> Main(Idle)
+                                False ->
+                                  case string.contains(json_str, "\"userbot_setup\"") {
+                                    True -> parse_userbot_setup_scene(json_str)
+                                    False -> Main(Idle)
+                                  }
                               }
                           }
                       }
@@ -548,6 +557,136 @@ fn parse_voice_clone_scene(json_str: String) -> Scene {
               let audio_url = extract_json_field(json_str, "audio_url")
               VoiceClone(VoiceCloneResult(audio_url))
             }
+          }
+      }
+  }
+}
+
+fn parse_userbot_setup_scene(json_str: String) -> Scene {
+  // Step 1: Auth states
+  case string.contains(json_str, "\"welcome\"") {
+    True -> UserBotSetup(UserBotWelcome)
+    False ->
+      case string.contains(json_str, "\"enter_phone\"") {
+        True -> UserBotSetup(UserBotEnterPhone)
+        False ->
+          case string.contains(json_str, "\"waiting_code\"") {
+            True -> {
+              let phone = extract_json_field(json_str, "phone")
+              let session_id = extract_json_field(json_str, "session_id")
+              let phone_code_hash = extract_json_field(json_str, "phone_code_hash")
+              UserBotSetup(UserBotWaitingCode(phone, session_id, phone_code_hash))
+            }
+            False ->
+              case string.contains(json_str, "\"enter_2fa\"") {
+                True -> {
+                  let phone = extract_json_field(json_str, "phone")
+                  let session_id = extract_json_field(json_str, "session_id")
+                  UserBotSetup(UserBotEnter2FA(phone, session_id))
+                }
+                False ->
+                  case string.contains(json_str, "\"auth_success\"") {
+                    True -> {
+                      let session_id = extract_json_field(json_str, "session_id")
+                      let username = extract_json_field(json_str, "username")
+                      let first_name = extract_json_field(json_str, "first_name")
+                      UserBotSetup(UserBotAuthSuccess(session_id, username, first_name))
+                    }
+                    False ->
+                      // Step 2: Chat selection
+                      case string.contains(json_str, "\"select_chats\"") {
+                        True -> {
+                          let session_id = extract_json_field(json_str, "session_id")
+                          let available_chats = extract_json_field(json_str, "available_chats")
+                          UserBotSetup(UserBotSelectChats(session_id, available_chats))
+                        }
+                        False ->
+                          case string.contains(json_str, "\"chats_selected\"") {
+                            True -> {
+                              let session_id = extract_json_field(json_str, "session_id")
+                              let selected_chat_ids = extract_json_field(json_str, "selected_chat_ids")
+                              UserBotSetup(UserBotChatsSelected(session_id, selected_chat_ids))
+                            }
+                            False ->
+                              // Step 3: Mode configuration
+                              case string.contains(json_str, "\"configure_mode\"") {
+                                True -> {
+                                  let session_id = extract_json_field(json_str, "session_id")
+                                  let chat_id = extract_json_int(json_str, "chat_id")
+                                  let chat_name = extract_json_field(json_str, "chat_name")
+                                  let remaining_chats = extract_json_field(json_str, "remaining_chats")
+                                  UserBotSetup(UserBotConfigureMode(session_id, chat_id, chat_name, remaining_chats))
+                                }
+                                False ->
+                                  case string.contains(json_str, "\"modes_configured\"") {
+                                    True -> {
+                                      let session_id = extract_json_field(json_str, "session_id")
+                                      let chat_configs = extract_json_field(json_str, "chat_configs")
+                                      UserBotSetup(UserBotModesConfigured(session_id, chat_configs))
+                                    }
+                                    False ->
+                                      // Step 4: Triggers
+                                      case string.contains(json_str, "\"setup_triggers\"") {
+                                        True -> {
+                                          let session_id = extract_json_field(json_str, "session_id")
+                                          UserBotSetup(UserBotSetupTriggers(session_id))
+                                        }
+                                        False ->
+                                          case string.contains(json_str, "\"triggers_configured\"") {
+                                            True -> {
+                                              let session_id = extract_json_field(json_str, "session_id")
+                                              let triggers = extract_json_field(json_str, "triggers")
+                                              UserBotSetup(UserBotTriggersConfigured(session_id, triggers))
+                                            }
+                                            False ->
+                                              // Step 5: Character
+                                              case string.contains(json_str, "\"setup_character\"") {
+                                                True -> {
+                                                  let session_id = extract_json_field(json_str, "session_id")
+                                                  UserBotSetup(UserBotSetupCharacter(session_id))
+                                                }
+                                                False ->
+                                                  case string.contains(json_str, "\"character_configured\"") {
+                                                    True -> {
+                                                      let session_id = extract_json_field(json_str, "session_id")
+                                                      let character_name = extract_json_field(json_str, "character_name")
+                                                      let character_style = extract_json_field(json_str, "character_style")
+                                                      UserBotSetup(UserBotCharacterConfigured(session_id, character_name, character_style))
+                                                    }
+                                                    False ->
+                                                      // Step 6: Summary & Activation
+                                                      case string.contains(json_str, "\"summary\"") {
+                                                        True -> {
+                                                          let session_id = extract_json_field(json_str, "session_id")
+                                                          let full_config = extract_json_field(json_str, "full_config")
+                                                          UserBotSetup(UserBotSummary(session_id, full_config))
+                                                        }
+                                                        False ->
+                                                          case string.contains(json_str, "\"activating\"") {
+                                                            True -> {
+                                                              let session_id = extract_json_field(json_str, "session_id")
+                                                              UserBotSetup(UserBotActivating(session_id))
+                                                            }
+                                                            False ->
+                                                              case string.contains(json_str, "\"complete\"") {
+                                                                True -> {
+                                                                  let session_id = extract_json_field(json_str, "session_id")
+                                                                  UserBotSetup(UserBotComplete(session_id))
+                                                                }
+                                                                False -> UserBotSetup(UserBotWelcome)
+                                                              }
+                                                          }
+                                                      }
+                                                  }
+                                              }
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
           }
       }
   }

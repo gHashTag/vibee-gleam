@@ -1,10 +1,10 @@
-import { useCallback, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { likeTemplateAtom, useTemplateAtom, deleteTemplateAtom, userAtom, type FeedTemplate } from '@/atoms';
 import { useLanguage } from '@/hooks/useLanguage';
 import { LikeAnimation } from '@/components/LikeAnimation';
-import { Heart, Eye, Users, Play, Loader2, Sparkles, Trash2 } from 'lucide-react';
+import { Heart, Eye, Users, Play, Loader2, Sparkles, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
 import './FeedPanel.css';
 
 interface FeedCardProps {
@@ -13,6 +13,7 @@ interface FeedCardProps {
 
 export function FeedCard({ template }: FeedCardProps) {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const user = useAtomValue(userAtom);
   const likeTemplate = useSetAtom(likeTemplateAtom);
   const useTemplate = useSetAtom(useTemplateAtom);
@@ -20,9 +21,71 @@ export function FeedCard({ template }: FeedCardProps) {
   const [isUsing, setIsUsing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
+  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // Check if current user is admin
   const isAdmin = user?.is_admin === true;
+
+  // Lazy load video when card is near viewport (200px before visible)
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          console.log('[FeedCard] Card in viewport, loading video:', template.id);
+          setShouldLoadVideo(true);
+          observer.disconnect(); // Only need to trigger once
+        }
+      },
+      { rootMargin: '200px' } // Start loading 200px before visible
+    );
+
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, [template.id]);
+
+  // Click to play/pause video (TikTok-style)
+  const handleCardClick = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || !shouldLoadVideo) return;
+
+    if (isPlaying) {
+      video.pause();
+      setIsPlaying(false);
+    } else {
+      video.play().catch(() => {});
+      setIsPlaying(true);
+    }
+  }, [isPlaying, shouldLoadVideo]);
+
+  // Auto-play when card scrolls into view (IntersectionObserver)
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !shouldLoadVideo) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && entry.intersectionRatio > 0.7) {
+          video.play().catch(() => {}); // Ignore autoplay errors
+          setIsPlaying(true);
+        } else {
+          video.pause();
+          setIsPlaying(false);
+        }
+      },
+      { threshold: 0.7 }
+    );
+
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, [template.videoUrl, shouldLoadVideo]);
 
   const handleLike = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -41,10 +104,12 @@ export function FeedCard({ template }: FeedCardProps) {
     setIsUsing(true);
     try {
       await useTemplate(template.id);
+      // Navigate to avatar generation page to record cameo
+      navigate('/generate/avatar');
     } finally {
       setIsUsing(false);
     }
-  }, [useTemplate, template.id]);
+  }, [useTemplate, template.id, navigate]);
 
   const handleDelete = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -66,21 +131,34 @@ export function FeedCard({ template }: FeedCardProps) {
     return count.toString();
   };
 
+  // Format relative time with better granularity
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
     const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
 
-    if (days === 0) return t('feed.today');
-    if (days === 1) return t('feed.yesterday');
-    if (days < 7) return `${days}d`;
-    if (days < 30) return `${Math.floor(days / 7)}w`;
-    return `${Math.floor(days / 30)}mo`;
+    if (diffMin < 1) return t('feed.justNow') || 'now';
+    if (diffMin < 60) return `${diffMin}m`;
+    if (diffHour < 24) return `${diffHour}h`;
+    if (diffDay < 7) return `${diffDay}d`;
+    if (diffDay < 30) return `${Math.floor(diffDay / 7)}w`;
+    return `${Math.floor(diffDay / 30)}mo`;
   };
+
+  // Retry loading video after error
+  const handleRetry = useCallback(() => {
+    setVideoError(null);
+    setIsVideoLoaded(false);
+    videoRef.current?.load();
+  }, []);
 
   return (
     <div
+      ref={cardRef}
       className="feed-card"
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
@@ -88,31 +166,80 @@ export function FeedCard({ template }: FeedCardProps) {
       {/* Inner wrapper for max-width centering */}
       <div className="feed-card-inner">
         <LikeAnimation onDoubleTap={handleDoubleTapLike}>
-          <div className="feed-card-thumbnail">
-            {template.thumbnailUrl ? (
-              <img src={template.thumbnailUrl} alt={template.name} />
-            ) : template.videoUrl ? (
-              <video
-                src={template.videoUrl}
-                muted
-                playsInline
-                className="feed-card-thumbnail-video"
-              />
+          <div
+            className={`feed-card-thumbnail ${isPlaying ? 'playing' : ''}`}
+            onClick={handleCardClick}
+          >
+            {/* Lazy load video - only render when near viewport */}
+            {shouldLoadVideo && template.videoUrl ? (
+              <>
+                <video
+                  ref={videoRef}
+                  src={template.videoUrl}
+                  poster={template.thumbnailUrl || undefined}
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  className="feed-card-video"
+                  onLoadedData={() => {
+                    console.log('[FeedCard] Video loaded:', template.videoUrl);
+                    setIsVideoLoaded(true);
+                  }}
+                  onCanPlay={() => {
+                    // Auto-play when can play
+                    const video = videoRef.current;
+                    if (video) {
+                      video.play().catch(() => {});
+                    }
+                  }}
+                  onError={(e) => {
+                    const video = e.currentTarget;
+                    console.error('[FeedCard] Video error:', template.videoUrl, video.error);
+                    setVideoError(video.error?.message || 'Failed to load video');
+                  }}
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                />
+                {/* Error indicator with retry button */}
+                {videoError && (
+                  <div className="feed-card-error">
+                    <AlertCircle size={32} />
+                    <span>{t('feed.videoError') || 'Video error'}</span>
+                    <button onClick={(e) => { e.stopPropagation(); handleRetry(); }} className="retry-btn">
+                      <RefreshCw size={16} />
+                      {t('feed.retry') || 'Retry'}
+                    </button>
+                  </div>
+                )}
+                {/* Loading indicator - show while video is loading */}
+                {!isVideoLoaded && !videoError && (
+                  <div className="feed-card-loading">
+                    <Loader2 size={32} className="spinning" />
+                  </div>
+                )}
+              </>
+            ) : template.thumbnailUrl ? (
+              // Show poster/thumbnail before video loads
+              <div className="feed-card-poster">
+                <img src={template.thumbnailUrl} alt={template.name} />
+                {!shouldLoadVideo && (
+                  <div className="feed-card-loading">
+                    <Loader2 size={32} className="spinning" />
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="feed-card-placeholder">
                 <Play size={24} />
               </div>
             )}
 
-            {isHovering && template.videoUrl && (
-              <video
-                src={template.videoUrl}
-                autoPlay
-                muted
-                loop
-                playsInline
-                className="feed-card-preview"
-              />
+            {/* Play overlay - visible when paused */}
+            {!isPlaying && shouldLoadVideo && template.videoUrl && isVideoLoaded && (
+              <div className="play-overlay">
+                <Play size={64} fill="white" />
+              </div>
             )}
 
             {template.isFeatured && (

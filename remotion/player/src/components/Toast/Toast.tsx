@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Info, AlertTriangle, Loader2 } from 'lucide-react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { toastsAtom, removeToastAtom, type Toast as ToastType } from '@/atoms/toast';
 import './Toast.css';
@@ -9,6 +9,7 @@ const icons = {
   error: AlertCircle,
   warning: AlertTriangle,
   info: Info,
+  loading: Loader2,
 };
 
 function ToastItem({ toast }: { toast: ToastType }) {
@@ -33,7 +34,7 @@ function ToastItem({ toast }: { toast: ToastType }) {
 
   return (
     <div className={`toast toast--${toast.type}`}>
-      <div className="toast__icon">
+      <div className={`toast__icon ${toast.type === 'loading' ? 'toast__icon--spinning' : ''}`}>
         <Icon size={20} />
       </div>
       <div className="toast__content">
@@ -45,9 +46,11 @@ function ToastItem({ toast }: { toast: ToastType }) {
           {toast.action.label}
         </button>
       )}
-      <button className="toast__close" onClick={() => removeToast(toast.id)}>
-        <X size={16} />
-      </button>
+      {toast.type !== 'loading' && (
+        <button className="toast__close" onClick={() => removeToast(toast.id)}>
+          <X size={16} />
+        </button>
+      )}
     </div>
   );
 }

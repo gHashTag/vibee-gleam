@@ -33,6 +33,8 @@ export interface Track {
   items: TrackItem[];
   locked: boolean;
   visible: boolean;
+  muted: boolean;
+  solo: boolean;
 }
 
 // ===============================

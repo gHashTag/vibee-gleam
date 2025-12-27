@@ -8,7 +8,6 @@ import { templatesAtom, selectedTemplateIdAtom } from './templates';
 import { assetsAtom } from './assets';
 import { tracksAtom } from './tracks';
 import type { Asset, Track } from '@/store/types';
-import { sidebarTabAtom } from './ui';
 import { userAtom } from './user';
 
 // Remix source tracking - when user uses a template from feed
@@ -64,13 +63,20 @@ export interface PublishData {
 }
 
 export type FeedSort = 'recent' | 'popular';
+export type FeedType = 'for_you' | 'following';
 
 // ===============================
 // Atoms
 // ===============================
 
-// Feed templates list
+// Feed type (For You / Following)
+export const feedTypeAtom = atom<FeedType>('for_you');
+
+// Feed templates list (for_you)
 export const feedTemplatesAtom = atom<FeedTemplate[]>([]);
+
+// Following feed templates list
+export const followingFeedTemplatesAtom = atom<FeedTemplate[]>([]);
 
 // Loading state
 export const feedLoadingAtom = atom(false);
@@ -78,14 +84,23 @@ export const feedLoadingAtom = atom(false);
 // Error state
 export const feedErrorAtom = atom<string | null>(null);
 
-// Current page for pagination
+// Current page for pagination (for_you)
 export const feedPageAtom = atom(0);
 
-// Has more pages
+// Current page for following feed
+export const followingFeedPageAtom = atom(0);
+
+// Has more pages (for_you)
 export const feedHasMoreAtom = atom(true);
+
+// Has more pages (following)
+export const followingFeedHasMoreAtom = atom(true);
 
 // Sort order
 export const feedSortAtom = atom<FeedSort>('recent');
+
+// Current feed index (for swipe navigation)
+export const currentFeedIndexAtom = atom(0);
 
 // ===============================
 // API Functions
@@ -123,11 +138,14 @@ function transformTemplate(raw: any): FeedTemplate {
 }
 
 async function fetchFeed(page: number, limit: number, sort: FeedSort): Promise<FeedTemplate[]> {
-  const response = await fetch(`${API_BASE}/api/feed?page=${page}&limit=${limit}&sort=${sort}`);
+  const url = `${API_BASE}/api/feed?page=${page}&limit=${limit}&sort=${sort}`;
+  console.log('[Feed] Fetching:', url);
+  const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Failed to fetch feed: ${response.statusText}`);
   }
   const data = await response.json();
+  console.log('[Feed] API response:', data);
   return (data.templates || []).map(transformTemplate);
 }
 
@@ -193,6 +211,12 @@ async function useTemplate(id: number): Promise<FeedTemplate> {
 export const loadFeedAtom = atom(
   null,
   async (get, set, refresh?: boolean) => {
+    // Prevent concurrent loads - this fixes duplicate videos issue
+    if (get(feedLoadingAtom)) {
+      console.log('[Feed] Already loading, skip');
+      return;
+    }
+
     const sort = get(feedSortAtom);
     const currentTemplates = get(feedTemplatesAtom);
 
@@ -200,16 +224,22 @@ export const loadFeedAtom = atom(
     const page = refresh ? 0 : get(feedPageAtom);
     const limit = 20;
 
+    console.log('[Feed] Loading feed...', { page, limit, sort, refresh });
+
     set(feedLoadingAtom, true);
     set(feedErrorAtom, null);
 
     try {
       const templates = await fetchFeed(page, limit, sort);
+      console.log('[Feed] Loaded templates:', templates.length, templates);
 
       if (refresh || page === 0) {
         set(feedTemplatesAtom, templates);
       } else {
-        set(feedTemplatesAtom, [...currentTemplates, ...templates]);
+        // Deduplicate by ID when loading more
+        const existingIds = new Set(currentTemplates.map(t => t.id));
+        const newTemplates = templates.filter(t => !existingIds.has(t.id));
+        set(feedTemplatesAtom, [...currentTemplates, ...newTemplates]);
       }
 
       set(feedPageAtom, page + 1);
@@ -348,11 +378,7 @@ export const useTemplateAtom = atom(
         creatorAvatar: template.creatorAvatar,
       });
 
-      // Switch to lipsync tab so user can replace their cameo/voice
-      set(sidebarTabAtom, 'lipsync');
-
       console.log('[Feed] Template loaded for remix:', template.name);
-      console.log('[Feed] Switch to lipsync tab to record your cameo!');
     } catch (error) {
       console.error('[Feed] Failed to use template:', error);
       set(feedErrorAtom, error instanceof Error ? error.message : 'Failed to use template');

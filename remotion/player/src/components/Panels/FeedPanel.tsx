@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import {
   feedTemplatesAtom,
@@ -29,12 +29,18 @@ export function FeedPanel({ fullscreen = false }: FeedPanelProps) {
   const loadFeed = useSetAtom(loadFeedAtom);
   const changeSort = useSetAtom(changeFeedSortAtom);
 
-  // Load feed on mount
+  // Use ref to track if we've already triggered initial load - prevents race condition
+  const hasLoadedRef = useRef(false);
+
+  // Load feed on mount - empty deps to run only once
   useEffect(() => {
-    if (templates.length === 0) {
+    console.log('[FeedPanel] Mount, templates:', templates.length, 'hasLoaded:', hasLoadedRef.current);
+    if (!hasLoadedRef.current && templates.length === 0) {
+      hasLoadedRef.current = true;
+      console.log('[FeedPanel] Loading feed...');
       loadFeed(true);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSortChange = useCallback((newSort: FeedSort) => {
     changeSort(newSort);

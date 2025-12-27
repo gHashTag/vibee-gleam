@@ -134,6 +134,38 @@ pub type SubscriptionScene {
   SubscriptionPayment(product_code: String, method: String)
 }
 
+/// User-Bot Setup Wizard flow
+/// Allows users to connect their own Telegram account as user-bot
+pub type UserBotSetupScene {
+  // Step 1: Authorization
+  UserBotWelcome
+  UserBotEnterPhone
+  UserBotWaitingCode(phone: String, session_id: String, phone_code_hash: String)
+  UserBotEnter2FA(phone: String, session_id: String)
+  UserBotAuthSuccess(session_id: String, username: String, first_name: String)
+
+  // Step 2: Chat Selection
+  UserBotSelectChats(session_id: String, available_chats: String)
+  UserBotChatsSelected(session_id: String, selected_chat_ids: String)
+
+  // Step 3: Mode Configuration per Chat
+  UserBotConfigureMode(session_id: String, chat_id: Int, chat_name: String, remaining_chats: String)
+  UserBotModesConfigured(session_id: String, chat_configs: String)
+
+  // Step 4: Trigger Words Setup
+  UserBotSetupTriggers(session_id: String)
+  UserBotTriggersConfigured(session_id: String, triggers: String)
+
+  // Step 5: Digital Twin Character (optional)
+  UserBotSetupCharacter(session_id: String)
+  UserBotCharacterConfigured(session_id: String, character_name: String, character_style: String)
+
+  // Step 6: Summary & Activation
+  UserBotSummary(session_id: String, full_config: String)
+  UserBotActivating(session_id: String)
+  UserBotComplete(session_id: String)
+}
+
 /// Combined scene state
 pub type Scene {
   Main(MainScene)
@@ -149,6 +181,7 @@ pub type Scene {
   Pricing(PricingScene)
   Quiz(QuizScene)
   Subscription(SubscriptionScene)
+  UserBotSetup(UserBotSetupScene)
 }
 
 // ============================================================
@@ -771,6 +804,137 @@ pub fn scene_to_json(scene: Scene) -> String {
         #("state", json.string("payment")),
         #("code", json.string(code)),
         #("method", json.string(method)),
+      ]))
+
+    // UserBotSetup scenes - Step 1: Auth
+    UserBotSetup(UserBotWelcome) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("welcome")),
+      ]))
+
+    UserBotSetup(UserBotEnterPhone) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("enter_phone")),
+      ]))
+
+    UserBotSetup(UserBotWaitingCode(phone, session_id, phone_code_hash)) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("waiting_code")),
+        #("phone", json.string(phone)),
+        #("session_id", json.string(session_id)),
+        #("phone_code_hash", json.string(phone_code_hash)),
+      ]))
+
+    UserBotSetup(UserBotEnter2FA(phone, session_id)) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("enter_2fa")),
+        #("phone", json.string(phone)),
+        #("session_id", json.string(session_id)),
+      ]))
+
+    UserBotSetup(UserBotAuthSuccess(session_id, username, first_name)) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("auth_success")),
+        #("session_id", json.string(session_id)),
+        #("username", json.string(username)),
+        #("first_name", json.string(first_name)),
+      ]))
+
+    // UserBotSetup scenes - Step 2: Chat Selection
+    UserBotSetup(UserBotSelectChats(session_id, available_chats)) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("select_chats")),
+        #("session_id", json.string(session_id)),
+        #("available_chats", json.string(available_chats)),
+      ]))
+
+    UserBotSetup(UserBotChatsSelected(session_id, selected_chat_ids)) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("chats_selected")),
+        #("session_id", json.string(session_id)),
+        #("selected_chat_ids", json.string(selected_chat_ids)),
+      ]))
+
+    // UserBotSetup scenes - Step 3: Mode Configuration
+    UserBotSetup(UserBotConfigureMode(session_id, chat_id, chat_name, remaining_chats)) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("configure_mode")),
+        #("session_id", json.string(session_id)),
+        #("chat_id", json.int(chat_id)),
+        #("chat_name", json.string(chat_name)),
+        #("remaining_chats", json.string(remaining_chats)),
+      ]))
+
+    UserBotSetup(UserBotModesConfigured(session_id, chat_configs)) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("modes_configured")),
+        #("session_id", json.string(session_id)),
+        #("chat_configs", json.string(chat_configs)),
+      ]))
+
+    // UserBotSetup scenes - Step 4: Triggers
+    UserBotSetup(UserBotSetupTriggers(session_id)) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("setup_triggers")),
+        #("session_id", json.string(session_id)),
+      ]))
+
+    UserBotSetup(UserBotTriggersConfigured(session_id, triggers)) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("triggers_configured")),
+        #("session_id", json.string(session_id)),
+        #("triggers", json.string(triggers)),
+      ]))
+
+    // UserBotSetup scenes - Step 5: Character
+    UserBotSetup(UserBotSetupCharacter(session_id)) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("setup_character")),
+        #("session_id", json.string(session_id)),
+      ]))
+
+    UserBotSetup(UserBotCharacterConfigured(session_id, character_name, character_style)) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("character_configured")),
+        #("session_id", json.string(session_id)),
+        #("character_name", json.string(character_name)),
+        #("character_style", json.string(character_style)),
+      ]))
+
+    // UserBotSetup scenes - Step 6: Summary & Activation
+    UserBotSetup(UserBotSummary(session_id, full_config)) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("summary")),
+        #("session_id", json.string(session_id)),
+        #("full_config", json.string(full_config)),
+      ]))
+
+    UserBotSetup(UserBotActivating(session_id)) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("activating")),
+        #("session_id", json.string(session_id)),
+      ]))
+
+    UserBotSetup(UserBotComplete(session_id)) ->
+      json.to_string(json.object([
+        #("type", json.string("userbot_setup")),
+        #("state", json.string("complete")),
+        #("session_id", json.string(session_id)),
       ]))
   }
 }

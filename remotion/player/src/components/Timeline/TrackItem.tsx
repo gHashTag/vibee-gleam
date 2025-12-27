@@ -1,10 +1,15 @@
-import { useState, useCallback, useEffect, memo } from 'react';
+import { useState, useCallback, useEffect, memo, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { selectItemsAtom, selectRangeAtom, moveItemAtom, resizeItemAtom, getAssetByIdAtom, volumePopupItemIdAtom } from '@/atoms';
+import { selectItemsAtom, selectRangeAtom, moveItemAtom, resizeItemAtom, getAssetByIdAtom, volumePopupItemIdAtom, snapSettingsAtom, tracksAtom, currentFrameAtom } from '@/atoms';
+import { setActiveSnapFrameAtom, setDraggingItemAtom } from '@/atoms/timeline';
 import { useLanguage } from '@/hooks/useLanguage';
 import { ContextMenu } from './ContextMenu';
+import { MiniWaveform } from './Waveform';
+import { TrimPreview } from './TrimPreview';
 import type { TrackItem as TrackItemType } from '@/store/types';
+
+const FPS = 30; // Default FPS for trim preview calculations
 
 interface TrackItemProps {
   item: TrackItemType;
@@ -21,6 +26,27 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
   const resizeItem = useSetAtom(resizeItemAtom);
   const getAssetById = useAtomValue(getAssetByIdAtom);
 
+  // Snap settings and atoms
+  const snapSettings = useAtomValue(snapSettingsAtom);
+  const tracks = useAtomValue(tracksAtom);
+  const currentFrame = useAtomValue(currentFrameAtom);
+  const setActiveSnapFrame = useSetAtom(setActiveSnapFrameAtom);
+  const setDraggingItem = useSetAtom(setDraggingItemAtom);
+
+  // Calculate snap points from all track items
+  const snapPoints = useMemo(() => {
+    const points: number[] = [0, currentFrame]; // Frame 0 and playhead
+    tracks.forEach(track => {
+      track.items.forEach(trackItem => {
+        if (trackItem.id !== item.id) { // Exclude current item
+          points.push(trackItem.startFrame);
+          points.push(trackItem.startFrame + trackItem.durationInFrames);
+        }
+      });
+    });
+    return [...new Set(points)].sort((a, b) => a - b);
+  }, [tracks, currentFrame, item.id]);
+
   // Volume popup - only need setter (popup is rendered in Timeline)
   const setVolumePopupItemId = useSetAtom(volumePopupItemIdAtom);
 
@@ -31,6 +57,11 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
   const [initialFrame, setInitialFrame] = useState(0);
   const [initialDuration, setInitialDuration] = useState(0);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+
+  // Trim preview state
+  const [trimPreviewPos, setTrimPreviewPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [currentTrimFrame, setCurrentTrimFrame] = useState(0);
+  const itemRef = useRef<HTMLDivElement>(null);
 
   const asset = item.assetId ? getAssetById(item.assetId) : null;
   const label = asset?.name || item.type;
@@ -88,6 +119,29 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
     }
   }, [item.type, item.id, setVolumePopupItemId]);
 
+  // Helper function to find nearest snap point
+  const getSnappedFrame = useCallback((targetFrame: number, snapThreshold: number = 8): { frame: number; snapped: boolean } => {
+    if (!snapSettings.enabled) {
+      return { frame: targetFrame, snapped: false };
+    }
+
+    let closestFrame = targetFrame;
+    let closestDistance = Infinity;
+
+    for (const point of snapPoints) {
+      const distance = Math.abs(point - targetFrame);
+      if (distance < closestDistance && distance <= snapThreshold) {
+        closestDistance = distance;
+        closestFrame = point;
+      }
+    }
+
+    return {
+      frame: closestFrame,
+      snapped: closestDistance <= snapThreshold
+    };
+  }, [snapSettings.enabled, snapPoints]);
+
   const handleMouseDown = (e: React.MouseEvent, type: 'drag' | 'resize-left' | 'resize-right') => {
     e.stopPropagation();
     e.preventDefault();
@@ -101,8 +155,10 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
 
     if (type === 'drag') {
       setIsDragging(true);
+      setDraggingItem(true);
     } else {
       setIsResizing(type === 'resize-left' ? 'left' : 'right');
+      setDraggingItem(true);
     }
 
     // Select item if not already selected (for drag operations)
@@ -116,28 +172,51 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
       const deltaX = e.clientX - dragStartX;
       const deltaFrames = Math.round(deltaX / pxPerFrame);
 
+      // Update trim preview position
+      if (isResizing) {
+        setTrimPreviewPos({ x: e.clientX, y: e.clientY });
+      }
+
       if (isDragging) {
-        const newStart = Math.max(0, initialFrame + deltaFrames);
-        moveItem({ itemId: item.id, newStartFrame: newStart, snapSettings: { enabled: false, interval: 15 } });
+        const rawStart = Math.max(0, initialFrame + deltaFrames);
+        const { frame: newStart, snapped } = getSnappedFrame(rawStart);
+
+        // Update active snap frame for visual indicator
+        setActiveSnapFrame(snapped ? newStart : null);
+
+        moveItem({ itemId: item.id, newStartFrame: newStart, snapSettings });
       } else if (isResizing === 'left') {
-        const newStart = Math.max(0, initialFrame + deltaFrames);
-        const newDuration = initialDuration - deltaFrames;
+        const rawStart = Math.max(0, initialFrame + deltaFrames);
+        const { frame: newStart, snapped } = getSnappedFrame(rawStart);
+        const newDuration = initialDuration - (newStart - initialFrame);
+
+        setActiveSnapFrame(snapped ? newStart : null);
+        setCurrentTrimFrame(newStart);
+
         if (newDuration > 0) {
-          moveItem({ itemId: item.id, newStartFrame: newStart, snapSettings: { enabled: false, interval: 15 } });
+          moveItem({ itemId: item.id, newStartFrame: newStart, snapSettings });
           resizeItem({ itemId: item.id, newDuration });
         }
       } else if (isResizing === 'right') {
-        const newDuration = Math.max(1, initialDuration + deltaFrames);
+        const rawEnd = initialFrame + initialDuration + deltaFrames;
+        const { frame: newEnd, snapped } = getSnappedFrame(rawEnd);
+        const newDuration = Math.max(1, newEnd - initialFrame);
+
+        setActiveSnapFrame(snapped ? newEnd : null);
+        setCurrentTrimFrame(newEnd);
+
         resizeItem({ itemId: item.id, newDuration });
       }
     },
-    [isDragging, isResizing, dragStartX, initialFrame, initialDuration, pxPerFrame, item.id, moveItem, resizeItem]
+    [isDragging, isResizing, dragStartX, initialFrame, initialDuration, pxPerFrame, item.id, moveItem, resizeItem, getSnappedFrame, setActiveSnapFrame, snapSettings]
   );
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
     setIsResizing(null);
-  }, []);
+    setDraggingItem(false);
+    setActiveSnapFrame(null);
+  }, [setDraggingItem, setActiveSnapFrame]);
 
   // Add/remove global event listeners for drag/resize
   useEffect(() => {
@@ -170,8 +249,12 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
     setIsDragOver(false);
   }, []);
 
+  // Check if this is a video item that can show trim preview
+  const canShowTrimPreview = (item.type === 'video' || item.type === 'avatar') && asset?.url;
+
   return (
     <div
+      ref={itemRef}
       className={`track-item ${isSelected ? 'selected' : ''} ${isLocked ? 'locked' : ''} ${isDragOver ? 'drag-replace' : ''}`}
       data-type={item.type}
       data-color={colorTag}
@@ -204,6 +287,18 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
             backgroundImage: `url(${asset.url})`,
           }}
         />
+      )}
+
+      {/* Audio waveform visualization */}
+      {item.type === 'audio' && (
+        <div className="track-item-waveform">
+          <MiniWaveform
+            width={Math.max(20, item.durationInFrames * pxPerFrame - 16)}
+            height={32}
+            color="currentColor"
+            progress={0}
+          />
+        </div>
       )}
 
       {/* Content */}
@@ -240,6 +335,18 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
           y={contextMenu.y}
           itemId={item.id}
           onClose={closeContextMenu}
+        />,
+        document.body
+      )}
+
+      {/* Trim Preview - shows frame preview while resizing video clips */}
+      {isResizing && canShowTrimPreview && asset?.url && createPortal(
+        <TrimPreview
+          videoUrl={asset.url}
+          frameTime={currentTrimFrame / FPS}
+          x={trimPreviewPos.x}
+          y={trimPreviewPos.y}
+          visible={true}
         />,
         document.body
       )}

@@ -38,6 +38,7 @@ export {
   addTrackAtom,
   removeTrackAtom,
   updateTrackAtom,
+  reorderTracksAtom,
   // Item Actions
   addItemAtom,
   updateItemAtom,

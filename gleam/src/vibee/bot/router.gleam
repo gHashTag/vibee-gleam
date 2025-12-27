@@ -12,9 +12,9 @@ import vibee/bot/scene.{
   AvatarUploadPhotos, AvatarVideo, BRoll, CallbackQuery, Command, Idle,
   ImageToVideo, Main, MainMenu, Morphing, NeuroPhoto, NeuroPhotoEnterPrompt,
   NeuroPhotoGenerating, NeuroPhotoResult, NeuroPhotoSelectModel, PhotoMessage,
-  Pricing, Quiz, ReelsCreator, Subscription,
-  TextMessage, TextReply, TextToVideo, TextWithKeyboard, UserSession,
-  VoiceClone, button, button_row,
+  Pricing, Quiz, ReelsCreator, Subscription, TextMessage, TextReply,
+  TextToVideo, TextWithKeyboard, UserBotSetup,
+  UserSession, VoiceClone, button, button_row,
 }
 import vibee/bot/scene_handler
 import vibee/bot/scenes/avatar_video as avatar_video_scene
@@ -31,6 +31,7 @@ import vibee/sales/lead_service
 import vibee/bot/scenes/voice_clone as voice_clone_scene
 import vibee/bot/scenes/neuro_photo as neuro_photo_scene
 import vibee/bot/scenes/reels_creator as reels_creator_scene
+import vibee/bot/scenes/userbot_setup as userbot_setup_scene
 import vibee/bot/session_store
 import vibee/bot/job_executor
 
@@ -268,6 +269,19 @@ fn handle_command(
       }
     }
 
+    "userbot" -> {
+      case userbot_setup_scene.enter(session) {
+        Ok(result) -> {
+          let _ = session_store.save_session(pool, result.session)
+          Ok(RouterResult(
+            session: result.session,
+            response: result.response,
+          ))
+        }
+        Error(_) -> Error(SceneError("Failed to enter UserBot Setup scene"))
+      }
+    }
+
     "cancel" | "reset" -> {
       let new_session = scene.reset_session(session)
       let _ = session_store.save_session(pool, new_session)
@@ -316,6 +330,8 @@ fn route_to_scene(
     Quiz(_) -> handle_quiz_scene(pool, session, message)
     Subscription(_) -> handle_subscription_scene(pool, session, message)
     ReelsCreator(_) -> handle_new_scene(pool, session, message, reels_creator_scene.handle_message, reels_creator_scene.handle_callback)
+    // User-Bot Setup wizard
+    UserBotSetup(_) -> handle_new_scene(pool, session, message, userbot_setup_scene.handle_message, userbot_setup_scene.handle_callback)
   }
 }
 

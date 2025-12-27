@@ -368,6 +368,9 @@ const en: Translations = {
   "timeline.in": "In",
   "timeline.out": "Out",
   "timeline.assetNotCompatible": "Asset type not compatible with track",
+  "timeline.solo": "Solo this track",
+  "timeline.unsolo": "Unsolo this track",
+  "timeline.reorderTrack": "Drag to reorder",
 
   // Volume Popup
   "volume.musicVolume": "Music Volume",
@@ -459,6 +462,8 @@ const en: Translations = {
   "feed.yesterday": "Yesterday",
   "feed.remixing": "Remixing template...",
   "feed.remixHint": "Record your own voice & cameo to make it yours!",
+  "feed.for_you": "For You",
+  "feed.following": "Following",
 
   // Publish Modal
   "publish.title": "Share to Feed",
@@ -475,6 +480,60 @@ const en: Translations = {
   "publish.failed": "Failed to publish. Please try again.",
   "publish.noVideo": "No video to publish",
   "publish.remixOf": "Remix of",
+
+  // Notifications
+  "notifications.title": "Notifications",
+  "notifications.all": "All",
+  "notifications.unread": "Unread",
+  "notifications.empty": "No notifications yet",
+  "notifications.mark_read": "Mark as read",
+  "notifications.mark_all_read": "Mark all as read",
+  "notifications.clear_all": "Clear all notifications",
+  "notifications.liked_video": "liked your video",
+  "notifications.commented": "commented on your video",
+  "notifications.followed": "started following you",
+  "notifications.mentioned": "mentioned you",
+  "notifications.video_ready": "Your video is ready",
+
+  // Stories
+  "stories.your_story": "Your story",
+  "stories.add": "Add story",
+
+  // Messages
+  "messages.title": "Messages",
+  "messages.search": "Search messages...",
+  "messages.empty": "No messages yet",
+  "messages.placeholder": "Message...",
+
+  // Analytics
+  "analytics.title": "Analytics",
+  "analytics.overview": "Overview",
+  "analytics.content": "Content",
+  "analytics.audience": "Audience",
+  "analytics.last7days": "Last 7 days",
+  "analytics.last30days": "Last 30 days",
+  "analytics.last90days": "Last 90 days",
+  "analytics.allTime": "All time",
+  "analytics.views": "Views",
+  "analytics.likes": "Likes",
+  "analytics.comments": "Comments",
+  "analytics.followers": "Followers",
+  "analytics.videos": "videos",
+  "analytics.avgWatch": "avg watch",
+  "analytics.shares": "shares",
+  "analytics.viewsOverTime": "Views over time",
+  "analytics.topVideos": "Top Videos",
+  "analytics.ageDistribution": "Age Distribution",
+  "analytics.topCountries": "Top Countries",
+
+  // Sound
+  "sound.original": "Original Sound",
+  "sound.use": "Use",
+  "sound.useThis": "Use this sound",
+  "sound.save": "Save",
+  "sound.saved": "Saved",
+  "sound.videos": "videos",
+  "sound.originalSound": "Original sound",
 
   // Remix Badge
   "remix.badge": "Remix",
@@ -705,6 +764,9 @@ const en: Translations = {
   "nav.search": "Search",
   "nav.create": "Create",
   "nav.profile": "Profile",
+  "nav.editor": "Editor",
+  "nav.generate": "Generate",
+  "nav.templates": "Templates",
 
   // Search Page
   "search.placeholder": "Search users, templates...",
@@ -719,6 +781,101 @@ const en: Translations = {
   "quickActions.preview": "Preview",
   "quickActions.setAsBackground": "Set as Background",
   "quickActions.delete": "Delete",
+
+  // Search
+  "search.all": "All",
+
+  // Canvas Controls
+  "canvas.grid": "Grid",
+  "canvas.safeZone": "Safe Zone",
+  "canvas.resetZoom": "Reset Zoom",
+
+  // Toast Messages
+  "toast.addedToTimeline": "Added to timeline",
+  "toast.removedFromTimeline": "Removed from timeline",
+  "toast.copied": "Copied",
+  "toast.assetUploaded": "Asset uploaded",
+  "toast.uploadFailed": "Upload failed",
+  "toast.undo": "Undo",
+
+  // Collections
+  "assets.collections": "Collections",
+  "assets.newCollection": "New Collection",
+  "assets.allAssets": "All Assets",
+  "assets.collectionName": "Collection name...",
+  "assets.noCollections": "No collections yet",
+  "assets.createFirst": "Create your first collection",
+  "assets.addToCollection": "Add to Collection",
+  "actions.rename": "Rename",
+  "actions.delete": "Delete",
+  "actions.clearAll": "Clear all",
+
+  // Recent & Favorites
+  "assets.recent": "Recent",
+  "assets.favorites": "Favorites",
+  "assets.noRecent": "No recent assets",
+  "assets.noFavorites": "No favorites yet",
+
+  // Time
+  "time.justNow": "Just now",
+  "time.minAgo": "m ago",
+  "time.hourAgo": "h ago",
+  "time.dayAgo": "d ago",
+
+  // Empty States
+  "empty.feed.title": "No videos yet",
+  "empty.feed.description": "Be the first to share something awesome!",
+  "empty.feed.action": "Explore",
+  "empty.search.title": "Search for videos",
+  "empty.search.description": "Find creators, templates, and sounds",
+  "empty.search.noResults": "No results found",
+  "empty.search.tryDifferent": "Try different keywords",
+  "empty.messages.title": "No messages yet",
+  "empty.messages.description": "Start a conversation with someone",
+  "empty.messages.action": "Start Chat",
+  "empty.notifications.title": "No notifications",
+  "empty.notifications.description": "You're all caught up!",
+  "empty.likes.title": "No likes yet",
+  "empty.likes.description": "Videos you like will appear here",
+  "empty.bookmarks.title": "No saved videos",
+  "empty.bookmarks.description": "Save videos to watch later",
+  "empty.bookmarks.action": "Explore",
+  "empty.followers.title": "No followers yet",
+  "empty.followers.description": "Share your videos to get followers",
+  "empty.following.title": "Not following anyone",
+  "empty.following.description": "Discover creators to follow",
+  "empty.following.action": "Discover",
+  "empty.drafts.title": "No drafts",
+  "empty.drafts.description": "Your unfinished videos will appear here",
+  "empty.drafts.action": "Create Video",
+  "empty.assets.title": "No assets yet",
+  "empty.assets.description": "Upload images, videos, or audio",
+  "empty.assets.action": "Upload",
+  "empty.trending.title": "Nothing trending",
+  "empty.trending.description": "Check back later for trending content",
+  "empty.sounds.title": "No saved sounds",
+  "empty.sounds.description": "Save sounds to use in your videos",
+  "empty.sounds.action": "Browse Sounds",
+  "empty.archive.title": "Archive is empty",
+  "empty.archive.description": "Archived content will appear here",
+  "empty.history.title": "No watch history",
+  "empty.history.description": "Videos you watch will appear here",
+
+  // Onboarding
+  "onboarding.welcome.title": "Welcome to VIBEE",
+  "onboarding.welcome.description": "Create amazing AI-powered videos in minutes",
+  "onboarding.create.title": "Create with AI",
+  "onboarding.create.description": "Generate videos, images, and lipsync avatars",
+  "onboarding.discover.title": "Discover Content",
+  "onboarding.discover.description": "Explore trending videos and creators",
+  "onboarding.share.title": "Share & Grow",
+  "onboarding.share.description": "Share your creations with the world",
+  "onboarding.community.title": "Join Community",
+  "onboarding.community.description": "Connect with other creators",
+  "onboarding.back": "Back",
+  "onboarding.next": "Next",
+  "onboarding.getStarted": "Get Started",
+  "onboarding.skip": "Skip",
 };
 
 const ru: Translations = {
@@ -1073,6 +1230,9 @@ const ru: Translations = {
   "timeline.in": "Вход",
   "timeline.out": "Выход",
   "timeline.assetNotCompatible": "Тип файла несовместим с дорожкой",
+  "timeline.solo": "Соло дорожки",
+  "timeline.unsolo": "Отменить соло",
+  "timeline.reorderTrack": "Перетащите для перемещения",
 
   // Volume Popup
   "volume.musicVolume": "Громкость музыки",
@@ -1164,6 +1324,8 @@ const ru: Translations = {
   "feed.yesterday": "Вчера",
   "feed.remixing": "Загрузка шаблона...",
   "feed.remixHint": "Запишите свой голос и камео, чтобы сделать видео своим!",
+  "feed.for_you": "Для вас",
+  "feed.following": "Подписки",
 
   // Publish Modal
   "publish.title": "Поделиться в ленте",
@@ -1180,6 +1342,60 @@ const ru: Translations = {
   "publish.failed": "Не удалось опубликовать. Попробуйте ещё раз.",
   "publish.noVideo": "Нет видео для публикации",
   "publish.remixOf": "Ремикс",
+
+  // Notifications
+  "notifications.title": "Уведомления",
+  "notifications.all": "Все",
+  "notifications.unread": "Непрочитанные",
+  "notifications.empty": "Пока нет уведомлений",
+  "notifications.mark_read": "Отметить прочитанным",
+  "notifications.mark_all_read": "Прочитать все",
+  "notifications.clear_all": "Очистить все уведомления",
+  "notifications.liked_video": "понравилось ваше видео",
+  "notifications.commented": "прокомментировал ваше видео",
+  "notifications.followed": "подписался на вас",
+  "notifications.mentioned": "упомянул вас",
+  "notifications.video_ready": "Ваше видео готово",
+
+  // Stories
+  "stories.your_story": "Ваша история",
+  "stories.add": "Добавить историю",
+
+  // Messages
+  "messages.title": "Сообщения",
+  "messages.search": "Поиск сообщений...",
+  "messages.empty": "Пока нет сообщений",
+  "messages.placeholder": "Сообщение...",
+
+  // Analytics
+  "analytics.title": "Аналитика",
+  "analytics.overview": "Обзор",
+  "analytics.content": "Контент",
+  "analytics.audience": "Аудитория",
+  "analytics.last7days": "Последние 7 дней",
+  "analytics.last30days": "Последние 30 дней",
+  "analytics.last90days": "Последние 90 дней",
+  "analytics.allTime": "За всё время",
+  "analytics.views": "Просмотры",
+  "analytics.likes": "Лайки",
+  "analytics.comments": "Комментарии",
+  "analytics.followers": "Подписчики",
+  "analytics.videos": "видео",
+  "analytics.avgWatch": "среднее время",
+  "analytics.shares": "репостов",
+  "analytics.viewsOverTime": "Просмотры по времени",
+  "analytics.topVideos": "Топ видео",
+  "analytics.ageDistribution": "Возраст аудитории",
+  "analytics.topCountries": "Топ стран",
+
+  // Sound
+  "sound.original": "Оригинальный звук",
+  "sound.use": "Использовать",
+  "sound.useThis": "Использовать этот звук",
+  "sound.save": "Сохранить",
+  "sound.saved": "Сохранено",
+  "sound.videos": "видео",
+  "sound.originalSound": "Оригинальный звук",
 
   // Remix Badge
   "remix.badge": "Ремикс",
@@ -1410,6 +1626,9 @@ const ru: Translations = {
   "nav.search": "Поиск",
   "nav.create": "Создать",
   "nav.profile": "Профиль",
+  "nav.editor": "Редактор",
+  "nav.generate": "Генерация",
+  "nav.templates": "Шаблоны",
 
   // Search Page
   "search.placeholder": "Поиск пользователей, шаблонов...",
@@ -1424,6 +1643,101 @@ const ru: Translations = {
   "quickActions.preview": "Превью",
   "quickActions.setAsBackground": "Как фон",
   "quickActions.delete": "Удалить",
+
+  // Search
+  "search.all": "Все",
+
+  // Canvas Controls
+  "canvas.grid": "Сетка",
+  "canvas.safeZone": "Безопасная зона",
+  "canvas.resetZoom": "Сбросить зум",
+
+  // Toast Messages
+  "toast.addedToTimeline": "Добавлено на таймлайн",
+  "toast.removedFromTimeline": "Удалено с таймлайна",
+  "toast.copied": "Скопировано",
+  "toast.assetUploaded": "Файл загружен",
+  "toast.uploadFailed": "Ошибка загрузки",
+  "toast.undo": "Отменить",
+
+  // Collections
+  "assets.collections": "Коллекции",
+  "assets.newCollection": "Новая коллекция",
+  "assets.allAssets": "Все ассеты",
+  "assets.collectionName": "Название коллекции...",
+  "assets.noCollections": "Пока нет коллекций",
+  "assets.createFirst": "Создайте первую коллекцию",
+  "assets.addToCollection": "Добавить в коллекцию",
+  "actions.rename": "Переименовать",
+  "actions.delete": "Удалить",
+  "actions.clearAll": "Очистить всё",
+
+  // Recent & Favorites
+  "assets.recent": "Недавние",
+  "assets.favorites": "Избранное",
+  "assets.noRecent": "Нет недавних ассетов",
+  "assets.noFavorites": "Нет избранного",
+
+  // Time
+  "time.justNow": "Только что",
+  "time.minAgo": " мин",
+  "time.hourAgo": " ч",
+  "time.dayAgo": " д",
+
+  // Empty States
+  "empty.feed.title": "Пока нет видео",
+  "empty.feed.description": "Будьте первым, кто поделится чем-то классным!",
+  "empty.feed.action": "Исследовать",
+  "empty.search.title": "Поиск видео",
+  "empty.search.description": "Находите авторов, шаблоны и звуки",
+  "empty.search.noResults": "Ничего не найдено",
+  "empty.search.tryDifferent": "Попробуйте другие ключевые слова",
+  "empty.messages.title": "Нет сообщений",
+  "empty.messages.description": "Начните разговор с кем-нибудь",
+  "empty.messages.action": "Начать чат",
+  "empty.notifications.title": "Нет уведомлений",
+  "empty.notifications.description": "Вы в курсе всех событий!",
+  "empty.likes.title": "Нет лайков",
+  "empty.likes.description": "Видео, которые вам понравились, появятся здесь",
+  "empty.bookmarks.title": "Нет сохранённых видео",
+  "empty.bookmarks.description": "Сохраняйте видео для просмотра позже",
+  "empty.bookmarks.action": "Исследовать",
+  "empty.followers.title": "Пока нет подписчиков",
+  "empty.followers.description": "Делитесь видео, чтобы получить подписчиков",
+  "empty.following.title": "Вы ни на кого не подписаны",
+  "empty.following.description": "Найдите интересных авторов",
+  "empty.following.action": "Найти",
+  "empty.drafts.title": "Нет черновиков",
+  "empty.drafts.description": "Незаконченные видео появятся здесь",
+  "empty.drafts.action": "Создать видео",
+  "empty.assets.title": "Нет ассетов",
+  "empty.assets.description": "Загрузите изображения, видео или аудио",
+  "empty.assets.action": "Загрузить",
+  "empty.trending.title": "Нет трендов",
+  "empty.trending.description": "Загляните позже за трендовым контентом",
+  "empty.sounds.title": "Нет сохранённых звуков",
+  "empty.sounds.description": "Сохраняйте звуки для использования в видео",
+  "empty.sounds.action": "Обзор звуков",
+  "empty.archive.title": "Архив пуст",
+  "empty.archive.description": "Архивированный контент появится здесь",
+  "empty.history.title": "Нет истории просмотров",
+  "empty.history.description": "Просмотренные видео появятся здесь",
+
+  // Onboarding
+  "onboarding.welcome.title": "Добро пожаловать в VIBEE",
+  "onboarding.welcome.description": "Создавайте потрясающие AI-видео за минуты",
+  "onboarding.create.title": "Создавайте с AI",
+  "onboarding.create.description": "Генерируйте видео, изображения и липсинк-аватары",
+  "onboarding.discover.title": "Открывайте контент",
+  "onboarding.discover.description": "Исследуйте трендовые видео и авторов",
+  "onboarding.share.title": "Делитесь и растите",
+  "onboarding.share.description": "Показывайте свои работы всему миру",
+  "onboarding.community.title": "Присоединяйтесь к сообществу",
+  "onboarding.community.description": "Общайтесь с другими авторами",
+  "onboarding.back": "Назад",
+  "onboarding.next": "Далее",
+  "onboarding.getStarted": "Начать",
+  "onboarding.skip": "Пропустить",
 };
 
 const translations: Record<Language, Translations> = { en, ru };

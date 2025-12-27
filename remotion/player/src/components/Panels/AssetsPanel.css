@@ -1,7 +1,136 @@
 .assets-panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+}
+
+/* Search Bar */
+.assets-search {
+  margin: 0 -4px;
+}
+
+/* Templates Section */
+.templates-section {
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.templates-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: #1a1a1a;
+  border: none;
+  color: #888;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.templates-header:hover {
+  background: #222;
+  color: #ccc;
+}
+
+.templates-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  background: #2a2a2a;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #888;
+  margin-left: auto;
+  margin-right: 4px;
+}
+
+.templates-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 200px;
+  overflow-y: auto;
+  border-top: 1px solid #2a2a2a;
+}
+
+.template-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.template-item:hover {
+  background: #222;
+}
+
+.template-item.selected {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.template-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #2a2a2a;
+  border-radius: 4px;
+  color: #888;
+}
+
+.template-item.selected .template-icon {
+  background: #f59e0b;
+  color: #000;
+}
+
+.template-name {
+  flex: 1;
+  font-size: 12px;
+  color: #ccc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.template-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f59e0b;
+}
+
+.template-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #666;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.template-item:hover .template-delete {
+  opacity: 1;
+}
+
+.template-delete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
 }
 
 /* Upload Zone */
@@ -231,6 +360,26 @@
   width: 100%;
   height: 100%;
   color: #444;
+}
+
+.asset-card-loading {
+  background: linear-gradient(
+    110deg,
+    #1a1a1a 8%,
+    #252525 18%,
+    #1a1a1a 33%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
 }
 
 .asset-card-duration {

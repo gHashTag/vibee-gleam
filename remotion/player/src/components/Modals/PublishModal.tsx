@@ -1,7 +1,8 @@
 // PublishModal - Share template to community feed
 import { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSetAtom, useAtomValue } from 'jotai';
-import { publishToFeedAtom, sidebarTabAtom, currentRemixSourceAtom } from '@/atoms';
+import { publishToFeedAtom, currentRemixSourceAtom } from '@/atoms';
 import { templatesAtom, selectedTemplateIdAtom } from '@/atoms/templates';
 import { useLanguage } from '@/hooks/useLanguage';
 import { X, Globe, Loader2, Sparkles, Check } from 'lucide-react';
@@ -16,8 +17,8 @@ interface PublishModalProps {
 
 export function PublishModal({ isOpen, onClose, videoUrl, thumbnailUrl }: PublishModalProps) {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const publishToFeed = useSetAtom(publishToFeedAtom);
-  const setSidebarTab = useSetAtom(sidebarTabAtom);
   const templates = useAtomValue(templatesAtom);
   const selectedTemplateId = useAtomValue(selectedTemplateIdAtom);
   const remixSource = useAtomValue(currentRemixSourceAtom);
@@ -57,7 +58,7 @@ export function PublishModal({ isOpen, onClose, videoUrl, thumbnailUrl }: Publis
 
       // Auto-switch to feed after 1.5s
       setTimeout(() => {
-        setSidebarTab('feed');
+        navigate('/feed');
         onClose();
       }, 1500);
     } catch (err) {
@@ -65,7 +66,7 @@ export function PublishModal({ isOpen, onClose, videoUrl, thumbnailUrl }: Publis
     } finally {
       setIsPublishing(false);
     }
-  }, [name, description, videoUrl, thumbnailUrl, publishToFeed, setSidebarTab, onClose, t]);
+  }, [name, description, videoUrl, thumbnailUrl, publishToFeed, navigate, onClose, t]);
 
   if (!isOpen) return null;
 

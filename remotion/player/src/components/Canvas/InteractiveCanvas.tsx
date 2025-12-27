@@ -29,6 +29,7 @@ import { Loader2, Mic, Upload } from 'lucide-react';
 import { convertPropsToAbsoluteUrls, toAbsoluteUrl } from '@/lib/mediaUrl';
 import type { LipSyncMainProps, TrackItem, Asset } from '@/store/types';
 import { TabletPlaybackControls } from './TabletPlaybackControls';
+import { CanvasOverlays, CanvasControls } from './CanvasOverlays';
 import './InteractiveCanvas.css';
 
 /**
@@ -162,6 +163,9 @@ export function InteractiveCanvas() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenZoom, setFullscreenZoom] = useState(1);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showGrid, setShowGrid] = useState(false);
+  const [showSafeZone, setShowSafeZone] = useState(false);
+  const [safeZoneType, setSafeZoneType] = useState<'9:16' | '1:1' | '4:5' | '16:9'>('9:16');
   const isTablet = useIsTablet();
 
   // Jotai atoms - прямое использование
@@ -514,6 +518,34 @@ export function InteractiveCanvas() {
           clickToPlay={true}
           playbackRate={playbackRate}
           numberOfSharedAudioTags={4}
+        />
+
+        {/* Canvas Overlays (Grid, Safe Zone) */}
+        <CanvasOverlays
+          showGrid={showGrid}
+          showSafeZone={showSafeZone}
+          safeZoneType={safeZoneType}
+          zoom={effectiveZoom}
+          onToggleGrid={() => setShowGrid(!showGrid)}
+          onToggleSafeZone={() => setShowSafeZone(!showSafeZone)}
+          onChangeSafeZone={setSafeZoneType}
+          onZoomChange={setCanvasZoom}
+          canvasWidth={project.width}
+          canvasHeight={project.height}
+        />
+      </div>
+
+      {/* Canvas Controls (Grid, Safe Zone, Zoom) */}
+      <div className="canvas-controls-wrapper">
+        <CanvasControls
+          showGrid={showGrid}
+          showSafeZone={showSafeZone}
+          safeZoneType={safeZoneType}
+          zoom={effectiveZoom}
+          onToggleGrid={() => setShowGrid(!showGrid)}
+          onToggleSafeZone={() => setShowSafeZone(!showSafeZone)}
+          onChangeSafeZone={setSafeZoneType}
+          onZoomChange={setCanvasZoom}
         />
       </div>
 

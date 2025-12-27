@@ -52,7 +52,8 @@ export function ProfileTemplatesGrid({ username }: ProfileTemplatesGridProps) {
 
   const handleUseTemplate = async (template: FeedTemplate) => {
     await useTemplate(template.id);
-    navigate('/editor');
+    // Navigate to avatar generation page to record cameo
+    navigate('/generate/avatar');
   };
 
   const formatNumber = (num: number): string => {

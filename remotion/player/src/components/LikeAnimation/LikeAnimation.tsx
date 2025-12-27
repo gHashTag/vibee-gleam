@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Heart } from 'lucide-react';
 import './LikeAnimation.css';
 
@@ -9,7 +9,7 @@ interface LikeAnimationProps {
 
 export function LikeAnimation({ onDoubleTap, children }: LikeAnimationProps) {
   const [hearts, setHearts] = useState<{ id: number; x: number; y: number }[]>([]);
-  const lastTapRef = { current: 0 };
+  const lastTapRef = useRef(0); // Fixed: use useRef instead of plain object
 
   const handleClick = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     const now = Date.now();
@@ -21,12 +21,17 @@ export function LikeAnimation({ onDoubleTap, children }: LikeAnimationProps) {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       let clientX: number, clientY: number;
 
-      if ('touches' in e) {
+      // Fixed: add null check for changedTouches
+      if ('touches' in e && e.changedTouches?.length > 0) {
         clientX = e.changedTouches[0].clientX;
         clientY = e.changedTouches[0].clientY;
-      } else {
+      } else if ('clientX' in e) {
         clientX = e.clientX;
         clientY = e.clientY;
+      } else {
+        // Fallback to center of element
+        clientX = rect.left + rect.width / 2;
+        clientY = rect.top + rect.height / 2;
       }
 
       const x = clientX - rect.left;

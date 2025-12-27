@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useLanguage } from '@/hooks/useLanguage';
 import {
@@ -14,6 +15,13 @@ import { X, Zap, Keyboard } from 'lucide-react';
 import { TelegramLoginButton, UserAvatar, PaywallModal } from '@/components/Auth';
 import { RemixBadge } from '@/components/RemixBadge';
 import './styles.css';
+
+// Page navigation tabs for desktop
+const NAV_ITEMS = [
+  { path: '/feed', labelKey: 'nav.feed' },
+  { path: '/editor', labelKey: 'nav.editor' },
+  { path: '/generate', labelKey: 'nav.generate' },
+] as const;
 
 // Export settings stored in localStorage
 interface ExportSettings {
@@ -47,6 +55,7 @@ interface HeaderProps {
 export function Header({ wsStatus, wsClientId }: HeaderProps) {
   // Language hook
   const { lang, setLang, t } = useLanguage();
+  const location = useLocation();
 
   // Jotai atoms
   const project = useAtomValue(projectAtom);
@@ -87,10 +96,27 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
       </a>
       <header className="header" role="banner">
         <div className="header-left">
-          <div className="logo">
+          <Link to="/" className="logo">
             <span className="logo-icon" aria-hidden="true">🐝</span>
             <span className="logo-text">VIBEE</span>
-          </div>
+          </Link>
+
+          {/* Desktop Navigation */}
+          <nav className="header-nav" aria-label="Main navigation">
+            {NAV_ITEMS.map((item) => {
+              const isActive = location.pathname === item.path ||
+                (item.path === '/generate' && location.pathname.startsWith('/generate'));
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`header-nav-link ${isActive ? 'active' : ''}`}
+                >
+                  {t(item.labelKey)}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
       <div className="header-center">

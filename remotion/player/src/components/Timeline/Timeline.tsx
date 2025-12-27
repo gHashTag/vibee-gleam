@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useToast } from '@/hooks/useToast';
@@ -63,15 +64,20 @@ import {
   fullscreenBorderRadiusAtom,
   // Templates
   addTemplateAtom,
-  sidebarTabAtom,
+  // Selection
+  selectItemsAtom,
+  // Track reorder
+  reorderTracksAtom,
 } from '@/atoms';
-import { scrollToFrameAtom, clearScrollRequestAtom } from '@/atoms/timeline';
+import { scrollToFrameAtom, clearScrollRequestAtom, activeSnapFrameAtom, isDraggingItemAtom } from '@/atoms/timeline';
 import { editorStore } from '@/atoms/Provider';
 import { TimeRuler } from './TimeRuler';
 import { Track } from './Track';
 import { Playhead } from './Playhead';
 import { VolumePopup } from './VolumePopup';
-import { Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, ChevronDown, ChevronUp, Magnet, Lock, Unlock, Maximize2, Maximize, Minimize, Volume2, VolumeX, Download, Loader2, AlertTriangle, X, Undo2, Redo2, Save, Upload, RotateCcw } from 'lucide-react';
+import { DragSnapLine } from './SnapIndicators';
+import { TimelineMinimap } from './TimelineMinimap';
+import { Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, ChevronDown, ChevronUp, Magnet, Lock, Unlock, Maximize2, Maximize, Minimize, Volume2, VolumeX, Download, Loader2, AlertTriangle, X, Undo2, Redo2, Save, Upload, RotateCcw, GripVertical } from 'lucide-react';
 import { RENDER_SERVER_URL, toAbsoluteUrl } from '@/lib/mediaUrl';
 import { DEFAULT_COMPOSITION_ID } from '@/shared/compositions';
 import { logExport } from '@/lib/logger';
@@ -132,6 +138,8 @@ export function Timeline() {
   const playbackRate = useAtomValue(playbackRateAtom);
   const timelineZoom = useAtomValue(timelineZoomAtom);
   const snapSettings = useAtomValue(snapSettingsAtom);
+  const activeSnapFrame = useAtomValue(activeSnapFrameAtom);
+  const isDraggingItem = useAtomValue(isDraggingItemAtom);
   const inPoint = useAtomValue(inPointAtom);
   const outPoint = useAtomValue(outPointAtom);
   const markers = useAtomValue(markersAtom);
@@ -166,6 +174,8 @@ export function Timeline() {
   const canvasZoom = useAtomValue(canvasZoomAtom);
   const setCanvasZoom = useSetAtom(canvasZoomAtom);
   const setProject = useSetAtom(projectAtom);
+  const selectItems = useSetAtom(selectItemsAtom);
+  const reorderTracks = useSetAtom(reorderTracksAtom);
 
   // Export actions
   const setExportingAction = useSetAtom(setExportingAtom);
@@ -198,7 +208,7 @@ export function Timeline() {
 
   // Templates
   const addTemplate = useSetAtom(addTemplateAtom);
-  const setSidebarTab = useSetAtom(sidebarTabAtom);
+  const navigate = useNavigate();
 
   // Local state for blob warnings
   const [showBlobWarning, setShowBlobWarning] = useState(false);
@@ -209,6 +219,19 @@ export function Timeline() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
   const [templateName, setTemplateName] = useState('');
+
+  // Lasso selection state
+  const [isLassoActive, setIsLassoActive] = useState(false);
+  const [lassoStart, setLassoStart] = useState<{ x: number; y: number } | null>(null);
+  const [lassoEnd, setLassoEnd] = useState<{ x: number; y: number } | null>(null);
+
+  // Track reorder state
+  const [draggedTrackIndex, setDraggedTrackIndex] = useState<number | null>(null);
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+
+  // Minimap state - track visible area
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(0);
 
   // Ref for EventSource to allow cleanup
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -407,7 +430,7 @@ export function Timeline() {
     });
     setShowSaveTemplateDialog(false);
     setTemplateName('');
-    setSidebarTab('templates');
+    navigate('/templates');
   };
 
   // Project Import
@@ -613,6 +636,52 @@ export function Timeline() {
     };
   }, [timelineZoom, setTimelineZoom]);
 
+  // Track scroll position for minimap
+  useEffect(() => {
+    const element = timelineRef.current;
+    if (!element) return;
+
+    const handleScroll = () => {
+      setScrollLeft(element.scrollLeft);
+    };
+
+    const handleResize = () => {
+      setViewportWidth(element.clientWidth);
+    };
+
+    // Initial values
+    handleResize();
+    handleScroll();
+
+    element.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      element.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  // Minimap navigation handler
+  const handleMinimapNavigate = useCallback((frame: number) => {
+    if (!timelineRef.current) return;
+    // Calculate scroll position to center the frame
+    const viewWidth = timelineRef.current.clientWidth;
+    const framePosition = frame * pxPerFrame;
+    const newScrollLeft = Math.max(0, framePosition - viewWidth / 2);
+    timelineRef.current.scrollTo({ left: newScrollLeft, behavior: 'smooth' });
+    setCurrentFrame(frame);
+  }, [pxPerFrame, setCurrentFrame]);
+
+  // Visible frame range for minimap
+  const visibleStartFrame = useMemo(() => {
+    return Math.floor(scrollLeft / pxPerFrame);
+  }, [scrollLeft, pxPerFrame]);
+
+  const visibleEndFrame = useMemo(() => {
+    return Math.ceil((scrollLeft + viewportWidth) / pxPerFrame);
+  }, [scrollLeft, viewportWidth, pxPerFrame]);
+
   // Format frame as timecode
   const formatTime = useCallback(
     (frame: number) => {
@@ -656,6 +725,160 @@ export function Timeline() {
     const optimalZoom = viewportWidth / (duration * 2); // 2px per frame base
     setTimelineZoom(Math.max(0.25, Math.min(optimalZoom, 5)));
   };
+
+  // Scroll-wheel zoom centered on cursor position
+  const handleWheelZoom = useCallback(
+    (e: React.WheelEvent<HTMLDivElement>) => {
+      // Only zoom with Ctrl/Meta key held
+      if (!e.ctrlKey && !e.metaKey) return;
+
+      e.preventDefault();
+
+      const wrapper = timelineRef.current;
+      if (!wrapper) return;
+
+      // Get cursor position relative to timeline content
+      const rect = wrapper.getBoundingClientRect();
+      const cursorX = e.clientX - rect.left;
+      const scrollLeft = wrapper.scrollLeft;
+
+      // Calculate which frame the cursor is over
+      const cursorFrame = (cursorX + scrollLeft) / pxPerFrame;
+
+      // Calculate zoom delta (negative deltaY = zoom in)
+      const zoomDelta = e.deltaY < 0 ? 0.25 : -0.25;
+      const newZoom = Math.max(0.25, Math.min(5, timelineZoom + zoomDelta));
+
+      if (newZoom === timelineZoom) return;
+
+      // Calculate new pxPerFrame
+      const newPxPerFrame = newZoom * 2;
+
+      // Calculate new scroll position to keep cursor on same frame
+      const newCursorPosition = cursorFrame * newPxPerFrame;
+      const newScrollLeft = newCursorPosition - cursorX;
+
+      // Apply zoom
+      setTimelineZoom(newZoom);
+
+      // Adjust scroll position after zoom
+      requestAnimationFrame(() => {
+        if (wrapper) {
+          wrapper.scrollLeft = Math.max(0, newScrollLeft);
+        }
+      });
+    },
+    [timelineZoom, pxPerFrame, setTimelineZoom]
+  );
+
+  // Lasso selection handlers
+  const handleLassoStart = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // Alt+click to start lasso
+    if (!e.altKey) return;
+    e.preventDefault();
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left + (timelineRef.current?.scrollLeft || 0);
+    const y = e.clientY - rect.top;
+
+    setIsLassoActive(true);
+    setLassoStart({ x, y });
+    setLassoEnd({ x, y });
+  }, []);
+
+  const handleLassoMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isLassoActive || !lassoStart) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left + (timelineRef.current?.scrollLeft || 0);
+    const y = e.clientY - rect.top;
+
+    setLassoEnd({ x, y });
+  }, [isLassoActive, lassoStart]);
+
+  const handleLassoEnd = useCallback(() => {
+    if (!isLassoActive || !lassoStart || !lassoEnd) {
+      setIsLassoActive(false);
+      setLassoStart(null);
+      setLassoEnd(null);
+      return;
+    }
+
+    // Calculate lasso bounds
+    const left = Math.min(lassoStart.x, lassoEnd.x);
+    const right = Math.max(lassoStart.x, lassoEnd.x);
+    const top = Math.min(lassoStart.y, lassoEnd.y);
+    const bottom = Math.max(lassoStart.y, lassoEnd.y);
+
+    // Find items within bounds
+    const selectedIds: string[] = [];
+    const trackHeight = 36; // Match CSS track-row height
+    const rulerHeight = 24; // Time ruler offset
+
+    tracks.forEach((track, trackIndex) => {
+      const trackTop = rulerHeight + trackIndex * trackHeight;
+      const trackBottom = trackTop + trackHeight;
+
+      // Check if lasso intersects this track vertically
+      if (bottom > trackTop && top < trackBottom) {
+        track.items.forEach(item => {
+          const itemLeft = item.startFrame * pxPerFrame;
+          const itemRight = (item.startFrame + item.durationInFrames) * pxPerFrame;
+
+          // Check if lasso intersects this item horizontally
+          if (right > itemLeft && left < itemRight) {
+            selectedIds.push(item.id);
+          }
+        });
+      }
+    });
+
+    if (selectedIds.length > 0) {
+      selectItems({ itemIds: selectedIds, addToSelection: false });
+    }
+
+    setIsLassoActive(false);
+    setLassoStart(null);
+    setLassoEnd(null);
+  }, [isLassoActive, lassoStart, lassoEnd, tracks, pxPerFrame, selectItems]);
+
+  // Global mouse up for lasso (in case mouse leaves timeline)
+  useEffect(() => {
+    if (isLassoActive) {
+      const handleGlobalMouseUp = () => handleLassoEnd();
+      window.addEventListener('mouseup', handleGlobalMouseUp);
+      return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+    }
+  }, [isLassoActive, handleLassoEnd]);
+
+  // Track reorder handlers
+  const handleTrackDragStart = useCallback((index: number) => {
+    setDraggedTrackIndex(index);
+  }, []);
+
+  const handleTrackDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedTrackIndex !== null && draggedTrackIndex !== index) {
+      setDropTargetIndex(index);
+    }
+  }, [draggedTrackIndex]);
+
+  const handleTrackDragLeave = useCallback(() => {
+    setDropTargetIndex(null);
+  }, []);
+
+  const handleTrackDrop = useCallback((targetIndex: number) => {
+    if (draggedTrackIndex !== null && draggedTrackIndex !== targetIndex) {
+      reorderTracks({ fromIndex: draggedTrackIndex, toIndex: targetIndex });
+    }
+    setDraggedTrackIndex(null);
+    setDropTargetIndex(null);
+  }, [draggedTrackIndex, reorderTracks]);
+
+  const handleTrackDragEnd = useCallback(() => {
+    setDraggedTrackIndex(null);
+    setDropTargetIndex(null);
+  }, []);
 
   // Playback rate presets
   const speedPresets = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -1093,26 +1316,81 @@ export function Timeline() {
       <div className="timeline-content">
         {/* Track Labels */}
         <div className="timeline-labels">
-          {tracks.map((track) => (
-            <div key={track.id} className={`track-label ${track.locked ? 'locked' : ''}`}>
-              <span className="track-name">{track.name}</span>
-              <button
-                className={`track-lock-btn ${track.locked ? 'active' : ''}`}
-                onClick={() => updateTrack({ trackId: track.id, updates: { locked: !track.locked } })}
-                title={track.locked ? t('layers.unlockTrack') : t('layers.lockTrack')}
+          {tracks.map((track, index) => {
+            // Check if any track has solo enabled
+            const hasSoloTrack = tracks.some(t => t.solo);
+            // Track is effectively muted if it's muted OR another track has solo and this one doesn't
+            const isEffectivelyMuted = track.muted || (hasSoloTrack && !track.solo);
+            const isDragging = draggedTrackIndex === index;
+            const isDropTarget = dropTargetIndex === index;
+
+            return (
+              <div
+                key={track.id}
+                className={`track-label ${track.locked ? 'locked' : ''} ${isEffectivelyMuted ? 'muted' : ''} ${isDragging ? 'dragging' : ''} ${isDropTarget ? 'drop-target' : ''}`}
+                draggable
+                onDragStart={() => handleTrackDragStart(index)}
+                onDragOver={(e) => handleTrackDragOver(e, index)}
+                onDragLeave={handleTrackDragLeave}
+                onDrop={() => handleTrackDrop(index)}
+                onDragEnd={handleTrackDragEnd}
               >
-                {track.locked ? <Lock size={12} /> : <Unlock size={12} />}
-              </button>
-            </div>
-          ))}
+                <div className="track-drag-handle" title={t('timeline.reorderTrack')}>
+                  <GripVertical size={12} />
+                </div>
+                <span className="track-name">{track.name}</span>
+                <div className="track-controls">
+                  {/* Mute button - only for audio/video/avatar tracks */}
+                  {(track.type === 'audio' || track.type === 'video' || track.type === 'avatar') && (
+                    <button
+                      className={`track-mute-btn ${track.muted ? 'active' : ''}`}
+                      onClick={() => updateTrack({ trackId: track.id, updates: { muted: !track.muted } })}
+                      title={track.muted ? t('timeline.unmute') : t('timeline.mute')}
+                    >
+                      {track.muted ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                    </button>
+                  )}
+                  {/* Solo button - only for audio/video/avatar tracks */}
+                  {(track.type === 'audio' || track.type === 'video' || track.type === 'avatar') && (
+                    <button
+                      className={`track-solo-btn ${track.solo ? 'active' : ''}`}
+                      onClick={() => updateTrack({ trackId: track.id, updates: { solo: !track.solo } })}
+                      title={track.solo ? t('timeline.unsolo') : t('timeline.solo')}
+                    >
+                      S
+                    </button>
+                  )}
+                  {/* Lock button */}
+                  <button
+                    className={`track-lock-btn ${track.locked ? 'active' : ''}`}
+                    onClick={() => updateTrack({ trackId: track.id, updates: { locked: !track.locked } })}
+                    title={track.locked ? t('layers.unlockTrack') : t('layers.lockTrack')}
+                  >
+                    {track.locked ? <Lock size={12} /> : <Unlock size={12} />}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
+        {/* Timeline Minimap */}
+        <TimelineMinimap
+          totalFrames={duration}
+          visibleStartFrame={visibleStartFrame}
+          visibleEndFrame={visibleEndFrame}
+          onNavigate={handleMinimapNavigate}
+        />
+
         {/* Timeline Tracks */}
-        <div className="timeline-tracks-wrapper" ref={timelineRef}>
+        <div className="timeline-tracks-wrapper" ref={timelineRef} onWheel={handleWheelZoom}>
           <div
-            className="timeline-tracks"
+            className={`timeline-tracks ${isLassoActive ? 'lasso-active' : ''}`}
             style={{ width: duration * pxPerFrame }}
             onClick={handleTimelineClick}
+            onMouseDown={handleLassoStart}
+            onMouseMove={handleLassoMove}
+            onMouseUp={handleLassoEnd}
           >
             {/* Time Ruler */}
             <TimeRuler
@@ -1176,6 +1454,29 @@ export function Timeline() {
               frame={currentFrame}
               pxPerFrame={pxPerFrame}
             />
+
+            {/* Snap Line (shown during drag when snapping) */}
+            {snapSettings.enabled && isDraggingItem && activeSnapFrame !== null && (
+              <DragSnapLine
+                frame={activeSnapFrame}
+                framesPerPixel={1 / pxPerFrame}
+                scrollLeft={timelineRef.current?.scrollLeft || 0}
+                height={tracks.length * 50 + 30}
+              />
+            )}
+
+            {/* Lasso Selection Rectangle */}
+            {isLassoActive && lassoStart && lassoEnd && (
+              <div
+                className="lasso-rectangle"
+                style={{
+                  left: Math.min(lassoStart.x, lassoEnd.x),
+                  top: Math.min(lassoStart.y, lassoEnd.y),
+                  width: Math.abs(lassoEnd.x - lassoStart.x),
+                  height: Math.abs(lassoEnd.y - lassoStart.y),
+                }}
+              />
+            )}
           </div>
         </div>
       </div>

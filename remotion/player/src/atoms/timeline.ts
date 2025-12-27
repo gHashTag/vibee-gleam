@@ -57,3 +57,33 @@ export const hideGhostPreviewAtom = atom(
     set(ghostPreviewAtom, null);
   }
 );
+
+// ===============================
+// Snap Indicators
+// ===============================
+
+/** Active snap frame during drag (null = not snapping) */
+export const activeSnapFrameAtom = atom<number | null>(null);
+
+/** Whether dragging is in progress */
+export const isDraggingItemAtom = atom<boolean>(false);
+
+/** Set active snap frame */
+export const setActiveSnapFrameAtom = atom(
+  null,
+  (get, set, frame: number | null) => {
+    set(activeSnapFrameAtom, frame);
+  }
+);
+
+/** Set dragging state */
+export const setDraggingItemAtom = atom(
+  null,
+  (get, set, isDragging: boolean) => {
+    set(isDraggingItemAtom, isDragging);
+    // Clear snap frame when drag ends
+    if (!isDragging) {
+      set(activeSnapFrameAtom, null);
+    }
+  }
+);

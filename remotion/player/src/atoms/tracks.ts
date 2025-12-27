@@ -106,6 +106,8 @@ function createDefaultTracks(fps: number, durationInFrames: number): Track[] {
       ],
       locked: false,
       visible: true,
+      muted: false,
+      solo: false,
     },
     // Video/B-roll second
     {
@@ -115,6 +117,8 @@ function createDefaultTracks(fps: number, durationInFrames: number): Track[] {
       items: videoItems,
       locked: false,
       visible: true,
+      muted: false,
+      solo: false,
     },
     // Image track for photos/stills
     {
@@ -124,6 +128,8 @@ function createDefaultTracks(fps: number, durationInFrames: number): Track[] {
       items: [],
       locked: false,
       visible: true,
+      muted: false,
+      solo: false,
     },
     {
       id: 'track-audio',
@@ -148,6 +154,8 @@ function createDefaultTracks(fps: number, durationInFrames: number): Track[] {
       ],
       locked: false,
       visible: true,
+      muted: false,
+      solo: false,
     },
   ];
 }
@@ -182,6 +190,8 @@ export const ensureAudioTrackAtom = atom(
         items: [],
         locked: false,
         visible: true,
+        muted: false,
+        solo: false,
       };
       set(tracksAtom, [...tracks, newAudioTrack]);
     }
@@ -204,6 +214,8 @@ export const ensureImageTrackAtom = atom(
         items: [],
         locked: false,
         visible: true,
+        muted: false,
+        solo: false,
       };
       // Insert after video track
       const videoIndex = tracks.findIndex(t => t.type === 'video');
@@ -268,6 +280,8 @@ export const addTrackAtom = atom(
         items: [],
         locked: false,
         visible: true,
+        muted: false,
+        solo: false,
       });
     }));
     return id;
@@ -289,6 +303,18 @@ export const updateTrackAtom = atom(
       if (track) {
         Object.assign(track, updates);
       }
+    }));
+  }
+);
+
+export const reorderTracksAtom = atom(
+  null,
+  (get, set, { fromIndex, toIndex }: { fromIndex: number; toIndex: number }) => {
+    if (fromIndex === toIndex) return;
+
+    set(tracksAtom, produce(get(tracksAtom), (draft) => {
+      const [removed] = draft.splice(fromIndex, 1);
+      draft.splice(toIndex, 0, removed);
     }));
   }
 );

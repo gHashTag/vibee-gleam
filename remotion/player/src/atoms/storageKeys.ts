@@ -90,6 +90,7 @@ export const STORAGE_KEYS = {
   timelineZoom: 'vibee-timeline-zoom',
   snapSettings: 'vibee-snap-settings',
   playbackRate: 'vibee-playback-rate',
+  theme: 'vibee-theme',
 
   // ===============================
   // AI Generation

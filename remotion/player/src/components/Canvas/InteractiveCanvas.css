@@ -275,3 +275,31 @@
   text-transform: uppercase;
   letter-spacing: 1px;
 }
+
+/* ===============================
+   Canvas Controls Wrapper
+   =============================== */
+
+.canvas-controls-wrapper {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 150;
+}
+
+/* Tablet - smaller controls */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .canvas-controls-wrapper {
+    top: 8px;
+    right: 8px;
+  }
+}
+
+/* Mobile - bottom position for thumb reach */
+@media (max-width: 767px) {
+  .canvas-controls-wrapper {
+    top: auto;
+    bottom: 80px;
+    right: 8px;
+  }
+}

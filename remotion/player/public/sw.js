@@ -1,10 +1,7 @@
 // VIBEE Service Worker
-const CACHE_NAME = 'vibee-v1';
+const CACHE_NAME = 'vibee-v5';
 const STATIC_ASSETS = [
   '/',
-  '/feed',
-  '/search',
-  '/editor',
   '/manifest.json',
 ];
 
@@ -18,18 +15,23 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate event - clean old caches
+// Activate event - clean ALL old caches aggressively
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
           .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
+          .map((name) => {
+            console.log('[SW] Deleting old cache:', name);
+            return caches.delete(name);
+          })
       );
+    }).then(() => {
+      console.log('[SW] Activated, claiming clients');
+      return self.clients.claim();
     })
   );
-  self.clients.claim();
 });
 
 // Fetch event - network first, fallback to cache
@@ -42,6 +44,18 @@ self.addEventListener('fetch', (event) => {
 
   // Skip cross-origin requests
   if (url.origin !== location.origin) return;
+
+  // Skip media files (videos, audio) - don't cache, network only
+  const isMedia = /\.(mp4|webm|ogg|mp3|wav|m4a|mov|avi|mkv)$/i.test(url.pathname) ||
+                  url.pathname.includes('/lipsync/') ||
+                  url.pathname.includes('/backgrounds/') ||
+                  url.pathname.includes('/renders/') ||
+                  url.pathname.includes('/s3/') ||
+                  request.headers.get('Range'); // Range requests for streaming
+  if (isMedia) return;
+
+  // Skip external video URLs
+  if (url.hostname.includes('remotion') || url.hostname.includes('tigris')) return;
 
   // API requests - network only
   if (url.pathname.startsWith('/api/')) {
@@ -62,9 +76,14 @@ self.addEventListener('fetch', (event) => {
       return cache.match(request).then((cachedResponse) => {
         const fetchPromise = fetch(request)
           .then((networkResponse) => {
-            // Cache the new response
-            if (networkResponse.ok) {
-              cache.put(request, networkResponse.clone());
+            // Only cache successful full responses (not 206 partial)
+            if (networkResponse.ok && networkResponse.status === 200) {
+              // Wrap in try-catch to handle any cache errors
+              try {
+                cache.put(request, networkResponse.clone());
+              } catch (e) {
+                console.warn('[SW] Cache put failed:', e);
+              }
             }
             return networkResponse;
           })

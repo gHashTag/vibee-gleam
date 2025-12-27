@@ -141,6 +141,97 @@
   object-fit: cover;
 }
 
+/* Main video element */
+.feed-card-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Play overlay (tap to play) */
+.play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  color: white;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.feed-card-thumbnail.playing .play-overlay {
+  opacity: 0;
+}
+
+/* Video loading state */
+.feed-card-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Video error state */
+.feed-card-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #ef4444;
+  font-size: 13px;
+  text-align: center;
+  padding: 20px;
+  z-index: 15;
+}
+
+.feed-card-error span {
+  color: #fca5a5;
+}
+
+/* Retry button in error state */
+.feed-card-error .retry-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.feed-card-error .retry-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Poster container for lazy loading */
+.feed-card-poster {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.feed-card-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .feed-card-featured {
   position: absolute;
   top: 8px;
@@ -414,44 +505,44 @@
   scrollbar-width: none;
 }
 
-/* Fullscreen card */
+/* Fullscreen card - 9:16 centered */
 .feed-panel.fullscreen .feed-card {
   scroll-snap-align: start;
   height: calc(100vh - 56px);
-  width: 100%;
+  /* Use explicit width calculation for 9:16 ratio */
+  width: calc((100vh - 56px) * 9 / 16);
+  max-width: 100%; /* Don't exceed container */
+  margin: 0 auto;
   border-radius: 0;
   border: none;
   position: relative;
   background: #000;
+  flex-shrink: 0;
 }
 
-/* Center card content with max-width */
+/* Card inner fills the 9:16 container */
 .feed-panel.fullscreen .feed-card-inner {
   position: relative;
   height: 100%;
   width: 100%;
-  max-width: 500px;
-  margin: 0 auto;
 }
 
-/* Thumbnail fills the entire inner container */
+/* Thumbnail fills the 9:16 container */
 .feed-panel.fullscreen .feed-card-thumbnail {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   max-height: none;
-  aspect-ratio: auto;
+  aspect-ratio: 9/16;
 }
 
 .feed-panel.fullscreen .feed-card-thumbnail img,
 .feed-panel.fullscreen .feed-card-thumbnail video,
+.feed-panel.fullscreen .feed-card-video,
 .feed-panel.fullscreen .feed-card-preview {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  background: #000;
+  background: #111;
 }
 
 /* Info overlay at bottom - inside inner container */
