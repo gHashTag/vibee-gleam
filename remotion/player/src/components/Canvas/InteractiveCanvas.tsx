@@ -18,6 +18,7 @@ import {
   transcribingAtom,
   captionsLoadingAtom,
   avatarSettingsTabAtom,
+  currentRemixSourceAtom,
 } from '@/atoms';
 import { SplitTalkingHead, type SplitTalkingHeadProps, type Segment } from '@compositions/SplitTalkingHead';
 import { Loader2, Mic } from 'lucide-react';
@@ -168,6 +169,7 @@ export function InteractiveCanvas() {
   const isTranscribing = useAtomValue(transcribingAtom);
   const captionsLoading = useAtomValue(captionsLoadingAtom);
   const avatarSettingsTab = useAtomValue(avatarSettingsTabAtom);
+  const remixSource = useAtomValue(currentRemixSourceAtom);
 
   const { t } = useLanguage();
 
@@ -176,6 +178,7 @@ export function InteractiveCanvas() {
   const setCanvasZoom = useSetAtom(canvasZoomAtom);
   const clearSelection = useSetAtom(clearSelectionAtom);
   const setPlayerRefAtom = useSetAtom(playerRefAtom);
+  const setProject = useSetAtom(projectAtom);
 
   // Store player ref for direct control (needed for autoplay policy)
   useEffect(() => {
@@ -349,6 +352,16 @@ export function InteractiveCanvas() {
 
   return (
     <div className="canvas-container" onClick={handleCanvasClick} ref={containerRef}>
+      {/* Project Name Input */}
+      <div className="canvas-project-name">
+        <input
+          type="text"
+          className="project-name-input"
+          value={project.name}
+          onChange={(e) => setProject({ ...project, name: e.target.value })}
+        />
+      </div>
+
       {/* Transcribing/Loading Overlay */}
       {(isTranscribing || captionsLoading) && (
         <div className="canvas-transcribing-overlay">
@@ -389,6 +402,14 @@ export function InteractiveCanvas() {
           numberOfSharedAudioTags={4}
         />
       </div>
+
+      {/* Template/Reel Name Overlay */}
+      {remixSource && (
+        <div className="canvas-template-info">
+          <span className="template-name">{remixSource.templateName}</span>
+          <span className="template-creator">by {remixSource.creatorName}</span>
+        </div>
+      )}
 
     </div>
   );

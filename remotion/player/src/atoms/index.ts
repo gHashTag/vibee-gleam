@@ -272,3 +272,35 @@ export {
   type PublishData,
   type RemixSource,
 } from './feed';
+
+// ===============================
+// 👥 PROFILE - User profiles & follows
+// ===============================
+
+export {
+  // State
+  viewedProfileAtom,
+  profileLoadingAtom,
+  profileErrorAtom,
+  myProfileAtom,
+  followersAtom,
+  followersLoadingAtom,
+  followingAtom,
+  followingLoadingAtom,
+  followingFeedAtom,
+  followingFeedLoadingAtom,
+  // Actions
+  loadProfileAtom,
+  fetchMyProfileAtom,
+  updateProfileAtom,
+  followUserAtom,
+  unfollowUserAtom,
+  loadFollowersAtom,
+  loadFollowingAtom,
+  loadFollowingFeedAtom,
+  clearProfileAtom,
+  // Types
+  type UserProfile,
+  type FollowUser,
+  type SocialLink,
+} from './profile';

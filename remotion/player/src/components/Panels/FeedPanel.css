@@ -19,7 +19,7 @@
 }
 
 .feed-refresh {
-  margin-left: auto;
+  margin-left: 8px;
   background: transparent;
   border: none;
   padding: 4px;
@@ -104,6 +104,10 @@
   border-color: var(--border-hover, #444);
 }
 
+.feed-card-inner {
+  position: relative;  /* Required for absolute positioning of children */
+}
+
 .feed-card-thumbnail {
   position: relative;
   aspect-ratio: 9/16;
@@ -186,6 +190,23 @@
 .feed-card-creator {
   font-size: 11px;
   color: var(--text-secondary, #888);
+}
+
+.feed-card-creator-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.2s;
+}
+
+.feed-card-creator-link:hover {
+  opacity: 0.8;
+}
+
+.feed-card-creator-link .feed-card-creator {
+  color: var(--primary-color, #f59e0b);
 }
 
 .feed-card-description {
@@ -337,18 +358,24 @@
   position: relative;
 }
 
-/* Floating header */
+/* Floating header - centered within feed panel */
 .feed-panel.fullscreen .panel-header {
-  position: fixed;
-  top: 70px;
+  position: absolute;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  padding: 8px 16px;
+  border-radius: 24px;
+  padding: 10px 24px;
+  gap: 8px;
+}
+
+/* Hide refresh button in fullscreen to center title */
+.feed-panel.fullscreen .feed-refresh {
+  display: none;
 }
 
 /* Floating sort buttons */
@@ -390,13 +417,9 @@
   scroll-snap-align: start;
   height: calc(100vh - 56px);
   width: 100%;
-  max-width: 100%;
-  margin: 0 auto;
   border-radius: 0;
   border: none;
   position: relative;
-  display: flex;
-  flex-direction: column;
   background: #000;
 }
 
@@ -404,17 +427,19 @@
 .feed-panel.fullscreen .feed-card-inner {
   position: relative;
   height: 100%;
+  width: 100%;
   max-width: 500px;
   margin: 0 auto;
-  display: flex;
-  flex-direction: column;
 }
 
-/* Thumbnail fills the card */
+/* Thumbnail fills the entire inner container */
 .feed-panel.fullscreen .feed-card-thumbnail {
-  flex: 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   max-height: none;
-  height: 100%;
   aspect-ratio: auto;
 }
 
@@ -423,20 +448,19 @@
 .feed-panel.fullscreen .feed-card-preview {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   background: #000;
 }
 
-/* Info overlay at bottom */
+/* Info overlay at bottom - inside inner container */
 .feed-panel.fullscreen .feed-card-info {
   position: absolute;
   bottom: 0;
   left: 0;
-  right: 0;
-  background: linear-gradient(transparent 0%, rgba(0, 0, 0, 0.95) 100%);
-  padding: 80px 20px 24px;
-  max-width: 500px;
-  margin: 0 auto;
+  right: 80px; /* Leave space for action buttons */
+  background: linear-gradient(transparent 0%, rgba(0, 0, 0, 0.9) 100%);
+  padding: 60px 16px 24px;
+  z-index: 10;
 }
 
 /* Larger text for fullscreen */
@@ -547,10 +571,10 @@
   border-radius: 12px;
 }
 
-/* Scroll indicator animation */
+/* Scroll indicator animation - centered within feed panel */
 .feed-panel.fullscreen::after {
   content: '';
-  position: fixed;
+  position: absolute;
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
@@ -565,7 +589,7 @@
 
 .feed-panel.fullscreen::before {
   content: '↓';
-  position: fixed;
+  position: absolute;
   bottom: 32px;
   left: 50%;
   transform: translateX(-50%);
@@ -609,5 +633,157 @@
   .feed-panel.fullscreen .feed-card-avatar {
     width: 48px;
     height: 48px;
+  }
+}
+
+/* ========================================
+   RIGHT-SIDE ACTION BAR (TikTok Style)
+   Transparent buttons with icons + counts
+   ======================================== */
+
+.feed-card-actions {
+  position: absolute;
+  right: 12px;
+  bottom: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  z-index: 20;
+}
+
+/* TikTok style - TRANSPARENT buttons, icon + count */
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: auto;
+  height: auto;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.action-btn svg {
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
+  transition: transform 0.2s ease;
+}
+
+.action-btn:hover {
+  transform: scale(1.1);
+}
+
+.action-btn:hover svg {
+  transform: scale(1.1);
+}
+
+.action-btn span {
+  font-size: 12px;
+  font-weight: 500;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+/* Like button - red when liked */
+.action-btn.like-btn.liked {
+  color: #ef4444;
+}
+
+.action-btn.like-btn.liked svg {
+  filter: drop-shadow(0 2px 8px rgba(239, 68, 68, 0.6));
+  animation: heartPop 0.3s ease;
+}
+
+@keyframes heartPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+
+/* Views and uses - slightly muted */
+.action-btn.views-btn,
+.action-btn.uses-btn {
+  cursor: default;
+  opacity: 0.9;
+}
+
+.action-btn.views-btn:hover,
+.action-btn.uses-btn:hover {
+  transform: none;
+}
+
+/* Remix button - golden accent */
+.action-btn.remix-btn {
+  color: var(--primary-color, #f59e0b);
+}
+
+.action-btn.remix-btn svg {
+  filter: drop-shadow(0 2px 8px rgba(245, 158, 11, 0.5));
+}
+
+.action-btn.remix-btn:hover {
+  color: var(--primary-hover, #fbbf24);
+}
+
+.action-btn.remix-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Hide old stats row and use button - replaced by action bar */
+.feed-card-stats,
+.feed-card-use {
+  display: none !important;
+}
+
+/* Action bar space is handled by right: 80px on info container */
+
+/* ========================================
+   FULLSCREEN MODE - Action Buttons on RIGHT
+   ======================================== */
+
+.feed-panel.fullscreen .feed-card-actions {
+  position: absolute;
+  right: 8px;
+  bottom: 120px;
+  gap: 20px;
+  z-index: 20;
+}
+
+.feed-panel.fullscreen .action-btn {
+  gap: 4px;
+}
+
+.feed-panel.fullscreen .action-btn svg {
+  width: 32px;
+  height: 32px;
+}
+
+.feed-panel.fullscreen .action-btn span {
+  font-size: 12px;
+}
+
+/* Desktop - slightly larger */
+@media (min-width: 768px) {
+  .feed-panel.fullscreen .feed-card-actions {
+    right: 12px;
+    bottom: 140px;
+    gap: 24px;
+  }
+
+  .feed-panel.fullscreen .action-btn svg {
+    width: 36px;
+    height: 36px;
+  }
+
+  .feed-panel.fullscreen .action-btn span {
+    font-size: 13px;
   }
 }

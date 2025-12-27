@@ -57,6 +57,7 @@ import vibee/api/editor_agent_ws
 import vibee/api/video_api
 import vibee/api/render_quota_handlers
 import vibee/api/feed_handlers
+import vibee/api/profile_handlers
 import vibee/notifications/owner_callbacks
 import vibee/carousel/api_handlers as carousel_handlers
 
@@ -378,6 +379,35 @@ fn route_request(
       }
     }
 
+    // GET /api/feed/following - Get subscription feed (templates from followed users)
+    http.Get, ["api", "feed", "following"] -> profile_handlers.following_feed_handler(req)
+
+    // User Profile API
+    // GET /api/users/id/:telegram_id - Get or create user by Telegram ID (called on login)
+    http.Get, ["api", "users", "id", telegram_id] ->
+      profile_handlers.get_or_create_by_telegram_handler(req, telegram_id)
+    // GET /api/users/:username - Get user profile by username
+    http.Get, ["api", "users", username] ->
+      profile_handlers.get_profile_handler(req, username)
+    // PUT /api/users/:username - Update user profile
+    http.Put, ["api", "users", username] ->
+      profile_handlers.update_profile_handler(req, username)
+    // GET /api/users/:username/templates - Get user's templates
+    http.Get, ["api", "users", username, "templates"] ->
+      profile_handlers.user_templates_handler(req, username)
+    // GET /api/users/:username/followers - Get user's followers
+    http.Get, ["api", "users", username, "followers"] ->
+      profile_handlers.followers_handler(req, username)
+    // GET /api/users/:username/following - Get users this user follows
+    http.Get, ["api", "users", username, "following"] ->
+      profile_handlers.following_handler(req, username)
+    // POST /api/users/:username/follow - Follow a user
+    http.Post, ["api", "users", username, "follow"] ->
+      profile_handlers.follow_handler(req, username)
+    // DELETE /api/users/:username/follow - Unfollow a user
+    http.Delete, ["api", "users", username, "follow"] ->
+      profile_handlers.unfollow_handler(req, username)
+
     // Logs page - real-time log viewer
     http.Get, ["logs"] -> logs_page_handler()
     http.Get, ["api", "v1", "logs", "tail"] -> logs_tail_handler()
@@ -442,6 +472,12 @@ fn route_request(
     http.Get, ["graphql", "sse"] -> graphql_handlers.sse_handler(req)
     // CORS preflight for GraphQL
     http.Options, ["graphql"] -> cors_preflight_handler()
+    // CORS preflight for Feed API
+    http.Options, ["api", "feed", ..] -> cors_preflight_handler()
+    // CORS preflight for Render Log API
+    http.Options, ["api", "render-log"] -> cors_preflight_handler()
+    // CORS preflight for Users API (profile endpoints)
+    http.Options, ["api", "users", ..] -> cors_preflight_handler()
 
     // ==========================================================================
     // Template Factory UI - Vibe Reels Variants Gallery

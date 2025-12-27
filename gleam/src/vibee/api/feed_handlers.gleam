@@ -135,10 +135,17 @@ pub fn publish_to_feed_handler(req: Request(Connection)) -> Response(ResponseDat
             Some(pool) -> {
               case publish_template(pool, data) {
                 Ok(id) -> {
-                  json_success_response(json.object([
-                    #("success", json.bool(True)),
-                    #("id", json.int(id)),
-                  ]))
+                  // Return full template data for frontend
+                  case get_template_by_id(pool, id) {
+                    Ok(Some(template)) -> json_success_response(template_to_json(template))
+                    _ -> {
+                      // Fallback to basic response if fetch fails
+                      json_success_response(json.object([
+                        #("success", json.bool(True)),
+                        #("id", json.int(id)),
+                      ]))
+                    }
+                  }
                 }
                 Error(err) -> {
                   logging.quick_error("Failed to publish template: " <> err)
@@ -148,7 +155,8 @@ pub fn publish_to_feed_handler(req: Request(Connection)) -> Response(ResponseDat
             }
           }
         }
-        Error(_) -> {
+        Error(decode_err) -> {
+          logging.quick_error("JSON decode error: " <> string.inspect(decode_err))
           json_error_response(400, "Invalid JSON body")
         }
       }
@@ -295,6 +303,7 @@ pub type FeedTemplate {
     telegram_id: Int,
     creator_name: Option(String),
     creator_avatar: Option(String),
+    creator_username: Option(String),
     name: String,
     description: Option(String),
     thumbnail_url: Option(String),
@@ -330,13 +339,15 @@ fn get_feed(
 
   let sql = "
     SELECT
-      pt.id, pt.telegram_id, pt.creator_name, pt.creator_avatar,
+      pt.id, pt.telegram_id::int, pt.creator_name, pt.creator_avatar,
+      u.username as creator_username,
       pt.name, pt.description, pt.thumbnail_url, pt.video_url,
       pt.template_settings::text, pt.assets::text, pt.tracks::text,
       pt.likes_count, pt.views_count, pt.uses_count,
       CASE WHEN tl.user_id IS NOT NULL THEN true ELSE false END as is_liked,
       pt.created_at::text
     FROM public_templates pt
+    LEFT JOIN users u ON pt.user_id = u.id
     LEFT JOIN template_likes tl ON pt.id = tl.template_id AND tl.user_id = $3
     WHERE pt.is_public = true
     ORDER BY " <> order_by <> "
@@ -348,23 +359,25 @@ fn get_feed(
     use telegram_id <- decode.field(1, decode.int)
     use creator_name <- decode.field(2, decode.optional(decode.string))
     use creator_avatar <- decode.field(3, decode.optional(decode.string))
-    use name <- decode.field(4, decode.string)
-    use description <- decode.field(5, decode.optional(decode.string))
-    use thumbnail_url <- decode.field(6, decode.optional(decode.string))
-    use video_url <- decode.field(7, decode.string)
-    use template_settings <- decode.field(8, decode.string)
-    use assets <- decode.field(9, decode.string)
-    use tracks <- decode.field(10, decode.string)
-    use likes_count <- decode.field(11, decode.int)
-    use views_count <- decode.field(12, decode.int)
-    use uses_count <- decode.field(13, decode.int)
-    use is_liked <- decode.field(14, decode.bool)
-    use created_at <- decode.field(15, decode.string)
+    use creator_username <- decode.field(4, decode.optional(decode.string))
+    use name <- decode.field(5, decode.string)
+    use description <- decode.field(6, decode.optional(decode.string))
+    use thumbnail_url <- decode.field(7, decode.optional(decode.string))
+    use video_url <- decode.field(8, decode.string)
+    use template_settings <- decode.field(9, decode.string)
+    use assets <- decode.field(10, decode.string)
+    use tracks <- decode.field(11, decode.string)
+    use likes_count <- decode.field(12, decode.int)
+    use views_count <- decode.field(13, decode.int)
+    use uses_count <- decode.field(14, decode.int)
+    use is_liked <- decode.field(15, decode.bool)
+    use created_at <- decode.field(16, decode.string)
     decode.success(FeedTemplate(
       id: id,
       telegram_id: telegram_id,
       creator_name: creator_name,
       creator_avatar: creator_avatar,
+      creator_username: creator_username,
       name: name,
       description: description,
       thumbnail_url: thumbnail_url,
@@ -497,14 +510,16 @@ fn get_template_by_id(
 ) -> Result(Option(FeedTemplate), String) {
   let sql = "
     SELECT
-      id, telegram_id, creator_name, creator_avatar,
-      name, description, thumbnail_url, video_url,
-      template_settings::text, assets::text, tracks::text,
-      likes_count, views_count, uses_count,
+      pt.id, pt.telegram_id::int, pt.creator_name, pt.creator_avatar,
+      u.username as creator_username,
+      pt.name, pt.description, pt.thumbnail_url, pt.video_url,
+      pt.template_settings::text, pt.assets::text, pt.tracks::text,
+      pt.likes_count, pt.views_count, pt.uses_count,
       false as is_liked,
-      created_at::text
-    FROM public_templates
-    WHERE id = $1
+      pt.created_at::text
+    FROM public_templates pt
+    LEFT JOIN users u ON pt.user_id = u.id
+    WHERE pt.id = $1
   "
 
   let template_decoder = {
@@ -512,23 +527,25 @@ fn get_template_by_id(
     use telegram_id <- decode.field(1, decode.int)
     use creator_name <- decode.field(2, decode.optional(decode.string))
     use creator_avatar <- decode.field(3, decode.optional(decode.string))
-    use name <- decode.field(4, decode.string)
-    use description <- decode.field(5, decode.optional(decode.string))
-    use thumbnail_url <- decode.field(6, decode.optional(decode.string))
-    use video_url <- decode.field(7, decode.string)
-    use template_settings <- decode.field(8, decode.string)
-    use assets <- decode.field(9, decode.string)
-    use tracks <- decode.field(10, decode.string)
-    use likes_count <- decode.field(11, decode.int)
-    use views_count <- decode.field(12, decode.int)
-    use uses_count <- decode.field(13, decode.int)
-    use is_liked <- decode.field(14, decode.bool)
-    use created_at <- decode.field(15, decode.string)
+    use creator_username <- decode.field(4, decode.optional(decode.string))
+    use name <- decode.field(5, decode.string)
+    use description <- decode.field(6, decode.optional(decode.string))
+    use thumbnail_url <- decode.field(7, decode.optional(decode.string))
+    use video_url <- decode.field(8, decode.string)
+    use template_settings <- decode.field(9, decode.string)
+    use assets <- decode.field(10, decode.string)
+    use tracks <- decode.field(11, decode.string)
+    use likes_count <- decode.field(12, decode.int)
+    use views_count <- decode.field(13, decode.int)
+    use uses_count <- decode.field(14, decode.int)
+    use is_liked <- decode.field(15, decode.bool)
+    use created_at <- decode.field(16, decode.string)
     decode.success(FeedTemplate(
       id: id,
       telegram_id: telegram_id,
       creator_name: creator_name,
       creator_avatar: creator_avatar,
+      creator_username: creator_username,
       name: name,
       description: description,
       thumbnail_url: thumbnail_url,
@@ -597,6 +614,10 @@ fn template_to_json(t: FeedTemplate) -> json.Json {
     }),
     #("creator_avatar", case t.creator_avatar {
       Some(a) -> json.string(a)
+      None -> json.null()
+    }),
+    #("creator_username", case t.creator_username {
+      Some(u) -> json.string(u)
       None -> json.null()
     }),
     #("name", json.string(t.name)),

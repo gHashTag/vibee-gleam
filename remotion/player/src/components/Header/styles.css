@@ -19,8 +19,9 @@
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 12px;
+  padding-right: 16px;
 }
 
 /* Logo */
@@ -814,4 +815,13 @@
   font-weight: 600;
   min-width: 40px;
   justify-content: center;
+}
+
+/* Header Divider */
+.header-divider {
+  width: 1px;
+  height: 24px;
+  background: #333;
+  margin: 0 4px;
+  flex-shrink: 0;
 }

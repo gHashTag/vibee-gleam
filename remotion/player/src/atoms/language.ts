@@ -619,6 +619,41 @@ const en: Translations = {
   "generate.dragHint": "Drag to timeline",
   "generate.addToTimeline": "Add to timeline",
   "generate.remove": "Remove",
+
+  // Profile
+  "profile.edit": "Edit",
+  "profile.followers": "Followers",
+  "profile.following": "Following",
+  "profile.videos": "Videos",
+  "profile.views": "Views",
+  "profile.likes": "Likes",
+  "profile.templates": "Templates",
+  "profile.follow": "Follow",
+  "profile.following_btn": "Following",
+  "profile.unfollow": "Unfollow",
+  "profile.no_followers": "No followers yet",
+  "profile.no_following": "Not following anyone",
+  "profile.no_templates": "No videos yet",
+  "profile.load_more": "Load More",
+  "profile.loading": "Loading profile...",
+  "profile.not_found": "User not found",
+  "profile.not_found_desc": "This profile doesn't exist or has been deleted",
+  "profile.edit_profile": "Edit Profile",
+  "profile.display_name": "Display Name",
+  "profile.display_name_placeholder": "Your name",
+  "profile.bio": "Bio",
+  "profile.bio_placeholder": "Tell us about yourself...",
+  "profile.social_links": "Social Links",
+  "profile.add_link": "Add Link",
+  "profile.public_profile": "Public Profile",
+  "profile.public_profile_hint": "When disabled, only you can see your profile",
+
+  // Common
+  "common.back": "Back",
+  "common.save": "Save",
+  "common.saving": "Saving...",
+  "common.cancel": "Cancel",
+  "common.go_home": "Go Home",
 };
 
 const ru: Translations = {
@@ -1224,6 +1259,41 @@ const ru: Translations = {
   "generate.dragHint": "Перетащите на таймлайн",
   "generate.addToTimeline": "Добавить на таймлайн",
   "generate.remove": "Удалить",
+
+  // Profile
+  "profile.edit": "Редактировать",
+  "profile.followers": "Подписчики",
+  "profile.following": "Подписки",
+  "profile.videos": "Видео",
+  "profile.views": "Просмотры",
+  "profile.likes": "Лайки",
+  "profile.templates": "Шаблоны",
+  "profile.follow": "Подписаться",
+  "profile.following_btn": "Подписан",
+  "profile.unfollow": "Отписаться",
+  "profile.no_followers": "Пока нет подписчиков",
+  "profile.no_following": "Нет подписок",
+  "profile.no_templates": "Пока нет видео",
+  "profile.load_more": "Загрузить ещё",
+  "profile.loading": "Загрузка профиля...",
+  "profile.not_found": "Пользователь не найден",
+  "profile.not_found_desc": "Этот профиль не существует или был удалён",
+  "profile.edit_profile": "Редактировать профиль",
+  "profile.display_name": "Отображаемое имя",
+  "profile.display_name_placeholder": "Ваше имя",
+  "profile.bio": "О себе",
+  "profile.bio_placeholder": "Расскажите о себе...",
+  "profile.social_links": "Социальные сети",
+  "profile.add_link": "Добавить ссылку",
+  "profile.public_profile": "Публичный профиль",
+  "profile.public_profile_hint": "Когда выключено, только вы видите свой профиль",
+
+  // Common
+  "common.back": "Назад",
+  "common.save": "Сохранить",
+  "common.saving": "Сохранение...",
+  "common.cancel": "Отмена",
+  "common.go_home": "На главную",
 };
 
 const translations: Record<Language, Translations> = { en, ru };

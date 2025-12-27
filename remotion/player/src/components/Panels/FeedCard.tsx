@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useSetAtom } from 'jotai';
 import { likeTemplateAtom, useTemplateAtom, type FeedTemplate } from '@/atoms';
 import { useLanguage } from '@/hooks/useLanguage';
-import { Heart, Eye, Users, Play, Loader2 } from 'lucide-react';
+import { Heart, Eye, Users, Play, Loader2, Sparkles } from 'lucide-react';
 import './FeedPanel.css';
 
 interface FeedCardProps {
@@ -21,7 +22,8 @@ export function FeedCard({ template }: FeedCardProps) {
     likeTemplate(template.id);
   }, [likeTemplate, template.id]);
 
-  const handleUse = useCallback(async () => {
+  const handleUse = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsUsing(true);
     try {
       await useTemplate(template.id);
@@ -55,85 +57,115 @@ export function FeedCard({ template }: FeedCardProps) {
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
     >
-      <div className="feed-card-thumbnail">
-        {template.thumbnailUrl ? (
-          <img src={template.thumbnailUrl} alt={template.name} />
-        ) : (
-          <div className="feed-card-placeholder">
-            <Play size={24} />
-          </div>
-        )}
+      {/* Inner wrapper for max-width centering */}
+      <div className="feed-card-inner">
+        <div className="feed-card-thumbnail">
+          {template.thumbnailUrl ? (
+            <img src={template.thumbnailUrl} alt={template.name} />
+          ) : (
+            <div className="feed-card-placeholder">
+              <Play size={24} />
+            </div>
+          )}
 
-        {isHovering && template.videoUrl && (
-          <video
-            src={template.videoUrl}
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="feed-card-preview"
-          />
-        )}
-
-        {template.isFeatured && (
-          <div className="feed-card-featured">Featured</div>
-        )}
-      </div>
-
-      <div className="feed-card-info">
-        <div className="feed-card-header">
-          {template.creatorAvatar && (
-            <img
-              src={template.creatorAvatar}
-              alt={template.creatorName}
-              className="feed-card-avatar"
+          {isHovering && template.videoUrl && (
+            <video
+              src={template.videoUrl}
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="feed-card-preview"
             />
           )}
-          <div className="feed-card-meta">
-            <span className="feed-card-name">{template.name}</span>
-            <span className="feed-card-creator">
-              {template.creatorName} · {formatDate(template.createdAt)}
-            </span>
-          </div>
+
+          {template.isFeatured && (
+            <div className="feed-card-featured">Featured</div>
+          )}
         </div>
 
-        {template.description && (
-          <p className="feed-card-description">{template.description}</p>
-        )}
-
-        <div className="feed-card-stats">
+        {/* TikTok-style right action bar */}
+        <div className="feed-card-actions">
           <button
-            className={`stat-btn like-btn ${template.isLiked ? 'liked' : ''}`}
+            className={`action-btn like-btn ${template.isLiked ? 'liked' : ''}`}
             onClick={handleLike}
             title={t('feed.like')}
           >
-            <Heart size={14} fill={template.isLiked ? 'currentColor' : 'none'} />
+            <Heart size={32} fill={template.isLiked ? 'currentColor' : 'none'} />
             <span>{formatCount(template.likesCount)}</span>
           </button>
-          <div className="stat-item">
-            <Eye size={14} />
+
+          <div className="action-btn views-btn">
+            <Eye size={32} />
             <span>{formatCount(template.viewsCount)}</span>
           </div>
-          <div className="stat-item">
-            <Users size={14} />
+
+          <div className="action-btn uses-btn">
+            <Users size={32} />
             <span>{formatCount(template.usesCount)}</span>
           </div>
+
+          <button
+            className="action-btn remix-btn"
+            onClick={handleUse}
+            disabled={isUsing}
+            title="Remix"
+          >
+            {isUsing ? (
+              <Loader2 size={32} className="spinning" />
+            ) : (
+              <Sparkles size={32} />
+            )}
+            <span>Remix</span>
+          </button>
         </div>
 
-        <button
-          className="feed-card-use"
-          onClick={handleUse}
-          disabled={isUsing}
-        >
-          {isUsing ? (
-            <>
-              <Loader2 size={14} className="spinning" />
-              {t('feed.using')}
-            </>
-          ) : (
-            t('feed.useTemplate')
+        {/* Info overlay at bottom */}
+        <div className="feed-card-info">
+          <div className="feed-card-header">
+            {template.creatorUsername ? (
+              <Link
+                to={`/${template.creatorUsername}`}
+                className="feed-card-creator-link"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {template.creatorAvatar && (
+                  <img
+                    src={template.creatorAvatar}
+                    alt={template.creatorName}
+                    className="feed-card-avatar"
+                  />
+                )}
+                <div className="feed-card-meta">
+                  <span className="feed-card-name">{template.name}</span>
+                  <span className="feed-card-creator">
+                    @{template.creatorUsername} · {formatDate(template.createdAt)}
+                  </span>
+                </div>
+              </Link>
+            ) : (
+              <>
+                {template.creatorAvatar && (
+                  <img
+                    src={template.creatorAvatar}
+                    alt={template.creatorName}
+                    className="feed-card-avatar"
+                  />
+                )}
+                <div className="feed-card-meta">
+                  <span className="feed-card-name">{template.name}</span>
+                  <span className="feed-card-creator">
+                    {template.creatorName} · {formatDate(template.createdAt)}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {template.description && (
+            <p className="feed-card-description">{template.description}</p>
           )}
-        </button>
+        </div>
       </div>
     </div>
   );

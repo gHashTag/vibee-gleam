@@ -9,6 +9,7 @@ import { assetsAtom } from './assets';
 import { tracksAtom } from './tracks';
 import type { Asset, Track } from '@/store/types';
 import { sidebarTabAtom } from './ui';
+import { userAtom } from './user';
 
 // Remix source tracking - when user uses a template from feed
 export interface RemixSource {
@@ -36,6 +37,7 @@ export interface FeedTemplate {
   telegramId: number;
   creatorName: string;
   creatorAvatar?: string;
+  creatorUsername?: string;
   name: string;
   description?: string;
   thumbnailUrl?: string;
@@ -89,13 +91,44 @@ export const feedSortAtom = atom<FeedSort>('recent');
 // API Functions
 // ===============================
 
+// Transform snake_case API response to camelCase FeedTemplate
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function transformTemplate(raw: any): FeedTemplate {
+  return {
+    id: raw.id,
+    telegramId: raw.telegram_id,
+    creatorName: raw.creator_name || 'Anonymous',
+    creatorAvatar: raw.creator_avatar,
+    creatorUsername: raw.creator_username,
+    name: raw.name,
+    description: raw.description,
+    thumbnailUrl: raw.thumbnail_url,
+    videoUrl: raw.video_url,
+    templateSettings: typeof raw.template_settings === 'string'
+      ? JSON.parse(raw.template_settings || '{}')
+      : raw.template_settings || {},
+    assets: typeof raw.assets === 'string'
+      ? JSON.parse(raw.assets || '[]')
+      : raw.assets || [],
+    tracks: typeof raw.tracks === 'string'
+      ? JSON.parse(raw.tracks || '[]')
+      : raw.tracks || [],
+    likesCount: raw.likes_count || 0,
+    viewsCount: raw.views_count || 0,
+    usesCount: raw.uses_count || 0,
+    isLiked: raw.is_liked || false,
+    isFeatured: raw.is_featured || false,
+    createdAt: raw.created_at,
+  };
+}
+
 async function fetchFeed(page: number, limit: number, sort: FeedSort): Promise<FeedTemplate[]> {
   const response = await fetch(`${API_BASE}/api/feed?page=${page}&limit=${limit}&sort=${sort}`);
   if (!response.ok) {
     throw new Error(`Failed to fetch feed: ${response.statusText}`);
   }
   const data = await response.json();
-  return data.templates || [];
+  return (data.templates || []).map(transformTemplate);
 }
 
 async function likeTemplate(id: number, userId: number): Promise<{ liked: boolean; likesCount: number }> {
@@ -110,23 +143,33 @@ async function likeTemplate(id: number, userId: number): Promise<{ liked: boolea
   return response.json();
 }
 
-async function publishTemplate(data: PublishData, telegramId: number): Promise<FeedTemplate> {
+interface PublishUserInfo {
+  telegramId: number;
+  creatorName: string;
+  creatorAvatar?: string;
+}
+
+async function publishTemplate(data: PublishData, userInfo: PublishUserInfo): Promise<FeedTemplate> {
   const response = await fetch(`${API_BASE}/api/feed/publish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      telegram_id: telegramId,
+      telegram_id: userInfo.telegramId,
+      creator_name: userInfo.creatorName,
+      creator_avatar: userInfo.creatorAvatar,
       name: data.name,
       description: data.description,
       thumbnail_url: data.thumbnailUrl,
       video_url: data.videoUrl,
-      template_settings: data.templateSettings,
-      assets: data.assets,
-      tracks: data.tracks,
+      // Backend expects JSON strings, not objects
+      template_settings: JSON.stringify(data.templateSettings || {}),
+      assets: JSON.stringify(data.assets || []),
+      tracks: JSON.stringify(data.tracks || []),
     }),
   });
   if (!response.ok) {
-    throw new Error(`Failed to publish template: ${response.statusText}`);
+    const errorText = await response.text();
+    throw new Error(`Failed to publish template: ${response.status} ${errorText}`);
   }
   return response.json();
 }
@@ -138,7 +181,8 @@ async function useTemplate(id: number): Promise<FeedTemplate> {
   if (!response.ok) {
     throw new Error(`Failed to use template: ${response.statusText}`);
   }
-  return response.json();
+  const data = await response.json();
+  return transformTemplate(data.template || data);
 }
 
 // ===============================
@@ -285,8 +329,17 @@ export const useTemplateAtom = atom(
 export const publishToFeedAtom = atom(
   null,
   async (get, set, data: Omit<PublishData, 'templateSettings' | 'assets' | 'tracks'> & { templateSettings?: TemplateSettings }) => {
-    // TODO: Get actual user ID from Telegram WebApp
-    const telegramId = 144022504;
+    // Get actual user from Telegram auth
+    const user = get(userAtom);
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    const userInfo: PublishUserInfo = {
+      telegramId: user.id,
+      creatorName: user.first_name || user.username || 'Anonymous',
+      creatorAvatar: user.photo_url,
+    };
 
     try {
       const fullData: PublishData = {
@@ -296,7 +349,7 @@ export const publishToFeedAtom = atom(
         tracks: get(tracksAtom),
       };
 
-      const template = await publishTemplate(fullData, telegramId);
+      const template = await publishTemplate(fullData, userInfo);
 
       // Add to feed list
       const templates = get(feedTemplatesAtom);

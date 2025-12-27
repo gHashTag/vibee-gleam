@@ -185,7 +185,7 @@ pub fn get_trigger_chats() -> List(TriggerChatConfig) {
       expected_response_pattern: "",
       expected_forward_pattern: "ЛИД|Клиент|нейро|AI|контент",
     ),
-    // AI Группа 2 - SNIPER MODE (отвечает на AI триггеры)
+    // AI Группа 2 - OBSERVE ONLY (только наблюдать!)
     TriggerChatConfig(
       chat_id: "-1002298297094",
       chat_name: "AI Content Group",
@@ -196,9 +196,9 @@ pub fn get_trigger_chats() -> List(TriggerChatConfig) {
       custom_triggers: ai_content_triggers(),  // ТОЛЬКО AI триггеры
       forward_chat_id: "-1002737186844",
       allow_images: False,
-      response_template: "Напиши мне в личку, помогу с нейроконтентом",
-      observe_only: False,  // Отвечает на триггеры
-      expected_response_pattern: "личку|напиши|помогу|нейро",
+      response_template: "",
+      observe_only: True,  // ТОЛЬКО наблюдать, НЕ отвечать!
+      expected_response_pattern: "",
       expected_forward_pattern: "ЛИД|Клиент|нейро|AI",
     ),
     // AI Группа 3 - OBSERVE ONLY

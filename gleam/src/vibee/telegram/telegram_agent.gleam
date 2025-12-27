@@ -163,6 +163,17 @@ pub fn init(config: TelegramAgentConfig) -> AgentState {
   )
 }
 
+/// Determine chat type from chat_id
+fn get_chat_type(chat_id: Int) -> String {
+  case chat_id > 0 {
+    True -> "private"
+    False -> case chat_id < -1_000_000_000_000 {
+      True -> "supergroup"
+      False -> "group"
+    }
+  }
+}
+
 /// Get user_id from session (lazy initialization)
 fn get_or_fetch_user_id(state: AgentState) -> #(AgentState, Option(Int)) {
   let log = vibe_logger.new("user_id")
@@ -442,7 +453,7 @@ pub fn handle_incoming_message(
 
                   let _ = owner_notifier.notify_new_chat(
                     chat_id_int,
-                    "private",
+                    get_chat_type(chat_id_int),
                     from_id,
                     from_name,
                     username,
@@ -489,7 +500,7 @@ pub fn handle_incoming_message(
 
                   let _ = owner_notifier.notify_new_chat(
                     chat_id_int,
-                    "private",
+                    get_chat_type(chat_id_int),
                     from_id,
                     from_name,
                     username,
@@ -623,8 +634,8 @@ pub fn handle_incoming_message(
                       }
                     }
                     Error(_) -> {
-                      vibe_logger.info(sniper_log |> vibe_logger.with_data("mode", json.string("respond")), "No config found, responding normally")
-                      process_with_digital_twin(updated_state, chat_id, message_id, text, from_name, username, phone, lang_code, is_premium, from_id)
+                      vibe_logger.info(sniper_log |> vibe_logger.with_data("mode", json.string("observe_only")), "No config found, OBSERVE ONLY (не отвечаем в группах)")
+                      process_observe_only(updated_state, chat_id, message_id, text, from_name, username, phone, lang_code, is_premium, from_id)
                     }
                   }
                 }

@@ -81,6 +81,7 @@ export const STORAGE_KEYS = {
   // User & Auth
   // ===============================
   user: 'vibee-user',
+  myProfile: 'vibee-my-profile-v1',
   language: 'vibee-lang',
 
   // ===============================
