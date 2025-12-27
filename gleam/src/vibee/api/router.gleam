@@ -2994,8 +2994,8 @@ fn handle_bot_message(req: Request(Connection)) -> Response(ResponseData) {
               )
 
               // Get database connection
-              case postgres.get_pool() {
-                Ok(pool) -> {
+              case postgres.get_global_pool() {
+                Some(pool) -> {
                   // Convert to IncomingMessage
                   let incoming_msg = case msg_data.photo_file_id {
                     "" -> parse_text_to_incoming(msg_data.text)
@@ -3050,7 +3050,7 @@ fn handle_bot_message(req: Request(Connection)) -> Response(ResponseData) {
                     }
                   }
                 }
-                Error(_) -> {
+                None -> {
                   let response_body = json.object([
                     #("success", json.bool(False)),
                     #("error", json.string("Database connection failed")),
@@ -3192,7 +3192,8 @@ fn send_bot_response(chat_id: Int, response: OutgoingMessage) -> Result(Nil, Str
 
   case response {
     TextReply(text) -> {
-      case bot_api.send_message(bot_config, chat_id, text) {
+      // Send plain text as message with empty keyboard
+      case bot_api.send_with_buttons(bot_config, chat_id, text, []) {
         Ok(_) -> Ok(Nil)
         Error(_) -> Error("Failed to send message")
       }

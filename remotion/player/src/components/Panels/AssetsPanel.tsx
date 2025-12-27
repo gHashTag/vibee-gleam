@@ -86,7 +86,11 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function AssetsPanel() {
+interface AssetsPanelProps {
+  filterType?: 'video' | 'image' | 'audio';
+}
+
+export function AssetsPanel({ filterType }: AssetsPanelProps) {
   const { t } = useLanguage();
   const assets = useAtomValue(assetsAtom);
   const addAsset = useSetAtom(addAssetAtom);
@@ -101,17 +105,23 @@ export function AssetsPanel() {
   useEffect(() => {
     assets.forEach(async (asset) => {
       if (asset.type === 'video' && !thumbnails[asset.id]) {
-        const thumb = await generateVideoThumbnail(asset.url);
+        const absoluteUrl = toAbsoluteUrl(asset.url);
+        const thumb = await generateVideoThumbnail(absoluteUrl);
         if (thumb) {
           setThumbnails(prev => ({ ...prev, [asset.id]: thumb }));
         }
-        const duration = await getVideoDuration(asset.url);
+        const duration = await getVideoDuration(absoluteUrl);
         if (duration) {
           setDurations(prev => ({ ...prev, [asset.id]: duration }));
         }
       }
+      // Generate thumbnails for images too
+      if (asset.type === 'image' && !thumbnails[asset.id]) {
+        const absoluteUrl = toAbsoluteUrl(asset.url);
+        setThumbnails(prev => ({ ...prev, [asset.id]: absoluteUrl }));
+      }
     });
-  }, [assets]);
+  }, [assets, thumbnails]);
 
   const uploadToS3 = async (file: File): Promise<string | null> => {
     try {
@@ -249,50 +259,57 @@ export function AssetsPanel() {
   const imageAssets = assets.filter((a) => a.type === 'image');
   const audioAssets = assets.filter((a) => a.type === 'audio');
 
+  // Get accept type for file input based on filter
+  const getAcceptType = () => {
+    if (filterType === 'video') return 'video/*';
+    if (filterType === 'image') return 'image/*';
+    if (filterType === 'audio') return 'audio/*';
+    return 'video/*,image/*,audio/*';
+  };
+
   return (
     <div className="assets-panel">
+      {/* Header with upload button and view mode */}
       <div className="panel-header">
-        <Film size={14} />
-        <span>{t('tabs.assets')}</span>
+        <div className="panel-header-actions">
+          {/* Compact Upload Button */}
+          <input
+            type="file"
+            id="file-upload"
+            multiple
+            accept={getAcceptType()}
+            onChange={(e) => handleFileUpload(e.target.files)}
+            style={{ display: 'none' }}
+          />
+          <label htmlFor="file-upload" className="upload-btn" title={t('assets.dropOrClick')}>
+            <Upload size={14} />
+          </label>
+          {/* View Mode Toggle */}
+          <button
+            className={`view-mode-btn ${viewMode === 'fill' ? 'active' : ''}`}
+            onClick={() => setViewMode('fill')}
+            title="Fill"
+          >
+            <Maximize size={14} />
+          </button>
+          <button
+            className={`view-mode-btn ${viewMode === 'fit' ? 'active' : ''}`}
+            onClick={() => setViewMode('fit')}
+            title="Fit"
+          >
+            <Minimize2 size={14} />
+          </button>
+        </div>
       </div>
 
-      {/* Upload Zone */}
+      {/* Drop zone (compact) */}
       <div
-        className="upload-zone"
+        className="upload-zone-compact"
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
       >
-        <input
-          type="file"
-          id="file-upload"
-          multiple
-          accept="video/*,image/*,audio/*"
-          onChange={(e) => handleFileUpload(e.target.files)}
-          style={{ display: 'none' }}
-        />
-        <label htmlFor="file-upload" className="upload-label">
-          <Upload size={20} />
-          <span>{t('assets.dropOrClick')}</span>
-          <span className="upload-hint">{t('assets.uploadsToCloud')}</span>
-        </label>
-      </div>
-
-      {/* View Mode Toggle */}
-      <div className="view-mode-toggle">
-        <button
-          className={`view-mode-btn ${viewMode === 'fill' ? 'active' : ''}`}
-          onClick={() => setViewMode('fill')}
-          title="Fill (crop to fit)"
-        >
-          <Maximize size={14} />
-        </button>
-        <button
-          className={`view-mode-btn ${viewMode === 'fit' ? 'active' : ''}`}
-          onClick={() => setViewMode('fit')}
-          title="Fit (show full)"
-        >
-          <Minimize2 size={14} />
-        </button>
+        <Upload size={14} />
+        <span>{t('assets.dropOrClick')}</span>
       </div>
 
       {/* Upload Progress */}
@@ -312,12 +329,14 @@ export function AssetsPanel() {
       )}
 
       {/* Videos - Grid View */}
-      {videoAssets.length > 0 && (
+      {(!filterType || filterType === 'video') && videoAssets.length > 0 && (
         <div className="asset-group">
-          <h3 className="asset-group-title">
-            {t('assets.videos')}
-            <span className="asset-count">{videoAssets.length}</span>
-          </h3>
+          {!filterType && (
+            <h3 className="asset-group-title">
+              {t('assets.videos')}
+              <span className="asset-count">{videoAssets.length}</span>
+            </h3>
+          )}
           <div className={`asset-grid ${viewMode}-mode`}>
             {videoAssets.map((asset) => (
               <VideoAssetCard
@@ -337,17 +356,20 @@ export function AssetsPanel() {
       )}
 
       {/* Images - Grid View */}
-      {imageAssets.length > 0 && (
+      {(!filterType || filterType === 'image') && imageAssets.length > 0 && (
         <div className="asset-group">
-          <h3 className="asset-group-title">
-            {t('assets.images')}
-            <span className="asset-count">{imageAssets.length}</span>
-          </h3>
+          {!filterType && (
+            <h3 className="asset-group-title">
+              {t('assets.images')}
+              <span className="asset-count">{imageAssets.length}</span>
+            </h3>
+          )}
           <div className={`asset-grid ${viewMode}-mode`}>
             {imageAssets.map((asset) => (
               <ImageAssetCard
                 key={asset.id}
                 asset={asset}
+                thumbnail={thumbnails[asset.id]}
                 viewMode={viewMode}
                 onDragStart={handleDragStart}
                 onAddToTimeline={handleAddToTimeline}
@@ -359,16 +381,18 @@ export function AssetsPanel() {
         </div>
       )}
 
-      {/* Audio - List View */}
-      {audioAssets.length > 0 && (
+      {/* Audio - Grid View (same style as videos/images) */}
+      {(!filterType || filterType === 'audio') && audioAssets.length > 0 && (
         <div className="asset-group">
-          <h3 className="asset-group-title">
-            {t('assets.audio')}
-            <span className="asset-count">{audioAssets.length}</span>
-          </h3>
-          <div className="asset-list">
+          {!filterType && (
+            <h3 className="asset-group-title">
+              {t('assets.audio')}
+              <span className="asset-count">{audioAssets.length}</span>
+            </h3>
+          )}
+          <div className={`asset-grid ${viewMode}-mode`}>
             {audioAssets.map((asset) => (
-              <AudioAssetItem
+              <AudioAssetCard
                 key={asset.id}
                 asset={asset}
                 onDragStart={handleDragStart}
@@ -379,6 +403,17 @@ export function AssetsPanel() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Empty state for filtered view */}
+      {filterType === 'video' && videoAssets.length === 0 && (
+        <div className="assets-empty">{t('assets.noVideos')}</div>
+      )}
+      {filterType === 'image' && imageAssets.length === 0 && (
+        <div className="assets-empty">{t('assets.noImages')}</div>
+      )}
+      {filterType === 'audio' && audioAssets.length === 0 && (
+        <div className="assets-empty">{t('assets.noAudio')}</div>
       )}
     </div>
   );
@@ -443,13 +478,14 @@ function VideoAssetCard({ asset, thumbnail, duration, viewMode, onDragStart, onA
         {duration && (
           <span className="asset-card-duration">{formatDuration(duration)}</span>
         )}
+        {/* Overlay info */}
+        <div className="asset-card-overlay">
+          <span className="asset-card-name">{asset.name}</span>
+          {asset.fileSize && (
+            <span className="asset-card-size">{formatFileSize(asset.fileSize)}</span>
+          )}
+        </div>
         {isBlobUrl && <span className="asset-card-warning">⚠️</span>}
-      </div>
-      <div className="asset-card-info">
-        <span className="asset-card-name">{asset.name}</span>
-        {asset.fileSize && (
-          <span className="asset-card-size">{formatFileSize(asset.fileSize)}</span>
-        )}
       </div>
       <button
         className="asset-card-remove"
@@ -467,6 +503,7 @@ function VideoAssetCard({ asset, thumbnail, duration, viewMode, onDragStart, onA
 // Image Card
 interface ImageAssetCardProps {
   asset: Asset;
+  thumbnail?: string;
   viewMode: 'fill' | 'fit';
   onDragStart: (e: React.DragEvent, asset: Asset) => void;
   onAddToTimeline: (asset: Asset) => void;
@@ -474,9 +511,9 @@ interface ImageAssetCardProps {
   t: (key: string) => string;
 }
 
-function ImageAssetCard({ asset, viewMode, onDragStart, onAddToTimeline, onRemove, t }: ImageAssetCardProps) {
+function ImageAssetCard({ asset, thumbnail, viewMode, onDragStart, onAddToTimeline, onRemove, t }: ImageAssetCardProps) {
   const isBlobUrl = asset.url.startsWith('blob:');
-  const imageUrl = toAbsoluteUrl(asset.url);
+  const imageUrl = thumbnail || toAbsoluteUrl(asset.url);
 
   return (
     <div
@@ -488,13 +525,14 @@ function ImageAssetCard({ asset, viewMode, onDragStart, onAddToTimeline, onRemov
     >
       <div className="asset-card-thumbnail">
         <img src={imageUrl} alt={asset.name} className="asset-card-img" />
+        {/* Overlay info like video cards */}
+        <div className="asset-card-overlay">
+          <span className="asset-card-name">{asset.name}</span>
+          {asset.fileSize && (
+            <span className="asset-card-size">{formatFileSize(asset.fileSize)}</span>
+          )}
+        </div>
         {isBlobUrl && <span className="asset-card-warning">⚠️</span>}
-      </div>
-      <div className="asset-card-info">
-        <span className="asset-card-name">{asset.name}</span>
-        {asset.fileSize && (
-          <span className="asset-card-size">{formatFileSize(asset.fileSize)}</span>
-        )}
       </div>
       <button
         className="asset-card-remove"
@@ -509,8 +547,8 @@ function ImageAssetCard({ asset, viewMode, onDragStart, onAddToTimeline, onRemov
   );
 }
 
-// Audio Item (list view)
-interface AudioAssetItemProps {
+// Audio Card (grid view - same style as video/image)
+interface AudioAssetCardProps {
   asset: Asset;
   onDragStart: (e: React.DragEvent, asset: Asset) => void;
   onAddToTimeline: (asset: Asset) => void;
@@ -518,33 +556,40 @@ interface AudioAssetItemProps {
   t: (key: string) => string;
 }
 
-function AudioAssetItem({ asset, onDragStart, onAddToTimeline, onRemove, t }: AudioAssetItemProps) {
+function AudioAssetCard({ asset, onDragStart, onAddToTimeline, onRemove, t }: AudioAssetCardProps) {
   const isBlobUrl = asset.url.startsWith('blob:');
 
   return (
     <div
-      className={`asset-item ${isBlobUrl ? 'blob-warning' : ''}`}
+      className={`asset-card ${isBlobUrl ? 'blob-warning' : ''}`}
       draggable
       onDragStart={(e) => onDragStart(e, asset)}
       onDoubleClick={() => onAddToTimeline(asset)}
       title={asset.name}
     >
-      <div className="asset-icon">
-        <Music size={16} />
+      <div className="asset-card-thumbnail vinyl-thumbnail">
+        <div className="vinyl-record">
+          <div className="vinyl-grooves"></div>
+          <div className="vinyl-label">
+            <Music size={12} />
+          </div>
+        </div>
       </div>
-      <span className="asset-name">{asset.name}</span>
-      {asset.fileSize && (
-        <span className="asset-size">{formatFileSize(asset.fileSize)}</span>
-      )}
-      {isBlobUrl && <span className="blob-badge">⚠️</span>}
+      <div className="asset-card-info">
+        <span className="asset-card-name">{asset.name}</span>
+        {asset.fileSize && (
+          <span className="asset-card-size">{formatFileSize(asset.fileSize)}</span>
+        )}
+      </div>
+      {isBlobUrl && <span className="asset-card-warning">⚠️</span>}
       <button
-        className="asset-remove"
+        className="asset-card-remove"
         onClick={(e) => {
           e.stopPropagation();
           onRemove(asset.id);
         }}
       >
-        <Trash2 size={12} />
+        <Trash2 size={10} />
       </button>
     </div>
   );

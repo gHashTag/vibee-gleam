@@ -89,11 +89,57 @@
   letter-spacing: 0.5px;
 }
 
+/* Sidebar horizontal tabs */
 .sidebar-tabs {
   display: flex;
   gap: 2px;
   padding: 8px;
   background: #0d0d0d;
+}
+
+/* Content tabs (Templates/Video/Image/Audio) */
+.sidebar-content-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 12px;
+  background: #0a0a0a;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.content-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #666;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.content-tab span:first-child {
+  font-size: 16px;
+}
+
+.content-tab:hover {
+  background: #1a1a1a;
+  color: #888;
+}
+
+.content-tab.active {
+  background: #f59e0b;
+  color: #000;
+}
+
+.sidebar-tab-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
 }
 
 .sidebar-tab {

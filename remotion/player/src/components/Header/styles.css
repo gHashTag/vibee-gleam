@@ -171,6 +171,8 @@
     display: none;
   }
 
+  /* All tabs and wrappers should be equal width */
+  .header-tabs > a.header-tab,
   .header-tab-wrapper {
     flex: 1;
     display: flex;

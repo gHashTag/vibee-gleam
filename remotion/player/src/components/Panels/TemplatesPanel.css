@@ -1,201 +1,115 @@
 .templates-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-.template-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/* Template Item */
-.template-item {
-  display: flex;
-  align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+}
+
+/* Grid - 3 columns like assets */
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+/* Template Card - same style as asset cards */
+.template-card {
+  position: relative;
   background: #1a1a1a;
-  border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 8px;
+  overflow: hidden;
   cursor: pointer;
   transition: all 0.15s;
+  border: 1px solid transparent;
 }
 
-.template-item:hover {
+.template-card:hover {
   background: #222;
-  border-color: #333;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.template-item.selected {
-  background: rgba(245, 158, 11, 0.1);
+.template-card.selected {
   border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
 }
 
-.template-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: #2a2a2a;
-  border-radius: 4px;
-  color: #666;
-  flex-shrink: 0;
-}
-
-.template-item.selected .template-icon {
-  background: #f59e0b;
-  color: #000;
-}
-
-.template-name {
-  flex: 1;
-  font-size: 12px;
-  color: #ccc;
-  white-space: nowrap;
+.template-card-thumbnail {
+  position: relative;
+  width: 100%;
+  height: 80px;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
   overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.template-check {
   display: flex;
   align-items: center;
   justify-content: center;
   color: #f59e0b;
-  flex-shrink: 0;
 }
 
-/* Delete button */
-.template-delete {
-  opacity: 0;
-  background: transparent;
-  border: none;
-  color: #666;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  transition: all 0.15s;
+.template-card-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.template-card-check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  background: #f59e0b;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  color: #000;
 }
 
-.template-item:hover .template-delete {
+/* Overlay at bottom of thumbnail */
+.template-card-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 6px 4px 6px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.8));
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.template-card-name {
+  font-size: 9px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+.template-card-delete {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  border-radius: 3px;
+  color: #888;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.template-card:hover .template-card-delete {
   opacity: 1;
 }
 
-.template-delete:hover {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
-}
-
-/* ========================================
-   RESPONSIVE STYLES
-   ======================================== */
-
-/* Tablets */
-@media (max-width: 768px) {
-  .templates-panel {
-    gap: 10px;
-  }
-
-  .template-item {
-    padding: 12px 14px;
-    gap: 10px;
-  }
-
-  .template-icon {
-    width: 32px;
-    height: 32px;
-  }
-
-  .template-name {
-    font-size: 13px;
-  }
-
-  .template-delete {
-    opacity: 1;
-    padding: 6px;
-    min-width: 32px;
-    min-height: 32px;
-  }
-}
-
-/* Large phones */
-@media (max-width: 640px) {
-  .template-list {
-    gap: 6px;
-  }
-
-  .template-item {
-    padding: 14px 12px;
-    border-radius: 8px;
-  }
-
-  .template-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 6px;
-  }
-
-  .template-name {
-    font-size: 14px;
-  }
-
-  .template-delete {
-    min-width: 36px;
-    min-height: 36px;
-    padding: 8px;
-  }
-}
-
-/* Small phones */
-@media (max-width: 480px) {
-  .template-list {
-    gap: 8px;
-  }
-
-  .template-item {
-    padding: 14px;
-    min-height: 56px;
-  }
-
-  .template-icon {
-    width: 40px;
-    height: 40px;
-  }
-
-  .template-name {
-    font-size: 14px;
-  }
-
-  .template-delete {
-    min-width: 44px;
-    min-height: 44px;
-    border-radius: 6px;
-  }
-}
-
-/* Extra small phones */
-@media (max-width: 380px) {
-  .template-item {
-    padding: 12px;
-  }
-
-  .template-icon {
-    width: 36px;
-    height: 36px;
-  }
-
-  .template-name {
-    font-size: 13px;
-  }
-
-  .template-delete {
-    min-width: 40px;
-    min-height: 40px;
-  }
+.template-card-delete:hover {
+  background: rgba(239, 68, 68, 0.8);
+  color: #fff;
 }

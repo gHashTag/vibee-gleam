@@ -46,22 +46,6 @@ export function LayoutSettings() {
         )}
       </div>
 
-      <div className="layout-info">
-        <div className="layout-info-row">
-          <span className="layout-info-label">Assets:</span>
-          <span className="layout-info-value">
-            {LAYOUT_PRESETS[layout]?.showAssets
-              ? `${LAYOUT_PRESETS[layout]?.assetsWidth}px`
-              : 'Hidden'}
-          </span>
-        </div>
-        <div className="layout-info-row">
-          <span className="layout-info-label">Timeline:</span>
-          <span className="layout-info-value">
-            {LAYOUT_PRESETS[layout]?.timelineHeight}px
-          </span>
-        </div>
-      </div>
     </div>
   );
 }

@@ -1,10 +1,74 @@
 .assets-panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 12px;
+  gap: 12px;
   flex: 1;
   min-height: 0;
+}
+
+/* Panel header with actions */
+.assets-panel .panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.upload-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  background: #f59e0b;
+  border: none;
+  border-radius: 4px;
+  color: #000;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.upload-btn:hover {
+  background: #fbbf24;
+}
+
+/* Compact drop zone */
+.upload-zone-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px dashed #2a2a2a;
+  border-radius: 6px;
+  color: #666;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.upload-zone-compact:hover {
+  border-color: #f59e0b;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.05);
+}
+
+/* Empty state */
+.assets-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: #666;
+  font-size: 12px;
+  text-align: center;
 }
 
 /* Upload Zone */
@@ -40,18 +104,12 @@
   color: #4a4a4a;
 }
 
-/* View Mode Toggle */
-.view-mode-toggle {
-  display: flex;
-  gap: 4px;
-  justify-content: flex-end;
-}
-
+/* View Mode Buttons (in header) */
 .view-mode-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
+  width: 24px;
   height: 24px;
   background: #1a1a1a;
   border: 1px solid #2a2a2a;
@@ -193,7 +251,7 @@
 .asset-card-thumbnail {
   position: relative;
   width: 100%;
-  height: 56px;
+  height: 80px;
   background: #0a0a0a;
   overflow: hidden;
   display: flex;
@@ -229,9 +287,74 @@
   color: #444;
 }
 
+/* Vinyl record thumbnail for audio */
+.vinyl-thumbnail {
+  background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+  padding: 8px;
+}
+
+.vinyl-record {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1a1a1a 0%, #000 100%);
+  position: relative;
+  box-shadow:
+    0 0 0 2px #333,
+    inset 0 0 10px rgba(0,0,0,0.5);
+}
+
+.vinyl-grooves {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: repeating-radial-gradient(
+    circle at center,
+    #222 0px,
+    #222 1px,
+    #1a1a1a 1px,
+    #1a1a1a 2px
+  );
+}
+
+.vinyl-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #000;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.vinyl-label::after {
+  content: '';
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: #000;
+  border-radius: 50%;
+}
+
+/* Spin animation on hover */
+.asset-card:hover .vinyl-record {
+  animation: vinyl-spin 2s linear infinite;
+}
+
+@keyframes vinyl-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .asset-card-duration {
   position: absolute;
-  bottom: 2px;
+  top: 2px;
   right: 2px;
   padding: 1px 4px;
   background: rgba(0, 0, 0, 0.8);
@@ -248,8 +371,14 @@
   font-size: 10px;
 }
 
-.asset-card-info {
-  padding: 4px 6px;
+/* Overlay at bottom of thumbnail */
+.asset-card-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 6px 4px 6px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.8));
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -257,15 +386,21 @@
 
 .asset-card-name {
   font-size: 9px;
-  color: #ccc;
+  color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
 .asset-card-size {
   font-size: 8px;
-  color: #666;
+  color: #aaa;
+}
+
+/* Remove old info section - now using overlay */
+.asset-card-info {
+  display: none;
 }
 
 .asset-card-remove {

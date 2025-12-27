@@ -446,9 +446,11 @@
 
 .feed-panel.fullscreen {
   width: 100%;
+  max-width: 100vw;
   height: 100%;
   background: #000;
   position: relative;
+  overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
 /* Floating header - centered within feed panel */
@@ -488,7 +490,10 @@
 .feed-panel.fullscreen .feed-list {
   scroll-snap-type: y mandatory;
   overflow-y: scroll;
+  overflow-x: hidden; /* Prevent horizontal scroll from 100vw elements */
   height: calc(100dvh - 56px);
+  width: 100%;
+  max-width: 100vw;
   padding: 0;
   gap: 0;
   scroll-behavior: smooth;
@@ -520,7 +525,7 @@
   flex-shrink: 0;
 }
 
-/* Desktop: full width, video covers entire area */
+/* Desktop: full width container, inner centered with 9:16 aspect */
 @media (min-width: 1024px) {
   .feed-panel.fullscreen .feed-card {
     width: 100%;
@@ -529,17 +534,26 @@
   }
 }
 
-/* Card inner fills the 9:16 container */
+/* Card inner fills container */
 .feed-panel.fullscreen .feed-card-inner {
   position: relative;
   height: 100%;
   width: 100%;
 }
 
+/* Desktop: center video with 9:16 aspect ratio */
+@media (min-width: 768px) {
+  .feed-panel.fullscreen .feed-card-inner {
+    max-width: calc((100dvh - 56px) * 0.5625); /* 9:16 aspect ratio */
+    margin: 0 auto;
+  }
+}
+
 /* Thumbnail fills entire container */
 .feed-panel.fullscreen .feed-card-thumbnail {
   position: absolute;
   inset: 0;
+  width: 100%;
   max-height: none;
   aspect-ratio: unset; /* Remove aspect ratio - fill entire area */
 }
@@ -551,7 +565,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  background: #111;
+  background: #000;
 }
 
 /* Info overlay at bottom - inside inner container */

@@ -4,9 +4,9 @@ import { loadCaptionsAtom, updateDurationFromLipSyncAtom, lipSyncVideoAtom, tran
 import { layoutPresetAtom, LAYOUT_PRESETS } from '@/atoms/ui';
 import { useAutoRecordHistory } from '@/atoms/hooks';
 import { AssetsPanel } from '@/components/Panels/AssetsPanel';
+import { TemplatesPanel } from '@/components/Panels/TemplatesPanel';
 import { Header } from '@/components/Header';
 import { PropertiesPanel } from '@/components/Panels/PropertiesPanel';
-import { LayoutSettings } from '@/components/Panels/LayoutSettings';
 import { InteractiveCanvas } from '@/components/Canvas/InteractiveCanvas';
 import { Timeline } from '@/components/Timeline/Timeline';
 import { ShortcutsModal } from '@/components/Modals/ShortcutsModal';
@@ -18,9 +18,13 @@ import { useIsMobile, useIsTablet } from '@/hooks/useMediaQuery';
 import { useWebSocket, setGlobalWsSend } from '@/lib/websocket';
 import { useLanguage } from '@/hooks/useLanguage';
 
+// Sidebar content tabs
+type SidebarTab = 'templates' | 'video' | 'image' | 'audio';
+
 function EditorContent() {
   const { t } = useLanguage();
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('video');
   const isMobile = useIsMobile();
   const isTablet = useIsTablet();
 
@@ -123,12 +127,46 @@ function EditorContent() {
       />
 
       <main id="main-content" className="editor-main" role="main">
-        {/* Left sidebar: Settings + Assets (based on layout) */}
+        {/* Left sidebar: Tabs for each content group */}
         {showAssets && (
           <aside className="sidebar sidebar-left">
             <ErrorBoundary fallback={<PanelError />}>
-              <LayoutSettings />
-              <AssetsPanel />
+              {/* Content tabs */}
+              <div className="sidebar-content-tabs">
+                <button
+                  className={`content-tab ${sidebarTab === 'templates' ? 'active' : ''}`}
+                  onClick={() => setSidebarTab('templates')}
+                >
+                  <span>📋</span>
+                  <span>{t('tabs.templates')}</span>
+                </button>
+                <button
+                  className={`content-tab ${sidebarTab === 'video' ? 'active' : ''}`}
+                  onClick={() => setSidebarTab('video')}
+                >
+                  <span>🎬</span>
+                  <span>{t('assets.videos')}</span>
+                </button>
+                <button
+                  className={`content-tab ${sidebarTab === 'image' ? 'active' : ''}`}
+                  onClick={() => setSidebarTab('image')}
+                >
+                  <span>🖼️</span>
+                  <span>{t('assets.images')}</span>
+                </button>
+                <button
+                  className={`content-tab ${sidebarTab === 'audio' ? 'active' : ''}`}
+                  onClick={() => setSidebarTab('audio')}
+                >
+                  <span>🎵</span>
+                  <span>{t('assets.audio')}</span>
+                </button>
+              </div>
+              {/* Tab content */}
+              <div className="sidebar-tab-content">
+                {sidebarTab === 'templates' && <TemplatesPanel />}
+                {sidebarTab !== 'templates' && <AssetsPanel filterType={sidebarTab} />}
+              </div>
             </ErrorBoundary>
           </aside>
         )}

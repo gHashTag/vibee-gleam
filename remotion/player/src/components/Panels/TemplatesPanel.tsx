@@ -20,38 +20,41 @@ export function TemplatesPanel() {
 
   return (
     <div className="templates-panel">
-      <div className="panel-header">
-        <LayoutTemplate size={14} />
-        <span>{t('templates.title')}</span>
-      </div>
-
-      <div className="template-list">
+      {/* Grid of template cards */}
+      <div className="template-grid">
         {templates.map((template) => {
           const isSelected = template.id === selectedTemplateId;
 
           return (
             <div
               key={template.id}
-              className={`template-item ${isSelected ? 'selected' : ''}`}
+              className={`template-card ${isSelected ? 'selected' : ''}`}
               onClick={() => selectTemplate(template.id)}
               title={template.description}
             >
-              <div className="template-icon">
-                <LayoutTemplate size={16} />
-              </div>
-              <span className="template-name">{template.name}</span>
-              {isSelected && (
-                <div className="template-check">
-                  <Check size={14} />
+              <div className="template-card-thumbnail">
+                {template.thumbnail ? (
+                  <img src={template.thumbnail} alt={template.name} />
+                ) : (
+                  <LayoutTemplate size={24} />
+                )}
+                {isSelected && (
+                  <div className="template-card-check">
+                    <Check size={14} />
+                  </div>
+                )}
+                {/* Overlay with name */}
+                <div className="template-card-overlay">
+                  <span className="template-card-name">{template.name}</span>
                 </div>
-              )}
+              </div>
               {template.isUserCreated && (
                 <button
-                  className="template-delete"
+                  className="template-card-delete"
                   onClick={(e) => handleDelete(e, template.id)}
                   title={t('templates.delete')}
                 >
-                  <Trash2 size={12} />
+                  <Trash2 size={10} />
                 </button>
               )}
             </div>

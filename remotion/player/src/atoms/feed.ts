@@ -24,11 +24,8 @@ export const currentRemixSourceAtom = atom<RemixSource | null>(null);
 // Global muted state for all feed videos (starts muted for autoplay)
 export const feedMutedAtom = atom(true);
 
-// API Base URL
-const API_BASE = import.meta.env.VITE_API_BASE_URL ||
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:8081'
-    : 'https://vibee-mcp.fly.dev');
+// API Base URL - always use production unless explicitly set
+const API_BASE = import.meta.env.VITE_API_URL || 'https://vibee-mcp.fly.dev';
 
 // ===============================
 // Types
