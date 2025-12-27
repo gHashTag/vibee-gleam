@@ -337,6 +337,7 @@ const en: Translations = {
 
   // Templates Panel
   "templates.title": "Templates",
+  "templates.pageSubtitle": "Your saved templates and presets",
   "templates.saveTitle": "Save as Template",
   "templates.saveDescription": "Save current settings with all assets as a reusable template.",
   "templates.namePlaceholder": "Template name",
@@ -438,10 +439,13 @@ const en: Translations = {
 
   // Tab Tooltips
   "tabs.feed": "Feed",
+  "tabs.search": "Search",
+  "tabs.profile": "Profile",
   "tabs.templates": "Templates",
   "tabs.assets": "Assets",
   "tabs.player": "Player",
   "tabs.editor": "Editor",
+  "tabs.ai": "AI",
   "tabs.avatar": "Avatar",
   "tabs.layers": "Layers",
   "tabs.properties": "Properties",
@@ -1220,6 +1224,7 @@ const ru: Translations = {
 
   // Templates Panel
   "templates.title": "Шаблоны",
+  "templates.pageSubtitle": "Ваши сохранённые шаблоны и пресеты",
   "templates.saveTitle": "Сохранить как шаблон",
   "templates.saveDescription": "Сохранить текущие настройки со всеми ассетами как шаблон.",
   "templates.namePlaceholder": "Название шаблона",
@@ -1321,10 +1326,13 @@ const ru: Translations = {
 
   // Tab Tooltips
   "tabs.feed": "Лента",
+  "tabs.search": "Поиск",
+  "tabs.profile": "Профиль",
   "tabs.templates": "Шаблоны",
   "tabs.assets": "Ассеты",
   "tabs.player": "Плеер",
   "tabs.editor": "Редактор",
+  "tabs.ai": "ИИ",
   "tabs.avatar": "Аватар",
   "tabs.layers": "Слои",
   "tabs.properties": "Свойства",

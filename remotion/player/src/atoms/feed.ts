@@ -137,8 +137,11 @@ function transformTemplate(raw: any): FeedTemplate {
   };
 }
 
-async function fetchFeed(page: number, limit: number, sort: FeedSort): Promise<FeedTemplate[]> {
-  const url = `${API_BASE}/api/feed?page=${page}&limit=${limit}&sort=${sort}`;
+async function fetchFeed(page: number, limit: number, sort: FeedSort, userId?: number): Promise<FeedTemplate[]> {
+  let url = `${API_BASE}/api/feed?page=${page}&limit=${limit}&sort=${sort}`;
+  if (userId) {
+    url += `&user_id=${userId}`;
+  }
   console.log('[Feed] Fetching:', url);
   const response = await fetch(url);
   if (!response.ok) {
@@ -232,18 +235,20 @@ export const loadFeedAtom = atom(
     isLoadingFeed = true;
 
     const sort = get(feedSortAtom);
+    const user = get(userAtom);
+    const userId = user?.id;
 
     // If refresh, start from page 0
     const page = refresh ? 0 : get(feedPageAtom);
     const limit = 20;
 
-    console.log('[Feed] Loading feed...', { page, limit, sort, refresh });
+    console.log('[Feed] Loading feed...', { page, limit, sort, refresh, userId });
 
     set(feedLoadingAtom, true);
     set(feedErrorAtom, null);
 
     try {
-      const templates = await fetchFeed(page, limit, sort);
+      const templates = await fetchFeed(page, limit, sort, userId);
       console.log('[Feed] Loaded templates:', templates.length);
 
       // ALWAYS deduplicate by ID to prevent any duplicates
@@ -317,6 +322,14 @@ export const likeTemplateAtom = atom(
       return;
     }
 
+    // Get user for API call
+    const user = get(userAtom);
+    if (!user) {
+      likingTemplates.delete(templateId);
+      console.log('[Feed] Cannot like - user not authenticated');
+      return;
+    }
+
     // Optimistic UI: update immediately
     const wasLiked = template.isLiked;
     const oldLikesCount = template.likesCount;
@@ -329,8 +342,7 @@ export const likeTemplateAtom = atom(
         : t
     ));
 
-    // TODO: Get actual user ID from Telegram WebApp
-    const userId = 144022504; // Default for testing
+    const userId = user.id;
 
     try {
       const result = await likeTemplate(templateId, userId);

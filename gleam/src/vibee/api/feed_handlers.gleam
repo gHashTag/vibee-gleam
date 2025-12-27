@@ -740,19 +740,21 @@ fn check_can_delete(
   telegram_id: Int,
 ) -> Result(Bool, String) {
   // Check if user is admin OR owns the template
+  // Note: users.telegram_id is TEXT, public_templates.telegram_id is BIGINT
   let sql = "
     SELECT EXISTS (
-      SELECT 1 FROM users WHERE telegram_id = $1::text AND is_admin = true
+      SELECT 1 FROM users WHERE telegram_id = $1 AND is_admin = true
     ) as is_admin,
     EXISTS (
-      SELECT 1 FROM public_templates WHERE id = $2 AND telegram_id = $1
+      SELECT 1 FROM public_templates WHERE id = $2 AND telegram_id = $3
     ) as is_owner
   "
 
   let result =
     pog.query(sql)
-    |> pog.parameter(pog.int(telegram_id))
+    |> pog.parameter(pog.text(int.to_string(telegram_id)))
     |> pog.parameter(pog.int(template_id))
+    |> pog.parameter(pog.int(telegram_id))
     |> pog.returning({
       use is_admin <- decode.field(0, decode.bool)
       use is_owner <- decode.field(1, decode.bool)

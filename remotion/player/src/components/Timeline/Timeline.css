@@ -53,9 +53,9 @@
 .timeline-browser-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  height: 40px;
+  gap: 6px;
+  padding: 3px 12px;
+  height: 28px;
   border-bottom: 1px solid #1a1a1a;
 }
 
@@ -64,11 +64,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 20px;
   background: linear-gradient(135deg, #f59e0b, #fbbf24);
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   color: #000;
   cursor: pointer;
   transition: all 0.15s;
@@ -94,11 +94,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 20px;
   background: #1a1a1a;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   color: #888;
   cursor: pointer;
   transition: all 0.15s;
@@ -155,13 +155,13 @@
 .browser-category-chip {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
+  gap: 3px;
+  padding: 2px 8px;
   background: #1a1a1a;
   border: 1px solid transparent;
-  border-radius: 16px;
+  border-radius: 12px;
   color: #888;
-  font-size: 11px;
+  font-size: 10px;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
@@ -219,9 +219,9 @@
 /* Asset cards row */
 .timeline-browser-assets {
   display: flex;
-  gap: 8px;
-  padding: 8px 12px;
-  height: 88px;
+  gap: 6px;
+  padding: 4px 12px;
+  height: 58px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
@@ -277,29 +277,29 @@
 /* Tablet: Smaller browser */
 @media (min-width: 768px) and (max-width: 1023px) {
   .timeline-browser-header {
-    padding: 6px 10px;
-    height: 36px;
+    padding: 3px 10px;
+    height: 26px;
   }
 
   .browser-upload-btn,
   .browser-search-btn {
-    width: 28px;
-    height: 28px;
+    width: 22px;
+    height: 18px;
   }
 
   .browser-search-input {
-    width: 120px;
+    width: 100px;
   }
 
   .browser-category-chip {
-    padding: 3px 8px;
-    font-size: 10px;
+    padding: 2px 6px;
+    font-size: 9px;
   }
 
   .timeline-browser-assets {
-    height: 72px;
-    padding: 6px 10px;
-    gap: 6px;
+    height: 56px;
+    padding: 4px 10px;
+    gap: 5px;
   }
 }
 

@@ -2217,7 +2217,7 @@ fn cors_preflight_handler() -> Response(ResponseData) {
   response.new(204)
   |> response.set_header("access-control-allow-origin", "*")
   |> response.set_header("access-control-allow-methods", "GET, POST, PUT, DELETE, OPTIONS")
-  |> response.set_header("access-control-allow-headers", "content-type, authorization")
+  |> response.set_header("access-control-allow-headers", "content-type, authorization, x-telegram-id")
   |> response.set_header("access-control-max-age", "86400")
   |> response.set_body(mist.Bytes(bytes_tree.new()))
 }

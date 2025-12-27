@@ -1,8 +1,8 @@
 /* Unified Asset Card - Design Tokens */
 :root {
-  --asset-card-radius: 8px;
-  --asset-card-height-compact: 88px;
-  --asset-card-width-compact: 100px;
+  --asset-card-radius: 4px;
+  --asset-card-height-compact: 50px;
+  --asset-card-width-compact: 80px;
   --asset-card-height-normal: 120px;
   --asset-card-width-normal: 140px;
 
@@ -61,17 +61,18 @@
 /* Type Badge */
 .asset-card-badge {
   position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   z-index: 2;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  font-size: 7px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 /* Preview Area */
@@ -116,12 +117,12 @@
 /* Duration Badge */
 .asset-card-duration {
   position: absolute;
-  bottom: 4px;
-  right: 4px;
-  padding: 2px 6px;
+  bottom: 2px;
+  right: 2px;
+  padding: 1px 4px;
   background: rgba(0, 0, 0, 0.75);
-  border-radius: 4px;
-  font-size: 10px;
+  border-radius: 3px;
+  font-size: 8px;
   font-weight: 500;
   color: white;
   font-variant-numeric: tabular-nums;
@@ -129,16 +130,16 @@
 
 /* Info Section */
 .asset-card-info {
-  padding: 6px 8px;
+  padding: 2px 4px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
   background: #1a1a1a;
   border-top: 1px solid #222;
 }
 
 .asset-card-name {
-  font-size: 11px;
+  font-size: 8px;
   font-weight: 500;
   color: #fff;
   white-space: nowrap;
@@ -147,23 +148,28 @@
   line-height: 1.2;
 }
 
+/* Hide type label in compact mode */
+.compact .asset-card-type {
+  display: none;
+}
+
 .asset-card-type {
-  font-size: 9px;
+  font-size: 7px;
   color: var(--asset-color, #666);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 
 /* Touch optimization */
 @media (pointer: coarse) {
   .asset-card-unified.compact {
-    width: 110px;
-    height: 96px;
+    width: 85px;
+    height: 55px;
   }
 
   .asset-card-badge {
-    width: 22px;
-    height: 22px;
+    width: 14px;
+    height: 14px;
   }
 }
 

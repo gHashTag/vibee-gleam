@@ -4,7 +4,6 @@ import { LanguageProvider } from '@/hooks/useLanguage';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { JotaiProvider } from '@/atoms/Provider';
 import { ToastContainer } from '@/components/Toast/Toast';
-import { BottomNavigation } from '@/components/Navigation';
 import { PageTransition } from '@/components/PageTransition';
 import './App.css';
 
@@ -16,6 +15,7 @@ const ProfilePage = lazy(() => import('@/pages/Profile'));
 const FeedPage = lazy(() => import('@/pages/Feed'));
 const SearchPage = lazy(() => import('@/pages/Search'));
 const GeneratePage = lazy(() => import('@/pages/Generate'));
+const TemplatesPage = lazy(() => import('@/pages/Templates'));
 
 // Loading fallback
 function PageLoader() {
@@ -41,12 +41,12 @@ function App() {
                   <Route path="/editor" element={<EditorPage />} />
                   <Route path="/generate" element={<Navigate to="/generate/image" replace />} />
                   <Route path="/generate/:tab" element={<GeneratePage />} />
+                  <Route path="/templates" element={<TemplatesPage />} />
                   <Route path="/chat" element={<ChatPage />} />
                   <Route path="/:username" element={<ProfilePage />} />
                 </Routes>
               </Suspense>
             </PageTransition>
-            <BottomNavigation />
           </BrowserRouter>
           <ToastContainer />
         </LanguageProvider>

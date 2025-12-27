@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useLanguage } from '@/hooks/useLanguage';
 import {
@@ -10,30 +10,37 @@ import {
   showLoginModalAtom,
   fetchQuotaAtom,
   logoutAtom,
+  myProfileAtom,
 } from '@/atoms';
 import { X, Zap, Keyboard } from 'lucide-react';
 import { TelegramLoginButton, UserAvatar, PaywallModal } from '@/components/Auth';
 import { RemixBadge } from '@/components/RemixBadge';
 import './styles.css';
 
-// Page navigation tabs with emojis (same as VerticalTabs)
+// Page navigation tabs - 5 main tabs
 const NAV_TABS = [
   { id: 'feed', emoji: '🌐', labelKey: 'tabs.feed', route: '/feed' },
+  { id: 'search', emoji: '🔍', labelKey: 'tabs.search', route: '/search' },
   { id: 'editor', emoji: '▶️', labelKey: 'tabs.editor', route: '/editor' },
-  { id: 'lipsync', emoji: '👄', labelKey: 'tabs.avatar', route: '/generate/avatar' },
+  { id: 'ai', emoji: '✨', labelKey: 'tabs.ai', route: '/generate', hasSubmenu: true },
+  { id: 'profile', emoji: '👤', labelKey: 'tabs.profile', route: '/profile', isDynamic: true },
+] as const;
+
+// AI submenu items
+const AI_SUBMENU = [
+  { id: 'avatar', emoji: '👄', labelKey: 'tabs.avatar', route: '/generate/avatar' },
   { id: 'video', emoji: '🎬', labelKey: 'generate.video', route: '/generate/video' },
   { id: 'image', emoji: '📷', labelKey: 'generate.image', route: '/generate/image' },
-  { id: 'audio', emoji: '🎤', labelKey: 'generate.audio', route: '/generate/audio' },
+  { id: 'voice', emoji: '🎤', labelKey: 'generate.audio', route: '/generate/audio' },
 ] as const;
 
 // Route patterns to match for active state
 const ROUTE_PATTERNS: Record<string, RegExp> = {
   'feed': /^\/feed/,
+  'search': /^\/search/,
   'editor': /^\/editor/,
-  'lipsync': /^\/generate\/avatar/,
-  'video': /^\/generate\/video/,
-  'image': /^\/generate\/image/,
-  'audio': /^\/generate\/audio/,
+  'ai': /^\/generate/,
+  'profile': /^\/[^/]+$/, // matches /:username
 };
 
 // Export settings stored in localStorage
@@ -69,9 +76,11 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
   // Language hook
   const { lang, setLang, t } = useLanguage();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Jotai atoms
   const project = useAtomValue(projectAtom);
+  const myProfile = useAtomValue(myProfileAtom);
 
   // User & Quota state
   const user = useAtomValue(userAtom);
@@ -90,8 +99,38 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
     }
   }, [user, fetchQuota]);
 
+  // Haptic feedback helper
+  const triggerHaptic = useCallback((duration = 10) => {
+    if ('vibrate' in navigator) {
+      navigator.vibrate(duration);
+    }
+  }, []);
+
+  // Handle tab click with haptic
+  const handleTabClick = useCallback((e: React.MouseEvent, tab: typeof NAV_TABS[number]) => {
+    triggerHaptic();
+
+    // For profile tab, use dynamic route
+    if (tab.id === 'profile' && myProfile?.username) {
+      e.preventDefault();
+      navigate(`/${myProfile.username}`);
+    }
+  }, [triggerHaptic, myProfile, navigate]);
+
+  // Get profile route dynamically
+  const getTabRoute = useCallback((tab: typeof NAV_TABS[number]) => {
+    if (tab.id === 'profile' && myProfile?.username) {
+      return `/${myProfile.username}`;
+    }
+    return tab.route;
+  }, [myProfile]);
+
+  // Find active tab index for slide indicator
+  const activeTabIndex = NAV_TABS.findIndex(tab => ROUTE_PATTERNS[tab.id]?.test(location.pathname));
+
   const [showSettings, setShowSettings] = useState(false);
   const [exportSettings, setExportSettings] = useState<ExportSettings>(getExportSettings);
+  const [showAiSubmenu, setShowAiSubmenu] = useState(false);
 
   const handleSettingsChange = (key: keyof ExportSettings, value: string) => {
     const newSettings = { ...exportSettings, [key]: value };
@@ -115,16 +154,27 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
           </Link>
         </div>
 
-        {/* Centered Navigation Tabs */}
+        {/* Centered Navigation Tabs with Glassmorphism */}
         <nav className="header-tabs" aria-label="Main navigation">
+          {/* Slide indicator */}
+          {activeTabIndex >= 0 && (
+            <div
+              className="header-tabs-indicator"
+              style={{ '--active-index': activeTabIndex } as React.CSSProperties}
+            />
+          )}
+
           {NAV_TABS.map((tab) => {
             const isActive = ROUTE_PATTERNS[tab.id]?.test(location.pathname);
+            const tabRoute = getTabRoute(tab);
+
             return (
               <Link
                 key={tab.id}
-                to={tab.route}
+                to={tabRoute}
                 className={`header-tab ${isActive ? 'active' : ''}`}
                 title={t(tab.labelKey)}
+                onClick={(e) => handleTabClick(e, tab)}
               >
                 <span className="header-tab-emoji">{tab.emoji}</span>
                 <span className="header-tab-label">{t(tab.labelKey)}</span>
