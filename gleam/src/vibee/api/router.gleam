@@ -378,6 +378,9 @@ fn route_request(
         Error(_) -> not_found_handler()
       }
     }
+    // DELETE /api/feed/:id - Delete template (admin or owner only)
+    http.Delete, ["api", "feed", id] ->
+      feed_handlers.delete_template_handler(req, id)
 
     // GET /api/feed/following - Get subscription feed (templates from followed users)
     http.Get, ["api", "feed", "following"] -> profile_handlers.following_feed_handler(req)

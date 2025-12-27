@@ -183,6 +183,13 @@
   transform: translateY(0);
 }
 
+/* Long-press pressing state */
+.asset-card.pressing {
+  transform: scale(0.95);
+  opacity: 0.9;
+  transition: transform 0.1s ease-out;
+}
+
 .asset-card.blob-warning {
   border: 1px solid #f59e0b;
 }

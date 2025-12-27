@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useState } from 'react';
+import { useRef, useCallback, useEffect, useState, useMemo } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useToast } from '@/hooks/useToast';
@@ -562,6 +562,56 @@ export function Timeline() {
       clearScrollRequest();
     }
   }, [scrollToFrame, pxPerFrame, clearScrollRequest]);
+
+  // Pinch-to-zoom on timeline (touch devices)
+  useEffect(() => {
+    const element = timelineRef.current;
+    if (!element) return;
+
+    let lastDistance: number | null = null;
+
+    const getDistance = (touches: TouchList): number => {
+      if (touches.length < 2) return 0;
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        lastDistance = getDistance(e.touches);
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && lastDistance !== null) {
+        e.preventDefault();
+        const currentDistance = getDistance(e.touches);
+        const delta = (currentDistance - lastDistance) / 100;
+
+        // Apply zoom change
+        const newZoom = Math.max(0.25, Math.min(5, timelineZoom + delta));
+        setTimelineZoom(newZoom);
+
+        lastDistance = currentDistance;
+      }
+    };
+
+    const handleTouchEnd = () => {
+      lastDistance = null;
+    };
+
+    element.addEventListener('touchstart', handleTouchStart, { passive: false });
+    element.addEventListener('touchmove', handleTouchMove, { passive: false });
+    element.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      element.removeEventListener('touchstart', handleTouchStart);
+      element.removeEventListener('touchmove', handleTouchMove);
+      element.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [timelineZoom, setTimelineZoom]);
 
   // Format frame as timecode
   const formatTime = useCallback(

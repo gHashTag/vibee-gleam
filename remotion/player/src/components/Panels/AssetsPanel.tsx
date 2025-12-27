@@ -3,10 +3,12 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { assetsAtom, addAssetAtom, removeAssetAtom, addItemAtom } from '@/atoms';
 import { currentFrameAtom } from '@/atoms/playback';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useLongPress } from '@/hooks/useLongPress';
 import { Music, Trash2, Upload, Loader2, Play, Maximize, Minimize2, Film, Plus } from 'lucide-react';
 import type { Asset, AssetType } from '@/store/types';
 import { broadcastAssetAdded, broadcastAssetRemoved } from '@/lib/websocket';
 import { toAbsoluteUrl } from '@/lib/mediaUrl';
+import { QuickActionsMenu, useAssetQuickActions } from '@/components/common/QuickActionsMenu';
 import './AssetsPanel.css';
 
 // Render server URL (for S3 uploads)
@@ -258,6 +260,43 @@ export function AssetsPanel() {
     }
   };
 
+  // Add asset to the beginning of the timeline (frame 0)
+  const handleAddToStart = (asset: Asset) => {
+    let trackId: string;
+    switch (asset.type) {
+      case 'audio':
+        trackId = 'track-audio';
+        break;
+      case 'image':
+        trackId = 'track-image';
+        break;
+      default:
+        trackId = 'track-video';
+    }
+
+    addItem({
+      trackId,
+      itemData: {
+        type: asset.type as any,
+        assetId: asset.id,
+        startFrame: 0, // Add at the beginning
+        durationInFrames: asset.duration || 150,
+        x: 0,
+        y: 0,
+        width: 1080,
+        height: asset.type === 'video' ? 1920 : 1080,
+        rotation: 0,
+        opacity: 1,
+        ...(asset.type === 'video' && { volume: 1, playbackRate: 1 }),
+        ...(asset.type === 'audio' && { volume: 1 }),
+      },
+    });
+
+    if ('vibrate' in navigator) {
+      navigator.vibrate(50);
+    }
+  };
+
   const videoAssets = assets.filter((a) => a.type === 'video');
   const imageAssets = assets.filter((a) => a.type === 'image');
   const audioAssets = assets.filter((a) => a.type === 'audio');
@@ -341,6 +380,7 @@ export function AssetsPanel() {
                 viewMode={viewMode}
                 onDragStart={handleDragStart}
                 onAddToTimeline={handleAddToTimeline}
+                onAddToStart={handleAddToStart}
                 onRemove={handleRemoveAsset}
                 t={t}
               />
@@ -364,6 +404,7 @@ export function AssetsPanel() {
                 viewMode={viewMode}
                 onDragStart={handleDragStart}
                 onAddToTimeline={handleAddToTimeline}
+                onAddToStart={handleAddToStart}
                 onRemove={handleRemoveAsset}
                 t={t}
               />
@@ -405,15 +446,52 @@ interface VideoAssetCardProps {
   viewMode: 'fill' | 'fit';
   onDragStart: (e: React.DragEvent, asset: Asset) => void;
   onAddToTimeline: (asset: Asset) => void;
+  onAddToStart: (asset: Asset) => void;
   onRemove: (id: string) => void;
   t: (key: string) => string;
 }
 
-function VideoAssetCard({ asset, thumbnail, duration, viewMode, onDragStart, onAddToTimeline, onRemove, t }: VideoAssetCardProps) {
+function VideoAssetCard({ asset, thumbnail, duration, viewMode, onDragStart, onAddToTimeline, onAddToStart, onRemove, t }: VideoAssetCardProps) {
   const [isHovering, setIsHovering] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const videoRef = useRef<HTMLVideoElement>(null);
   const isBlobUrl = asset.url.startsWith('blob:');
   const videoUrl = toAbsoluteUrl(asset.url);
+
+  // Quick actions for long-press menu
+  const quickActions = useAssetQuickActions(asset, {
+    onAddToTimeline: () => onAddToTimeline(asset),
+    onAddToStart: () => onAddToStart(asset),
+    onPreview: () => {
+      // Open video in a popup preview
+      const win = window.open(videoUrl, '_blank', 'width=400,height=600');
+      win?.focus();
+    },
+    onDelete: () => onRemove(asset.id),
+  });
+
+  // Long press handler
+  const longPressHandlers = useLongPress({
+    threshold: 400,
+    onLongPress: (e) => {
+      // Get position for menu
+      let x = 0, y = 0;
+      if ('touches' in e && e.touches.length > 0) {
+        x = e.touches[0].clientX;
+        y = e.touches[0].clientY;
+      } else if ('clientX' in e) {
+        x = e.clientX;
+        y = e.clientY;
+      }
+      setMenuPosition({ x, y });
+      setMenuOpen(true);
+    },
+    onClick: () => {
+      // Single tap on mobile = add to timeline
+      onAddToTimeline(asset);
+    },
+  });
 
   useEffect(() => {
     if (videoRef.current) {
@@ -426,64 +504,86 @@ function VideoAssetCard({ asset, thumbnail, duration, viewMode, onDragStart, onA
     }
   }, [isHovering]);
 
+  // Combine handlers
+  const handleMouseEnter = () => setIsHovering(true);
+  const handleMouseLeave = (e: React.MouseEvent) => {
+    setIsHovering(false);
+    longPressHandlers.onMouseLeave(e);
+  };
+
   return (
-    <div
-      className={`asset-card ${isBlobUrl ? 'blob-warning' : ''}`}
-      draggable
-      onDragStart={(e) => onDragStart(e, asset)}
-      onDoubleClick={() => onAddToTimeline(asset)}
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => setIsHovering(false)}
-      title={asset.name}
-    >
-      <div className="asset-card-thumbnail">
-        {isHovering ? (
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            muted
-            loop
-            playsInline
-            className="asset-card-video"
-          />
-        ) : thumbnail ? (
-          <img src={thumbnail} alt={asset.name} className="asset-card-img" />
-        ) : (
-          <div className="asset-card-placeholder">
-            <Play size={16} />
-          </div>
-        )}
-        {duration && (
-          <span className="asset-card-duration">{formatDuration(duration)}</span>
-        )}
-        {isBlobUrl && <span className="asset-card-warning">⚠️</span>}
-      </div>
-      <div className="asset-card-info">
-        <span className="asset-card-name">{asset.name}</span>
-        {asset.fileSize && (
-          <span className="asset-card-size">{formatFileSize(asset.fileSize)}</span>
-        )}
-      </div>
-      <button
-        className="asset-card-add"
-        onClick={(e) => {
-          e.stopPropagation();
-          onAddToTimeline(asset);
-        }}
-        title={t('generate.addToTimeline')}
+    <>
+      <div
+        className={`asset-card ${isBlobUrl ? 'blob-warning' : ''} ${longPressHandlers.isPressed ? 'pressing' : ''}`}
+        draggable
+        onDragStart={(e) => onDragStart(e, asset)}
+        onDoubleClick={() => onAddToTimeline(asset)}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onMouseDown={longPressHandlers.onMouseDown}
+        onMouseUp={longPressHandlers.onMouseUp}
+        onTouchStart={longPressHandlers.onTouchStart}
+        onTouchEnd={longPressHandlers.onTouchEnd}
+        onTouchMove={longPressHandlers.onTouchMove}
+        title={asset.name}
       >
-        <Plus size={12} />
-      </button>
-      <button
-        className="asset-card-remove"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove(asset.id);
-        }}
-      >
-        <Trash2 size={10} />
-      </button>
-    </div>
+        <div className="asset-card-thumbnail">
+          {isHovering ? (
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              muted
+              loop
+              playsInline
+              className="asset-card-video"
+            />
+          ) : thumbnail ? (
+            <img src={thumbnail} alt={asset.name} className="asset-card-img" />
+          ) : (
+            <div className="asset-card-placeholder">
+              <Play size={16} />
+            </div>
+          )}
+          {duration && (
+            <span className="asset-card-duration">{formatDuration(duration)}</span>
+          )}
+          {isBlobUrl && <span className="asset-card-warning">⚠️</span>}
+        </div>
+        <div className="asset-card-info">
+          <span className="asset-card-name">{asset.name}</span>
+          {asset.fileSize && (
+            <span className="asset-card-size">{formatFileSize(asset.fileSize)}</span>
+          )}
+        </div>
+        <button
+          className="asset-card-add"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddToTimeline(asset);
+          }}
+          title={t('generate.addToTimeline')}
+        >
+          <Plus size={12} />
+        </button>
+        <button
+          className="asset-card-remove"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(asset.id);
+          }}
+        >
+          <Trash2 size={10} />
+        </button>
+      </div>
+
+      <QuickActionsMenu
+        isOpen={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        position={menuPosition}
+        actions={quickActions}
+        title={asset.name}
+      />
+    </>
   );
 }
 
@@ -493,52 +593,98 @@ interface ImageAssetCardProps {
   viewMode: 'fill' | 'fit';
   onDragStart: (e: React.DragEvent, asset: Asset) => void;
   onAddToTimeline: (asset: Asset) => void;
+  onAddToStart: (asset: Asset) => void;
   onRemove: (id: string) => void;
   t: (key: string) => string;
 }
 
-function ImageAssetCard({ asset, viewMode, onDragStart, onAddToTimeline, onRemove, t }: ImageAssetCardProps) {
+function ImageAssetCard({ asset, viewMode, onDragStart, onAddToTimeline, onAddToStart, onRemove, t }: ImageAssetCardProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const isBlobUrl = asset.url.startsWith('blob:');
   const imageUrl = toAbsoluteUrl(asset.url);
 
+  // Quick actions for long-press menu
+  const quickActions = useAssetQuickActions(asset, {
+    onAddToTimeline: () => onAddToTimeline(asset),
+    onAddToStart: () => onAddToStart(asset),
+    onPreview: () => {
+      // Open image in a popup preview
+      const win = window.open(imageUrl, '_blank', 'width=600,height=800');
+      win?.focus();
+    },
+    onDelete: () => onRemove(asset.id),
+  });
+
+  // Long press handler
+  const longPressHandlers = useLongPress({
+    threshold: 400,
+    onLongPress: (e) => {
+      let x = 0, y = 0;
+      if ('touches' in e && e.touches.length > 0) {
+        x = e.touches[0].clientX;
+        y = e.touches[0].clientY;
+      } else if ('clientX' in e) {
+        x = e.clientX;
+        y = e.clientY;
+      }
+      setMenuPosition({ x, y });
+      setMenuOpen(true);
+    },
+    onClick: () => {
+      onAddToTimeline(asset);
+    },
+  });
+
   return (
-    <div
-      className={`asset-card ${isBlobUrl ? 'blob-warning' : ''}`}
-      draggable
-      onDragStart={(e) => onDragStart(e, asset)}
-      onDoubleClick={() => onAddToTimeline(asset)}
-      title={asset.name}
-    >
-      <div className="asset-card-thumbnail">
-        <img src={imageUrl} alt={asset.name} className="asset-card-img" />
-        {isBlobUrl && <span className="asset-card-warning">⚠️</span>}
-      </div>
-      <div className="asset-card-info">
-        <span className="asset-card-name">{asset.name}</span>
-        {asset.fileSize && (
-          <span className="asset-card-size">{formatFileSize(asset.fileSize)}</span>
-        )}
-      </div>
-      <button
-        className="asset-card-add"
-        onClick={(e) => {
-          e.stopPropagation();
-          onAddToTimeline(asset);
-        }}
-        title={t('generate.addToTimeline')}
+    <>
+      <div
+        className={`asset-card ${isBlobUrl ? 'blob-warning' : ''} ${longPressHandlers.isPressed ? 'pressing' : ''}`}
+        draggable
+        onDragStart={(e) => onDragStart(e, asset)}
+        onDoubleClick={() => onAddToTimeline(asset)}
+        title={asset.name}
+        {...longPressHandlers}
       >
-        <Plus size={12} />
-      </button>
-      <button
-        className="asset-card-remove"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove(asset.id);
-        }}
-      >
-        <Trash2 size={10} />
-      </button>
-    </div>
+        <div className="asset-card-thumbnail">
+          <img src={imageUrl} alt={asset.name} className="asset-card-img" />
+          {isBlobUrl && <span className="asset-card-warning">⚠️</span>}
+        </div>
+        <div className="asset-card-info">
+          <span className="asset-card-name">{asset.name}</span>
+          {asset.fileSize && (
+            <span className="asset-card-size">{formatFileSize(asset.fileSize)}</span>
+          )}
+        </div>
+        <button
+          className="asset-card-add"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddToTimeline(asset);
+          }}
+          title={t('generate.addToTimeline')}
+        >
+          <Plus size={12} />
+        </button>
+        <button
+          className="asset-card-remove"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(asset.id);
+          }}
+        >
+          <Trash2 size={10} />
+        </button>
+      </div>
+
+      <QuickActionsMenu
+        isOpen={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        position={menuPosition}
+        actions={quickActions}
+        title={asset.name}
+      />
+    </>
   );
 }
 

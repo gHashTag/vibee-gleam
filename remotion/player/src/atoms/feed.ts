@@ -268,6 +268,41 @@ export const likeTemplateAtom = atom(
   }
 );
 
+// Delete template (admin or owner only)
+export const deleteTemplateAtom = atom(
+  null,
+  async (get, set, templateId: number) => {
+    const user = get(userAtom);
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/api/feed/${templateId}`, {
+        method: 'DELETE',
+        headers: {
+          'X-Telegram-Id': String(user.id),
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete');
+      }
+
+      // Remove from local feed list
+      const templates = get(feedTemplatesAtom);
+      set(feedTemplatesAtom, templates.filter(t => t.id !== templateId));
+
+      console.log('[Feed] Template deleted:', templateId);
+    } catch (error) {
+      console.error('[Feed] Failed to delete:', error);
+      set(feedErrorAtom, error instanceof Error ? error.message : 'Failed to delete');
+      throw error;
+    }
+  }
+);
+
 // Use template - load into editor with remix tracking
 export const useTemplateAtom = atom(
   null,

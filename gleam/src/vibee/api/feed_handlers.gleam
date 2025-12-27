@@ -349,7 +349,7 @@ fn get_feed(
     FROM public_templates pt
     LEFT JOIN users u ON pt.user_id = u.id
     LEFT JOIN template_likes tl ON pt.id = tl.template_id AND tl.user_id = $3
-    WHERE pt.is_public = true
+    WHERE pt.is_public = true AND pt.deleted_at IS NULL
     ORDER BY " <> order_by <> "
     LIMIT $1 OFFSET $2
   "
@@ -597,6 +597,125 @@ fn increment_uses(pool: pog.Connection, template_id: Int) -> Result(Nil, String)
   {
     Ok(_) -> Ok(Nil)
     Error(e) -> Error(pog_error_to_string(e))
+  }
+}
+
+// ============================================================
+// DELETE /api/feed/:id
+// Delete a template (admin or owner only)
+// ============================================================
+
+pub fn delete_template_handler(
+  req: Request(Connection),
+  template_id: String,
+) -> Response(ResponseData) {
+  // Get telegram_id from header
+  let telegram_id = case request.get_header(req, "x-telegram-id") {
+    Ok(id_str) -> int.parse(id_str) |> result_or(0)
+    Error(_) -> 0
+  }
+
+  case telegram_id {
+    0 -> json_error_response(401, "Unauthorized")
+    _ -> {
+      case int.parse(template_id) {
+        Error(_) -> json_error_response(400, "Invalid template ID")
+        Ok(id) -> {
+          case postgres.get_global_pool() {
+            None -> json_error_response(500, "Database not connected")
+            Some(pool) -> {
+              // Check if user is admin or owner
+              case check_can_delete(pool, id, telegram_id) {
+                Ok(True) -> {
+                  case soft_delete_template(pool, id, telegram_id) {
+                    Ok(_) -> json_success_response(json.object([
+                      #("success", json.bool(True)),
+                      #("message", json.string("Template deleted")),
+                    ]))
+                    Error(err) -> {
+                      logging.quick_error("Failed to delete template: " <> err)
+                      json_error_response(500, "Failed to delete template")
+                    }
+                  }
+                }
+                Ok(False) -> json_error_response(403, "Permission denied")
+                Error(err) -> {
+                  logging.quick_error("Failed to check permissions: " <> err)
+                  json_error_response(500, "Failed to check permissions")
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+fn check_can_delete(
+  pool: pog.Connection,
+  template_id: Int,
+  telegram_id: Int,
+) -> Result(Bool, String) {
+  // Check if user is admin OR owns the template
+  let sql = "
+    SELECT EXISTS (
+      SELECT 1 FROM users WHERE telegram_id = $1::text AND is_admin = true
+    ) as is_admin,
+    EXISTS (
+      SELECT 1 FROM public_templates WHERE id = $2 AND telegram_id = $1
+    ) as is_owner
+  "
+
+  let result =
+    pog.query(sql)
+    |> pog.parameter(pog.int(telegram_id))
+    |> pog.parameter(pog.int(template_id))
+    |> pog.returning({
+      use is_admin <- decode.field(0, decode.bool)
+      use is_owner <- decode.field(1, decode.bool)
+      decode.success(#(is_admin, is_owner))
+    })
+    |> pog.execute(pool)
+
+  case result {
+    Ok(pog.Returned(_, [#(is_admin, is_owner)])) -> Ok(is_admin || is_owner)
+    Ok(_) -> Ok(False)
+    Error(err) -> Error(pog_error_to_string(err))
+  }
+}
+
+fn soft_delete_template(
+  pool: pog.Connection,
+  template_id: Int,
+  deleted_by: Int,
+) -> Result(Nil, String) {
+  // Soft delete the template
+  let delete_sql = "
+    UPDATE public_templates SET deleted_at = NOW() WHERE id = $1
+  "
+
+  let delete_result =
+    pog.query(delete_sql)
+    |> pog.parameter(pog.int(template_id))
+    |> pog.execute(pool)
+
+  case delete_result {
+    Ok(_) -> {
+      // Log the deletion
+      let log_sql = "
+        INSERT INTO template_deletions (template_id, deleted_by_telegram_id)
+        VALUES ($1, $2)
+      "
+      let _ =
+        pog.query(log_sql)
+        |> pog.parameter(pog.int(template_id))
+        |> pog.parameter(pog.int(deleted_by))
+        |> pog.execute(pool)
+
+      Ok(Nil)
+    }
+    Error(err) -> Error(pog_error_to_string(err))
   }
 }
 

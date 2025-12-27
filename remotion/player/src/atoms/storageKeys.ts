@@ -102,6 +102,11 @@ export const STORAGE_KEYS = {
   // Render Session (for reconnecting)
   // ===============================
   renderSession: 'vibee-render-session',
+
+  // ===============================
+  // Bookmarks
+  // ===============================
+  bookmarks: 'vibee-bookmarks',
 } as const;
 
 // Type for storage key names

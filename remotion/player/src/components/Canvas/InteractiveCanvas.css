@@ -180,12 +180,15 @@
   .canvas-container {
     gap: 12px;
     padding: 12px;
+    padding-bottom: 8px;
+    justify-content: flex-start;
+    padding-top: 20px;
   }
 
-  /* Player wrapper - optimized for 60% width */
+  /* Player wrapper - optimized for 60% width, leave room for controls */
   .canvas-player-wrapper {
-    /* Player will auto-scale to fit */
-    max-height: calc(100% - 60px);
+    /* Player will auto-scale to fit, leave room for playback controls */
+    max-height: calc(100% - 140px);
   }
 
   /* Template info - compact */
@@ -209,4 +212,66 @@
     padding: 14px 20px;
     font-size: 14px;
   }
+}
+
+/* ===============================
+   Canvas Drop Zone (Drag & Drop)
+   =============================== */
+
+.canvas-container.drag-over {
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.canvas-drop-zone {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 300;
+  border: 3px dashed #f59e0b;
+  border-radius: 12px;
+  margin: 12px;
+  animation: dropzone-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dropzone-pulse {
+  0%, 100% {
+    border-color: #f59e0b;
+    background: rgba(0, 0, 0, 0.6);
+  }
+  50% {
+    border-color: #fbbf24;
+    background: rgba(245, 158, 11, 0.15);
+  }
+}
+
+.canvas-drop-zone-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #f59e0b;
+}
+
+.canvas-drop-zone-content svg {
+  animation: dropzone-bounce 1s ease-in-out infinite;
+}
+
+@keyframes dropzone-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.canvas-drop-zone-content span {
+  font-size: 18px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }

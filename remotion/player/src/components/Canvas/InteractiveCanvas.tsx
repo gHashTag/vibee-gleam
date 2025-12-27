@@ -19,11 +19,16 @@ import {
   captionsLoadingAtom,
   avatarSettingsTabAtom,
   currentRemixSourceAtom,
+  addItemAtom,
+  lipSyncVideoAtom,
+  backgroundMusicAtom,
 } from '@/atoms';
+import { useIsTablet } from '@/hooks/useMediaQuery';
 import { SplitTalkingHead, type SplitTalkingHeadProps, type Segment } from '@compositions/SplitTalkingHead';
-import { Loader2, Mic } from 'lucide-react';
+import { Loader2, Mic, Upload } from 'lucide-react';
 import { convertPropsToAbsoluteUrls, toAbsoluteUrl } from '@/lib/mediaUrl';
 import type { LipSyncMainProps, TrackItem, Asset } from '@/store/types';
+import { TabletPlaybackControls } from './TabletPlaybackControls';
 import './InteractiveCanvas.css';
 
 /**
@@ -156,6 +161,8 @@ export function InteractiveCanvas() {
   const [autoZoom, setAutoZoom] = useState(0.3);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenZoom, setFullscreenZoom] = useState(1);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const isTablet = useIsTablet();
 
   // Jotai atoms - прямое использование
   const project = useAtomValue(projectAtom);
@@ -177,6 +184,9 @@ export function InteractiveCanvas() {
   const setIsPlaying = useSetAtom(isPlayingAtom);
   const setCanvasZoom = useSetAtom(canvasZoomAtom);
   const clearSelection = useSetAtom(clearSelectionAtom);
+  const addItem = useSetAtom(addItemAtom);
+  const setLipSyncVideo = useSetAtom(lipSyncVideoAtom);
+  const setBackgroundMusic = useSetAtom(backgroundMusicAtom);
   const setPlayerRefAtom = useSetAtom(playerRefAtom);
 
   // Store player ref for direct control (needed for autoplay policy)
@@ -335,6 +345,96 @@ export function InteractiveCanvas() {
     }
   }, [clearSelection]);
 
+  // Drag & Drop handlers for Canvas (tablet only)
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!isTablet) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setIsDragOver(true);
+  }, [isTablet]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (!isTablet) return;
+    // Only trigger if leaving the container itself
+    if (e.currentTarget === e.target) {
+      setIsDragOver(false);
+    }
+  }, [isTablet]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    if (!isTablet) return;
+    e.preventDefault();
+    setIsDragOver(false);
+
+    try {
+      const data = e.dataTransfer.getData('application/json');
+      if (!data) return;
+
+      const asset: Asset = JSON.parse(data);
+
+      // Map asset type to track ID and handle special cases
+      if (asset.type === 'video') {
+        // Video goes to video track
+        addItem({
+          trackId: 'track-video',
+          itemData: {
+            type: 'video',
+            assetId: asset.id,
+            startFrame: 0,
+            durationInFrames: asset.duration || 150,
+            x: 0,
+            y: 0,
+            width: asset.width || 1080,
+            height: asset.height || 1920,
+            rotation: 0,
+            opacity: 1,
+          } as any,
+        });
+      } else if (asset.type === 'audio') {
+        // Audio goes to audio track and updates backgroundMusic
+        addItem({
+          trackId: 'track-audio',
+          itemData: {
+            type: 'audio',
+            assetId: asset.id,
+            startFrame: 0,
+            durationInFrames: asset.duration || 300,
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+            rotation: 0,
+            opacity: 1,
+          } as any,
+        });
+        if (asset.url) {
+          setBackgroundMusic(asset.url);
+        }
+      } else if (asset.type === 'image') {
+        // Image goes to image track
+        addItem({
+          trackId: 'track-image',
+          itemData: {
+            type: 'image',
+            assetId: asset.id,
+            startFrame: 0,
+            durationInFrames: 150,
+            x: 0,
+            y: 0,
+            width: asset.width || 1080,
+            height: asset.height || 1920,
+            rotation: 0,
+            opacity: 1,
+          },
+        });
+      }
+
+      console.log(`[Canvas] Dropped ${asset.name} (${asset.type})`);
+    } catch (error) {
+      console.error('[Canvas] Drop error:', error);
+    }
+  }, [isTablet, addItem, setBackgroundMusic]);
+
   // Use autoZoom if canvasZoom hasn't been manually set
   const effectiveZoom = canvasZoom || autoZoom;
 
@@ -358,7 +458,24 @@ export function InteractiveCanvas() {
   }, [project.height]);
 
   return (
-    <div className="canvas-container" onClick={handleCanvasClick} ref={containerRef}>
+    <div
+      className={`canvas-container ${isDragOver ? 'drag-over' : ''}`}
+      onClick={handleCanvasClick}
+      ref={containerRef}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drop Zone Overlay (tablet only) */}
+      {isDragOver && isTablet && (
+        <div className="canvas-drop-zone">
+          <div className="canvas-drop-zone-content">
+            <Upload size={48} />
+            <span>{t('canvas.dropToAdd')}</span>
+          </div>
+        </div>
+      )}
+
       {/* Transcribing/Loading Overlay */}
       {(isTranscribing || captionsLoading) && (
         <div className="canvas-transcribing-overlay">
@@ -407,6 +524,9 @@ export function InteractiveCanvas() {
           <span className="template-creator">by {remixSource.creatorName}</span>
         </div>
       )}
+
+      {/* Tablet Playback Controls */}
+      <TabletPlaybackControls />
 
     </div>
   );

@@ -39,6 +39,7 @@ pub type UserProfile {
     created_at: String,
     is_following: Bool,
     is_own_profile: Bool,
+    is_admin: Bool,
   )
 }
 
@@ -600,7 +601,8 @@ fn get_profile_by_username(
       u.is_public, u.followers_count, u.following_count, u.templates_count,
       u.total_views, u.total_likes, u.created_at::text,
       CASE WHEN f.id IS NOT NULL THEN true ELSE false END as is_following,
-      CASE WHEN u.telegram_id = $2 THEN true ELSE false END as is_own_profile
+      CASE WHEN u.telegram_id = $2 THEN true ELSE false END as is_own_profile,
+      COALESCE(u.is_admin, false) as is_admin
     FROM users u
     LEFT JOIN follows f ON f.following_id = u.id
       AND f.follower_id = (SELECT id FROM users WHERE telegram_id = $2)
@@ -624,6 +626,7 @@ fn get_profile_by_username(
     use created_at <- decode.field(13, decode.string)
     use is_following <- decode.field(14, decode.bool)
     use is_own_profile <- decode.field(15, decode.bool)
+    use is_admin <- decode.field(16, decode.bool)
     decode.success(UserProfile(
       id: id,
       telegram_id: telegram_id,
@@ -641,6 +644,7 @@ fn get_profile_by_username(
       created_at: created_at,
       is_following: is_following,
       is_own_profile: is_own_profile,
+      is_admin: is_admin,
     ))
   }
 
@@ -678,7 +682,8 @@ fn get_or_create_user(
       COALESCE(social_links::text, '[]') as social_links,
       is_public, followers_count, following_count, templates_count,
       total_views, total_likes, created_at::text,
-      false as is_following, true as is_own_profile
+      false as is_following, true as is_own_profile,
+      COALESCE(is_admin, false) as is_admin
     FROM users
     WHERE telegram_id = $1
   "
@@ -700,6 +705,7 @@ fn get_or_create_user(
     use created_at <- decode.field(13, decode.string)
     use is_following <- decode.field(14, decode.bool)
     use is_own_profile <- decode.field(15, decode.bool)
+    use is_admin <- decode.field(16, decode.bool)
     decode.success(UserProfile(
       id: id,
       telegram_id: tg_id,
@@ -717,6 +723,7 @@ fn get_or_create_user(
       created_at: created_at,
       is_following: is_following,
       is_own_profile: is_own_profile,
+      is_admin: is_admin,
     ))
   }
 
@@ -738,7 +745,8 @@ fn get_or_create_user(
           COALESCE(social_links::text, '[]') as social_links,
           is_public, followers_count, following_count, templates_count,
           total_views, total_likes, created_at::text,
-          false as is_following, true as is_own_profile
+          false as is_following, true as is_own_profile,
+          false as is_admin
       "
 
       case
@@ -812,7 +820,8 @@ fn update_user_profile(
       COALESCE(social_links::text, '[]') as social_links,
       is_public, followers_count, following_count, templates_count,
       total_views, total_likes, created_at::text,
-      false as is_following, true as is_own_profile
+      false as is_following, true as is_own_profile,
+      COALESCE(is_admin, false) as is_admin
   "
 
   let profile_decoder = {
@@ -832,6 +841,7 @@ fn update_user_profile(
     use created <- decode.field(13, decode.string)
     use is_follow <- decode.field(14, decode.bool)
     use is_own <- decode.field(15, decode.bool)
+    use is_admin <- decode.field(16, decode.bool)
     decode.success(UserProfile(
       id: id,
       telegram_id: telegram_id,
@@ -849,6 +859,7 @@ fn update_user_profile(
       created_at: created,
       is_following: is_follow,
       is_own_profile: is_own,
+      is_admin: is_admin,
     ))
   }
 
@@ -1252,6 +1263,7 @@ fn profile_to_json(p: UserProfile) -> json.Json {
     #("created_at", json.string(p.created_at)),
     #("is_following", json.bool(p.is_following)),
     #("is_own_profile", json.bool(p.is_own_profile)),
+    #("is_admin", json.bool(p.is_admin)),
   ])
 }
 

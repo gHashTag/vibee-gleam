@@ -98,6 +98,8 @@
   border-radius: 8px;
   overflow: hidden;
   transition: all 0.2s;
+  max-width: 400px;
+  margin: 0 auto;
 }
 
 .feed-card:hover {
@@ -111,7 +113,6 @@
 .feed-card-thumbnail {
   position: relative;
   aspect-ratio: 9/16;
-  max-height: 200px;
   background: var(--bg-dark, #111);
   overflow: hidden;
 }
@@ -736,6 +737,21 @@
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
+}
+
+.action-btn.delete-btn {
+  color: #ef4444;
+  padding: 6px;
+}
+
+.action-btn.delete-btn:hover {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.action-btn.delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Hide old stats row and use button - replaced by action bar */

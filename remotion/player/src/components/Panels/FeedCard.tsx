@@ -1,10 +1,10 @@
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useSetAtom } from 'jotai';
-import { likeTemplateAtom, useTemplateAtom, type FeedTemplate } from '@/atoms';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { likeTemplateAtom, useTemplateAtom, deleteTemplateAtom, userAtom, type FeedTemplate } from '@/atoms';
 import { useLanguage } from '@/hooks/useLanguage';
 import { LikeAnimation } from '@/components/LikeAnimation';
-import { Heart, Eye, Users, Play, Loader2, Sparkles } from 'lucide-react';
+import { Heart, Eye, Users, Play, Loader2, Sparkles, Trash2 } from 'lucide-react';
 import './FeedPanel.css';
 
 interface FeedCardProps {
@@ -13,10 +13,16 @@ interface FeedCardProps {
 
 export function FeedCard({ template }: FeedCardProps) {
   const { t } = useLanguage();
+  const user = useAtomValue(userAtom);
   const likeTemplate = useSetAtom(likeTemplateAtom);
   const useTemplate = useSetAtom(useTemplateAtom);
+  const deleteTemplate = useSetAtom(deleteTemplateAtom);
   const [isUsing, setIsUsing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
+
+  // Check if current user is admin
+  const isAdmin = user?.is_admin === true;
 
   const handleLike = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -39,6 +45,20 @@ export function FeedCard({ template }: FeedCardProps) {
       setIsUsing(false);
     }
   }, [useTemplate, template.id]);
+
+  const handleDelete = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Delete this template?')) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteTemplate(template.id);
+    } catch (error) {
+      console.error('Failed to delete:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [deleteTemplate, template.id]);
 
   const formatCount = (count: number): string => {
     if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
@@ -135,6 +155,21 @@ export function FeedCard({ template }: FeedCardProps) {
             )}
             <span>Remix</span>
           </button>
+
+          {isAdmin && (
+            <button
+              className="action-btn delete-btn"
+              onClick={handleDelete}
+              disabled={isDeleting}
+              title="Delete"
+            >
+              {isDeleting ? (
+                <Loader2 size={24} className="spinning" />
+              ) : (
+                <Trash2 size={24} />
+              )}
+            </button>
+          )}
         </div>
 
         {/* Info overlay at bottom */}

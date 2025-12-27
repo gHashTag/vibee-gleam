@@ -17,7 +17,7 @@ interface UploadedFiles {
 
 type ChatState = 'initial' | 'composition_selected' | 'cloning_video' | 'cloning_photo' | 'cloning_text' | 'rendering';
 
-export function ChatPage() {
+function ChatPage() {
   const { t } = useLanguage();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -398,3 +398,5 @@ export function ChatPage() {
     </div>
   );
 }
+
+export default ChatPage;

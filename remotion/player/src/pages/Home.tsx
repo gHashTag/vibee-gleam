@@ -9,7 +9,7 @@ import {
 } from '@/components/landing';
 import './Home.css';
 
-export function HomePage() {
+function HomePage() {
   return (
     <div className="landing-page">
       <Header />
@@ -24,3 +24,5 @@ export function HomePage() {
     </div>
   );
 }
+
+export default HomePage;

@@ -251,10 +251,12 @@ function EditorContent() {
   );
 }
 
-export function EditorPage() {
+function EditorPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Loading Editor...</div>}>
       <EditorContent />
     </Suspense>
   );
 }
+
+export default EditorPage;

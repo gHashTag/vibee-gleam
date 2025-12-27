@@ -1541,4 +1541,56 @@
   .timeline-content {
     min-height: 100px;
   }
+
+  /* Smooth horizontal scrolling for touch */
+  .timeline-tracks-wrapper {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+}
+
+/* ===============================
+   Tablet Landscape (768-1023px + landscape)
+   - Compact timeline height (100px)
+   - Smaller track rows
+   =============================== */
+
+@media (min-width: 768px) and (max-width: 1023px) and (orientation: landscape) {
+  .timeline {
+    height: 100px;
+    min-height: 100px;
+  }
+
+  .timeline-transport {
+    padding: 4px 8px;
+  }
+
+  .track-row {
+    height: 28px;
+  }
+
+  .track-item {
+    top: 2px;
+    height: 24px;
+  }
+
+  .track-item-content {
+    line-height: 24px;
+    font-size: 8px;
+  }
+
+  .track-item-thumbnail {
+    width: 16px;
+    height: 16px;
+    top: 4px;
+  }
+
+  .track-label {
+    height: 28px;
+  }
+
+  .track-label:first-child {
+    margin-top: 16px;
+  }
 }

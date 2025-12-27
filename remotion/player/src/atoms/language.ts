@@ -382,6 +382,7 @@ const en: Translations = {
   "canvas.fullscreen": "Fullscreen",
   "canvas.transcribingAudio": "Transcribing audio...",
   "canvas.loadingCaptions": "Loading captions...",
+  "canvas.dropToAdd": "Drop to add",
 
   // Paywall
   "paywall.junior": "JUNIOR",
@@ -711,6 +712,13 @@ const en: Translations = {
   "search.trending": "Trending",
   "search.discover": "Discover Creators",
   "search.discover_hint": "Search to find creators and templates",
+
+  // Quick Actions (Long Press Menu)
+  "quickActions.addToTimeline": "Add to Timeline",
+  "quickActions.addToStart": "Add to Start",
+  "quickActions.preview": "Preview",
+  "quickActions.setAsBackground": "Set as Background",
+  "quickActions.delete": "Delete",
 };
 
 const ru: Translations = {
@@ -1079,6 +1087,7 @@ const ru: Translations = {
   "canvas.fullscreen": "Полноэкранный режим",
   "canvas.transcribingAudio": "Транскрибация аудио...",
   "canvas.loadingCaptions": "Загрузка субтитров...",
+  "canvas.dropToAdd": "Перетащите сюда",
 
   // Paywall
   "paywall.junior": "JUNIOR",
@@ -1408,6 +1417,13 @@ const ru: Translations = {
   "search.trending": "Популярное",
   "search.discover": "Найти авторов",
   "search.discover_hint": "Ищите авторов и шаблоны",
+
+  // Quick Actions (Long Press Menu)
+  "quickActions.addToTimeline": "На таймлайн",
+  "quickActions.addToStart": "В начало",
+  "quickActions.preview": "Превью",
+  "quickActions.setAsBackground": "Как фон",
+  "quickActions.delete": "Удалить",
 };
 
 const translations: Record<Language, Translations> = { en, ru };

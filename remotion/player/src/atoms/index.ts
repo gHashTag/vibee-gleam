@@ -270,6 +270,7 @@ export {
   loadMoreFeedAtom,
   changeFeedSortAtom,
   likeTemplateAtom,
+  deleteTemplateAtom,
   useTemplateAtom,
   publishToFeedAtom,
   currentRemixSourceAtom,

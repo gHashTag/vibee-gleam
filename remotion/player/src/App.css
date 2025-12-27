@@ -10,6 +10,9 @@
   background: var(--vibee-bg);
   color: #fff;
   overflow: hidden;
+  /* Smooth layout transitions */
+  transition: grid-template-columns 0.3s ease-out,
+              grid-template-rows 0.3s ease-out;
 }
 
 /* ===============================
@@ -32,6 +35,10 @@
   flex-direction: column;
   background: #111;
   border-color: #1a1a1a;
+  /* Smooth layout transitions */
+  transition: width 0.3s ease-out,
+              transform 0.3s ease-out,
+              opacity 0.3s ease-out;
 }
 
 .sidebar-left {
@@ -133,6 +140,10 @@
   background: #0d0d0d;
   border-right: 1px solid var(--vibee-border);
   flex-shrink: 0;
+  /* Smooth layout transitions */
+  transition: flex-direction 0.3s ease-out,
+              height 0.3s ease-out,
+              padding 0.3s ease-out;
 }
 
 /* Mobile: Bottom navigation bar */
@@ -263,6 +274,8 @@
   background: #0d0d0d;
   position: relative;
   overflow: hidden;
+  /* Smooth layout transitions */
+  transition: padding 0.3s ease-out;
 }
 
 /* Mobile: Account for fixed timeline and nav bar */
@@ -285,6 +298,11 @@
   border-top: 1px solid var(--vibee-border);
   background: #0f0f0f;
   overflow-y: auto;
+  /* Smooth layout transitions */
+  transition: height 0.3s ease-out,
+              min-height 0.3s ease-out,
+              max-height 0.3s ease-out,
+              bottom 0.3s ease-out;
 }
 
 /* Mobile: Fixed timeline above nav bar */
@@ -530,5 +548,61 @@
     width: 280px;
     z-index: var(--z-modal);
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ===============================
+   Tablet Landscape Mode
+   (768-1023px + landscape orientation)
+   - Wider sidebar (35%)
+   - More space for canvas (65%)
+   - Shorter timeline
+   =============================== */
+
+@media (min-width: 768px) and (max-width: 1023px) and (orientation: landscape) {
+  .editor {
+    grid-template-columns: 35% 65%;
+    grid-template-rows: var(--header-height) 1fr 100px;
+  }
+
+  /* Shorter timeline in landscape */
+  .timeline-area {
+    height: 100px;
+    min-height: 100px;
+    max-height: 100px;
+  }
+
+  /* Right sidebar positioned for landscape */
+  .sidebar-right {
+    bottom: 100px;
+  }
+}
+
+/* ===============================
+   Page Loader (Code Splitting)
+   =============================== */
+
+.page-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  background: var(--vibee-bg);
+}
+
+.page-loader__spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #222;
+  border-top-color: #f59e0b;
+  border-radius: 50%;
+  animation: page-loader-spin 0.8s linear infinite;
+}
+
+@keyframes page-loader-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
