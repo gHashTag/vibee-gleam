@@ -139,10 +139,43 @@ export function GeneratePanel({ activeTab: externalTab }: GeneratePanelProps) {
   // Blob URL for recording preview (with cleanup to prevent memory leaks)
   const [recordingBlobUrl, setRecordingBlobUrl] = useState<string | null>(null);
 
+  // Auto-save recording when audioBlob is set
   useEffect(() => {
     if (audioBlob) {
+      // Create preview URL
       const url = URL.createObjectURL(audioBlob);
       setRecordingBlobUrl(url);
+
+      // Auto-upload to S3
+      (async () => {
+        setIsUploadingAudio(true);
+        try {
+          const filename = `recording-${Date.now()}.webm`;
+          const uploadedUrl = await uploadToS3(audioBlob, filename);
+
+          if (uploadedUrl) {
+            addAsset({
+              type: 'audio',
+              name: filename,
+              url: uploadedUrl,
+            });
+            setLipsyncAudioUrl(uploadedUrl);
+            clearRecording();
+          } else {
+            // Fallback to blob URL
+            setLipsyncAudioUrl(url);
+            clearRecording();
+          }
+        } catch (err) {
+          console.error('[GeneratePanel] Auto-upload error:', err);
+          // Fallback to blob URL on error
+          setLipsyncAudioUrl(url);
+          clearRecording();
+        } finally {
+          setIsUploadingAudio(false);
+        }
+      })();
+
       return () => {
         URL.revokeObjectURL(url);
         setRecordingBlobUrl(null);
@@ -150,7 +183,7 @@ export function GeneratePanel({ activeTab: externalTab }: GeneratePanelProps) {
     }
     setRecordingBlobUrl(null);
     return undefined;
-  }, [audioBlob]);
+  }, [audioBlob, addAsset, clearRecording]);
 
   // Handle audio file upload
   const handleAudioUpload = useCallback(async (files: FileList | null) => {
@@ -189,40 +222,6 @@ export function GeneratePanel({ activeTab: externalTab }: GeneratePanelProps) {
       setIsUploadingAudio(false);
     }
   }, [addAsset, t]);
-
-  // Handle recording complete - upload to S3
-  const handleSaveRecording = useCallback(async () => {
-    if (!audioBlob) return;
-
-    setIsUploadingAudio(true);
-    setError(null);
-
-    try {
-      const filename = `recording-${Date.now()}.webm`;
-      const url = await uploadToS3(audioBlob, filename);
-
-      if (url) {
-        // Add to assets library
-        addAsset({
-          type: 'audio',
-          name: filename,
-          url,
-        });
-        setLipsyncAudioUrl(url);
-        clearRecording();
-      } else {
-        // Fallback to blob URL
-        const blobUrl = URL.createObjectURL(audioBlob);
-        setLipsyncAudioUrl(blobUrl);
-        clearRecording();
-      }
-    } catch (err) {
-      console.error('[GeneratePanel] Recording upload error:', err);
-      setError(t('generate.error'));
-    } finally {
-      setIsUploadingAudio(false);
-    }
-  }, [audioBlob, addAsset, clearRecording, t]);
 
   // Handle image file upload
   const handleImageUpload = useCallback(async (files: FileList | null) => {
@@ -947,33 +946,12 @@ export function GeneratePanel({ activeTab: externalTab }: GeneratePanelProps) {
                 </button>
               </div>
 
-              {/* Recording preview */}
-              {recordingBlobUrl && !isRecording && (
+              {/* Recording upload progress */}
+              {isUploadingAudio && (
                 <div className="recording-preview">
-                  <audio
-                    src={recordingBlobUrl}
-                    controls
-                    className="audio-preview"
-                  />
-                  <div className="recording-actions">
-                    <button
-                      className="recording-save-btn"
-                      onClick={handleSaveRecording}
-                      disabled={isUploadingAudio}
-                    >
-                      {isUploadingAudio ? (
-                        <Loader2 size={14} className="spin" />
-                      ) : (
-                        t('generate.saveRecording')
-                      )}
-                    </button>
-                    <button
-                      className="recording-delete-btn"
-                      onClick={clearRecording}
-                      disabled={isUploadingAudio}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                  <div className="upload-progress">
+                    <Loader2 size={18} className="spin" />
+                    <span>{t('generate.uploading') || 'Uploading...'}</span>
                   </div>
                 </div>
               )}

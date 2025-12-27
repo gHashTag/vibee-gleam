@@ -1177,7 +1177,7 @@ const server = createServer(async (req, res) => {
         if (!FAL_KEY) throw new Error("FAL_KEY not configured");
 
         // Submit job to fal.ai queue
-        const queueResponse = await fetch("https://queue.fal.run/fal-ai/veed/fabric-1.0", {
+        const queueResponse = await fetch("https://queue.fal.run/veed/fabric-1.0", {
           method: "POST",
           headers: {
             "Authorization": `Key ${FAL_KEY}`,
@@ -1204,7 +1204,7 @@ const server = createServer(async (req, res) => {
         for (let i = 0; i < 120; i++) { // Max 10 minutes (5s intervals)
           await new Promise(r => setTimeout(r, 5000));
 
-          const statusResponse = await fetch(`https://queue.fal.run/fal-ai/veed/fabric-1.0/requests/${requestId}/status`, {
+          const statusResponse = await fetch(`https://queue.fal.run/veed/fabric-1.0/requests/${requestId}/status`, {
             headers: { "Authorization": `Key ${FAL_KEY}` },
           });
           const statusData = await statusResponse.json();
@@ -1212,7 +1212,7 @@ const server = createServer(async (req, res) => {
 
           if (statusData.status === "COMPLETED") {
             // Get the result
-            const resultResponse = await fetch(`https://queue.fal.run/fal-ai/veed/fabric-1.0/requests/${requestId}`, {
+            const resultResponse = await fetch(`https://queue.fal.run/veed/fabric-1.0/requests/${requestId}`, {
               headers: { "Authorization": `Key ${FAL_KEY}` },
             });
             const resultData = await resultResponse.json();

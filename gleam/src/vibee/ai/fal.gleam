@@ -420,7 +420,7 @@ pub fn fabric_lipsync_request(config: Config, req: FabricLipsyncRequest) -> Requ
   ]))
 
   Request(
-    url: "https://queue.fal.run/veed/fabric-1.0",
+    url: "https://fal.run/veed/fabric-1.0",
     method: "POST",
     headers: [
       #("Authorization", "Key " <> config.api_key),
