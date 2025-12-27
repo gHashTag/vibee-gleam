@@ -32,10 +32,7 @@ export const loadCaptionsAtom = atom(
   async (get, set, lipSyncVideo?: string) => {
     const videoUrl = lipSyncVideo ?? get(lipSyncVideoAtom);
 
-    console.log('[loadCaptions] Starting for:', videoUrl);
-
     if (!videoUrl) {
-      console.log('[loadCaptions] No video URL, clearing captions');
       set(captionsAtom, []);
       return;
     }
@@ -43,7 +40,6 @@ export const loadCaptionsAtom = atom(
     // Cancel previous request (prevents race condition!)
     const prevController = get(abortControllerAtom);
     if (prevController) {
-      console.log('[loadCaptions] Aborting previous request');
       prevController.abort();
     }
 
@@ -63,48 +59,33 @@ export const loadCaptionsAtom = atom(
 
       // Cache-busting
       const urlWithCacheBust = `${fullUrl}?_=${Date.now()}`;
-      console.log('[loadCaptions] Fetching:', urlWithCacheBust);
 
       const response = await fetch(urlWithCacheBust, {
         signal: controller.signal,
       });
 
-      // Check if aborted during fetch
-      if (controller.signal.aborted) {
-        console.log('[loadCaptions] Request was aborted');
-        return;
-      }
+      if (controller.signal.aborted) return;
 
       if (!response.ok) {
-        console.warn('[loadCaptions] No captions.json found at:', fullUrl);
-        // Don't clear existing captions on error (they might be from transcription)
+        // Silently ignore missing captions - they're optional
         set(captionsLoadingAtom, false);
         return;
       }
 
       const captions: CaptionItem[] = await response.json();
 
-      // Check if aborted during parsing
-      if (controller.signal.aborted) {
-        console.log('[loadCaptions] Request was aborted after parsing');
-        return;
-      }
+      if (controller.signal.aborted) return;
 
       if (Array.isArray(captions) && captions.length > 0) {
-        console.log(`[loadCaptions] Loaded ${captions.length} captions`);
         set(captionsAtom, captions);
-      } else {
-        console.warn('[loadCaptions] Empty or invalid captions from server, keeping existing');
-        // DON'T clear - persisted captions might exist from transcription
       }
+      // DON'T clear - persisted captions might exist from transcription
     } catch (error) {
       // Ignore abort errors
       if (error instanceof Error && error.name === 'AbortError') {
-        console.log('[loadCaptions] Request aborted (expected)');
         return;
       }
-
-      console.error('[loadCaptions] Failed:', error);
+      // Only log real errors, not expected 404s
       set(captionsErrorAtom, error instanceof Error ? error.message : 'Unknown error');
       // DON'T clear captions - they might be persisted from transcription
     } finally {

@@ -252,3 +252,79 @@
   color: var(--text-secondary, #888);
   margin: 0;
 }
+
+/* Mobile: Fullscreen modal (matching ShortcutsModal pattern) */
+@media (max-width: 768px) {
+  .publish-modal {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    animation: slideUp 0.3s ease-out;
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .publish-modal-header {
+    position: sticky;
+    top: 0;
+    background: var(--bg-dark, #1a1a1a);
+    z-index: 1;
+    padding-top: 16px;
+  }
+
+  .publish-modal-close {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .publish-preview {
+    max-height: 360px;
+  }
+
+  .publish-actions {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-dark, #1a1a1a);
+    padding: 16px 0;
+    margin: 0 -24px -24px;
+    padding-left: 24px;
+    padding-right: 24px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border-color, #333);
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .publish-modal {
+    padding: 20px 16px;
+  }
+
+  .publish-modal-header h2 {
+    font-size: 18px;
+  }
+
+  .publish-preview {
+    max-height: 300px;
+  }
+
+  .publish-actions {
+    margin: 0 -16px -20px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}

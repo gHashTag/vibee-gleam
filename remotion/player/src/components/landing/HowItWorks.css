@@ -75,12 +75,73 @@
 }
 
 @media (max-width: 768px) {
+  .how-it-works {
+    padding: 80px 20px;
+  }
+
+  .how-header {
+    margin-bottom: 40px;
+  }
+
   .how-steps {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 16px;
+  }
+
+  .how-step {
+    padding-bottom: 24px;
+  }
+
+  /* Vertical connector for mobile (replaces hidden horizontal) */
+  .how-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 16px;
+    background: linear-gradient(180deg, rgba(245, 158, 11, 0.5), rgba(245, 158, 11, 0.1));
   }
 
   .step-connector {
     display: none;
+  }
+
+  .step-icon {
+    width: 64px;
+    height: 64px;
+  }
+
+  .step-number {
+    font-size: 40px;
+  }
+
+  .step-title {
+    font-size: 18px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .how-it-works {
+    padding: 60px 16px;
+  }
+
+  .step-icon {
+    width: 56px;
+    height: 56px;
+  }
+
+  .step-number {
+    font-size: 36px;
+  }
+
+  .step-title {
+    font-size: 16px;
+  }
+
+  .step-desc {
+    font-size: 13px;
   }
 }
