@@ -194,10 +194,11 @@ pub fn like_template_handler(
             None -> json_error_response(500, "Database not connected")
             Some(pool) -> {
               case toggle_like(pool, template_id, user_id) {
-                Ok(liked) -> {
+                Ok(#(liked, likes_count)) -> {
                   json_success_response(json.object([
                     #("success", json.bool(True)),
                     #("liked", json.bool(liked)),
+                    #("likesCount", json.int(likes_count)),
                   ]))
                 }
                 Error(err) -> {
@@ -454,7 +455,7 @@ fn toggle_like(
   pool: pog.Connection,
   template_id: Int,
   user_id: Int,
-) -> Result(Bool, String) {
+) -> Result(#(Bool, Int), String) {
   // Check if already liked
   let check_sql = "SELECT 1 FROM template_likes WHERE template_id = $1 AND user_id = $2"
 
@@ -474,9 +475,9 @@ fn toggle_like(
     _ -> False
   }
 
-  case exists {
+  let liked = case exists {
     True -> {
-      // Unlike
+      // Unlike - delete from likes table and decrement counter
       let delete_sql = "DELETE FROM template_likes WHERE template_id = $1 AND user_id = $2"
       case
         pog.query(delete_sql)
@@ -484,23 +485,59 @@ fn toggle_like(
         |> pog.parameter(pog.int(user_id))
         |> pog.execute(pool)
       {
-        Ok(_) -> Ok(False)
+        Ok(_) -> {
+          // Decrement likes_count
+          let update_sql = "UPDATE public_templates SET likes_count = GREATEST(0, likes_count - 1) WHERE id = $1"
+          let _ = pog.query(update_sql)
+            |> pog.parameter(pog.int(template_id))
+            |> pog.execute(pool)
+          Ok(False)
+        }
         Error(e) -> Error(pog_error_to_string(e))
       }
     }
     False -> {
-      // Like
-      let insert_sql = "INSERT INTO template_likes (template_id, user_id) VALUES ($1, $2)"
+      // Like - insert into likes table and increment counter
+      let insert_sql = "INSERT INTO template_likes (template_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING"
       case
         pog.query(insert_sql)
         |> pog.parameter(pog.int(template_id))
         |> pog.parameter(pog.int(user_id))
         |> pog.execute(pool)
       {
-        Ok(_) -> Ok(True)
+        Ok(_) -> {
+          // Increment likes_count
+          let update_sql = "UPDATE public_templates SET likes_count = likes_count + 1 WHERE id = $1"
+          let _ = pog.query(update_sql)
+            |> pog.parameter(pog.int(template_id))
+            |> pog.execute(pool)
+          Ok(True)
+        }
         Error(e) -> Error(pog_error_to_string(e))
       }
     }
+  }
+
+  // Get current likes_count
+  case liked {
+    Ok(is_liked) -> {
+      let count_sql = "SELECT likes_count FROM public_templates WHERE id = $1"
+      let count_decoder = {
+        use count <- decode.field(0, decode.int)
+        decode.success(count)
+      }
+      case
+        pog.query(count_sql)
+        |> pog.parameter(pog.int(template_id))
+        |> pog.returning(count_decoder)
+        |> pog.execute(pool)
+      {
+        Ok(pog.Returned(_, [count])) -> Ok(#(is_liked, count))
+        Ok(_) -> Ok(#(is_liked, 0))
+        Error(e) -> Error(pog_error_to_string(e))
+      }
+    }
+    Error(e) -> Error(e)
   }
 }
 
@@ -597,6 +634,51 @@ fn increment_uses(pool: pog.Connection, template_id: Int) -> Result(Nil, String)
   {
     Ok(_) -> Ok(Nil)
     Error(e) -> Error(pog_error_to_string(e))
+  }
+}
+
+// ============================================================
+// POST /api/feed/:id/view
+// Track a view for a template
+// ============================================================
+
+pub fn view_template_handler(template_id: Int) -> Response(ResponseData) {
+  case postgres.get_global_pool() {
+    None -> json_error_response(500, "Database not connected")
+    Some(pool) -> {
+      case increment_views(pool, template_id) {
+        Ok(_) -> {
+          // Get updated views count
+          let count_sql = "SELECT views_count FROM public_templates WHERE id = $1"
+          let count_decoder = {
+            use count <- decode.field(0, decode.int)
+            decode.success(count)
+          }
+          case
+            pog.query(count_sql)
+            |> pog.parameter(pog.int(template_id))
+            |> pog.returning(count_decoder)
+            |> pog.execute(pool)
+          {
+            Ok(pog.Returned(_, [count])) -> {
+              json_success_response(json.object([
+                #("success", json.bool(True)),
+                #("viewsCount", json.int(count)),
+              ]))
+            }
+            _ -> {
+              json_success_response(json.object([
+                #("success", json.bool(True)),
+              ]))
+            }
+          }
+        }
+        Error(err) -> {
+          logging.quick_error("Failed to increment views: " <> err)
+          json_error_response(500, "Failed to track view")
+        }
+      }
+    }
   }
 }
 

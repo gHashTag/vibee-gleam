@@ -1,10 +1,36 @@
-import { useState, useCallback, memo } from 'react';
+import { useState, useCallback, memo, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { selectedItemIdsAtom, addItemAtom, updateItemAtom, lipSyncVideoAtom, backgroundMusicAtom } from '@/atoms';
-import { ghostPreviewAtom } from '@/atoms/timeline';
+import { selectedItemIdsAtom, addItemAtom, updateItemAtom, lipSyncVideoAtom, backgroundMusicAtom, snapSettingsAtom, tracksAtom } from '@/atoms';
+import { ghostPreviewAtom, setActiveSnapFrameAtom } from '@/atoms/timeline';
 import { TrackItem } from './TrackItem';
 import { GhostItem } from './GhostItem';
 import type { Track as TrackType, Asset } from '@/store/types';
+
+// Calculate snap points from all track items and current frame
+function getSnapPoints(tracks: TrackType[], currentFrame: number): number[] {
+  const points = new Set<number>();
+  points.add(0); // Start of timeline
+  points.add(currentFrame); // Playhead
+
+  tracks.forEach(track => {
+    track.items.forEach(item => {
+      points.add(item.startFrame); // Item start
+      points.add(item.startFrame + item.durationInFrames); // Item end
+    });
+  });
+
+  return Array.from(points).sort((a, b) => a - b);
+}
+
+// Find nearest snap point within threshold
+function findSnapPoint(frame: number, snapPoints: number[], threshold: number): number | null {
+  for (const point of snapPoints) {
+    if (Math.abs(frame - point) <= threshold) {
+      return point;
+    }
+  }
+  return null;
+}
 
 interface TrackProps {
   track: TrackType;
@@ -18,24 +44,111 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
   const setLipSyncVideo = useSetAtom(lipSyncVideoAtom);
   const setBackgroundMusic = useSetAtom(backgroundMusicAtom);
   const ghostPreview = useAtomValue(ghostPreviewAtom);
+  const setGhostPreview = useSetAtom(ghostPreviewAtom);
+  const snapSettings = useAtomValue(snapSettingsAtom);
+  const allTracks = useAtomValue(tracksAtom);
+  const setActiveSnapFrame = useSetAtom(setActiveSnapFrameAtom);
   const [isDragOver, setIsDragOver] = useState(false);
+  const dragAssetRef = useRef<Asset | null>(null);
 
   // Check if ghost should be shown on this track
   const showGhost = ghostPreview && ghostPreview.trackId === track.id;
+
+  // Check if asset type is compatible with this track
+  const isAssetCompatible = useCallback((asset: Asset): boolean => {
+    return (
+      (track.type === 'video' && (asset.type === 'video' || asset.type === 'image')) ||
+      (track.type === 'audio' && asset.type === 'audio') ||
+      (track.type === 'avatar' && asset.type === 'video') ||
+      (track.type === 'image' && asset.type === 'image')
+    );
+  }, [track.type]);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+
+    // Capture asset data on enter (can access in enter event)
+    try {
+      const data = e.dataTransfer.getData('application/json');
+      if (data) {
+        dragAssetRef.current = JSON.parse(data);
+      }
+    } catch {
+      // May fail in some browsers
+    }
+  }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
     setIsDragOver(true);
-  }, []);
 
-  const handleDragLeave = useCallback(() => {
+    // Try to get asset data from drag event
+    let asset = dragAssetRef.current;
+    if (!asset) {
+      try {
+        const data = e.dataTransfer.getData('application/json');
+        if (data) {
+          asset = JSON.parse(data);
+          dragAssetRef.current = asset;
+        }
+      } catch {
+        // Can't access data during dragover in some browsers
+      }
+    }
+
+    // Calculate drop frame position
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    let dropFrame = Math.max(0, Math.round(x / pxPerFrame));
+
+    // Apply snapping if enabled
+    if (snapSettings.enabled) {
+      const snapPoints = getSnapPoints(allTracks, 0); // Use 0 for currentFrame during drag
+      const snapThreshold = 10; // frames
+      const snapPoint = findSnapPoint(dropFrame, snapPoints, snapThreshold);
+      if (snapPoint !== null) {
+        dropFrame = snapPoint;
+        setActiveSnapFrame(snapPoint);
+      } else {
+        setActiveSnapFrame(null);
+      }
+    }
+
+    // Update ghost preview
+    const assetType = asset?.type || 'video';
+    const duration = asset?.duration || 150;
+
+    // Only show ghost on compatible tracks
+    if (!asset || isAssetCompatible(asset)) {
+      setGhostPreview({
+        trackId: track.id,
+        startFrame: dropFrame,
+        durationInFrames: duration,
+        type: assetType as 'video' | 'audio' | 'image' | 'avatar',
+      });
+    }
+  }, [pxPerFrame, snapSettings.enabled, allTracks, track.id, setGhostPreview, setActiveSnapFrame, isAssetCompatible]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    // Only clear if leaving the track entirely, not entering a child
+    const relatedTarget = e.relatedTarget as Element;
+    if (relatedTarget && e.currentTarget.contains(relatedTarget)) {
+      return;
+    }
     setIsDragOver(false);
-  }, []);
+    dragAssetRef.current = null;
+    setGhostPreview(null);
+    setActiveSnapFrame(null);
+  }, [setGhostPreview, setActiveSnapFrame]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
+    dragAssetRef.current = null;
+    setGhostPreview(null);
+    setActiveSnapFrame(null);
 
     try {
       const data = e.dataTransfer.getData('application/json');
@@ -46,14 +159,20 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
       // Calculate drop position in frames
       const rect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rect.left;
-      const dropFrame = Math.max(0, Math.round(x / pxPerFrame));
+      let dropFrame = Math.max(0, Math.round(x / pxPerFrame));
+
+      // Apply snapping if enabled
+      if (snapSettings.enabled) {
+        const snapPoints = getSnapPoints(allTracks, 0);
+        const snapThreshold = 10;
+        const snapPoint = findSnapPoint(dropFrame, snapPoints, snapThreshold);
+        if (snapPoint !== null) {
+          dropFrame = snapPoint;
+        }
+      }
 
       // Check if asset type matches track type
-      const isCompatible =
-        (track.type === 'video' && (asset.type === 'video' || asset.type === 'image')) ||
-        (track.type === 'audio' && asset.type === 'audio') ||
-        (track.type === 'avatar' && asset.type === 'video') ||
-        (track.type === 'image' && asset.type === 'image');
+      const isCompatible = isAssetCompatible(asset);
 
       if (!isCompatible) {
         console.warn(`Asset type "${asset.type}" not compatible with track "${track.name}"`);
@@ -131,12 +250,13 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
     } catch (error) {
       console.error('Drop error:', error);
     }
-  }, [track, pxPerFrame, addItem, updateItem, setLipSyncVideo, setBackgroundMusic]);
+  }, [track, pxPerFrame, addItem, updateItem, setLipSyncVideo, setBackgroundMusic, setGhostPreview, setActiveSnapFrame, snapSettings.enabled, allTracks, isAssetCompatible]);
 
   return (
     <div
       className={`track-row ${isDragOver ? 'drag-over' : ''}`}
       data-track-id={track.id}
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

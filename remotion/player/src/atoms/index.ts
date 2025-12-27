@@ -271,6 +271,7 @@ export {
   loadMoreFeedAtom,
   changeFeedSortAtom,
   likeTemplateAtom,
+  trackViewAtom,
   deleteTemplateAtom,
   useTemplateAtom,
   publishToFeedAtom,
@@ -312,3 +313,21 @@ export {
   type FollowUser,
   type SocialLink,
 } from './profile';
+
+// ===============================
+// 📦 ASSET BROWSER - Horizontal browser state
+// ===============================
+
+export {
+  browserCategoryAtom,
+  browserSearchAtom,
+  browserUploadingAtom,
+  browserUploadProgressAtom,
+  filteredAssetsAtom,
+  setBrowserCategoryAtom,
+  setBrowserSearchAtom,
+  clearBrowserFiltersAtom,
+  categoryCounts,
+  CATEGORY_CONFIG,
+  type AssetCategory,
+} from './assetBrowser';

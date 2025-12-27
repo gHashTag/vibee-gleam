@@ -20,6 +20,7 @@
 }
 
 .header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -55,24 +56,48 @@
   gap: 8px;
 }
 
-/* Header Emoji Tabs */
+/* Header Emoji Tabs - Desktop: centered in header */
 .header-tabs {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 2px;
-  margin-left: 16px;
-  padding: 4px;
-  background: #1a1a1a;
+  gap: 8px;
+  padding: 4px 8px;
+  background: transparent;
   border-radius: 8px;
+}
+
+/* Mobile/Tablet: Fixed bottom navigation */
+@media (max-width: 1023px) {
+  .header-tabs {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    transform: none;
+    justify-content: space-around;
+    padding: 8px 4px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    background: #0d0d0d;
+    border-top: 1px solid #1a1a1a;
+    border-radius: 0;
+    z-index: 100;
+    gap: 0;
+  }
 }
 
 .header-tab {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 32px;
-  border-radius: 6px;
+  gap: 2px;
+  min-width: 48px;
+  padding: 6px 8px;
+  border-radius: 8px;
   text-decoration: none;
   transition: all 0.15s ease;
 }
@@ -97,21 +122,56 @@
   filter: grayscale(0);
 }
 
-/* Mobile: smaller tabs */
-@media (max-width: 640px) {
-  .header-tabs {
-    margin-left: 8px;
-    padding: 2px;
-    gap: 1px;
-  }
+/* Tab label */
+.header-tab-label {
+  font-size: 9px;
+  font-weight: 500;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
 
+.header-tab:hover .header-tab-label {
+  color: #999;
+}
+
+.header-tab.active .header-tab-label {
+  color: #f59e0b;
+}
+
+/* Mobile/Tablet: bottom nav tabs */
+@media (max-width: 1023px) {
   .header-tab {
-    width: 36px;
-    height: 32px;
+    flex: 1;
+    max-width: 72px;
+    min-width: unset;
+    padding: 6px 4px;
+    gap: 2px;
   }
 
   .header-tab-emoji {
     font-size: 18px;
+  }
+
+  .header-tab-label {
+    font-size: 8px;
+    letter-spacing: 0;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 400px) {
+  .header-tab-label {
+    display: none;
+  }
+
+  .header-tab {
+    padding: 8px 4px;
+  }
+
+  .header-tab-emoji {
+    font-size: 20px;
   }
 }
 

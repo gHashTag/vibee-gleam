@@ -15,6 +15,294 @@
   }
 }
 
+/* ===============================
+   UNIFIED DESIGN TOKENS
+   Shared between browser cards and timeline items
+   =============================== */
+
+:root {
+  /* Type colors - used for both cards and items */
+  --type-video: #3b82f6;
+  --type-audio: #10b981;
+  --type-image: #ec4899;
+  --type-avatar: #f59e0b;
+  --type-text: #8b5cf6;
+
+  /* Shared styling */
+  --item-radius: 6px;
+  --item-selected: #f59e0b;
+}
+
+/* ===============================
+   TIMELINE BROWSER SECTION
+   Integrated asset browser above transport
+   =============================== */
+
+.timeline-browser {
+  background: #0d0d0d;
+  border-bottom: 1px solid #1a1a1a;
+  transition: background 0.15s;
+}
+
+.timeline-browser.drag-over {
+  background: #1a1a1a;
+  box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.3);
+}
+
+/* Browser Header - Filter bar */
+.timeline-browser-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  height: 40px;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+/* Upload button */
+.browser-upload-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  border: none;
+  border-radius: 6px;
+  color: #000;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.browser-upload-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  transform: scale(1.05);
+}
+
+.browser-upload-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.browser-upload-btn .spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Search button */
+.browser-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: #1a1a1a;
+  border: none;
+  border-radius: 6px;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.browser-search-btn:hover {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+.browser-search-btn.active {
+  background: #2a2a2a;
+  color: #f59e0b;
+}
+
+/* Search input */
+.browser-search-input {
+  width: 150px;
+  padding: 6px 12px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  outline: none;
+  transition: all 0.15s;
+}
+
+.browser-search-input:focus {
+  border-color: #f59e0b;
+  background: #222;
+}
+
+.browser-search-input::placeholder {
+  color: #666;
+}
+
+/* Category chips container */
+.browser-categories {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.browser-categories::-webkit-scrollbar {
+  display: none;
+}
+
+/* Category chip */
+.browser-category-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #1a1a1a;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  color: #888;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.browser-category-chip:hover {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+.browser-category-chip.active {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #f59e0b;
+}
+
+.browser-category-chip .chip-icon {
+  font-size: 12px;
+}
+
+.browser-category-chip .chip-label {
+  font-weight: 500;
+}
+
+.browser-category-chip .chip-count {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 5px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.browser-category-chip.active .chip-count {
+  background: rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+/* Upload progress bar */
+.browser-upload-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #333;
+}
+
+.upload-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  transition: width 0.2s ease;
+}
+
+/* Asset cards row */
+.timeline-browser-assets {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  height: 88px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+}
+
+.timeline-browser-assets::-webkit-scrollbar {
+  height: 6px;
+}
+
+.timeline-browser-assets::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.timeline-browser-assets::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+.timeline-browser-assets::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+
+/* Browser empty state */
+.browser-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  color: #666;
+  font-size: 12px;
+}
+
+/* Asset wrapper for drag */
+.browser-asset-wrapper {
+  flex-shrink: 0;
+  cursor: grab;
+  transition: transform 0.15s;
+}
+
+.browser-asset-wrapper:active {
+  cursor: grabbing;
+  transform: scale(0.98);
+}
+
+/* Responsive: Hide browser on mobile */
+@media (max-width: 767px) {
+  .timeline-browser {
+    display: none;
+  }
+}
+
+/* Tablet: Smaller browser */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .timeline-browser-header {
+    padding: 6px 10px;
+    height: 36px;
+  }
+
+  .browser-upload-btn,
+  .browser-search-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .browser-search-input {
+    width: 120px;
+  }
+
+  .browser-category-chip {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+
+  .timeline-browser-assets {
+    height: 72px;
+    padding: 6px 10px;
+    gap: 6px;
+  }
+}
+
 /* Transport Controls - right-aligned layout */
 .timeline-transport {
   display: flex;
@@ -624,7 +912,8 @@
 }
 
 .track-item.selected {
-  box-shadow: 0 0 0 2px #fff;
+  box-shadow: 0 0 0 2px #f59e0b;
+  z-index: 2;
 }
 
 .track-item.locked {

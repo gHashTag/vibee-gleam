@@ -465,6 +465,8 @@ const en: Translations = {
   "feed.remixHint": "Record your own voice & cameo to make it yours!",
   "feed.for_you": "For You",
   "feed.following": "Following",
+  "feed.justNow": "Just now",
+  "feed.videoError": "Video failed to load",
 
   // Publish Modal
   "publish.title": "Share to Feed",
@@ -703,6 +705,24 @@ const en: Translations = {
   "generate.dragHint": "Drag to timeline",
   "generate.addToTimeline": "Add to timeline",
   "generate.remove": "Remove",
+
+  // Results Gallery
+  "results.noImages": "No images generated yet",
+  "results.noVideos": "No videos generated yet",
+  "results.noAudio": "No audio generated yet",
+  "results.noLipsync": "No lipsync videos generated yet",
+
+  // Comments
+  "comments.title": "Comments",
+  "comments.empty": "No comments yet",
+  "comments.be_first": "Be the first to comment!",
+  "comments.placeholder": "Add a comment...",
+  "comments.reply": "Reply",
+  "comments.replying_to": "Replying to",
+  "comments.delete": "Delete",
+
+  // Panels
+  "panels.properties": "Properties",
 
   // Profile
   "profile.edit": "Edit",
@@ -1328,6 +1348,8 @@ const ru: Translations = {
   "feed.remixHint": "Запишите свой голос и камео, чтобы сделать видео своим!",
   "feed.for_you": "Для вас",
   "feed.following": "Подписки",
+  "feed.justNow": "Только что",
+  "feed.videoError": "Не удалось загрузить видео",
 
   // Publish Modal
   "publish.title": "Поделиться в ленте",
@@ -1566,6 +1588,24 @@ const ru: Translations = {
   "generate.dragHint": "Перетащите на таймлайн",
   "generate.addToTimeline": "Добавить на таймлайн",
   "generate.remove": "Удалить",
+
+  // Results Gallery
+  "results.noImages": "Изображения ещё не сгенерированы",
+  "results.noVideos": "Видео ещё не сгенерированы",
+  "results.noAudio": "Аудио ещё не сгенерировано",
+  "results.noLipsync": "Липсинк видео ещё не сгенерированы",
+
+  // Comments
+  "comments.title": "Комментарии",
+  "comments.empty": "Пока нет комментариев",
+  "comments.be_first": "Будьте первым!",
+  "comments.placeholder": "Добавить комментарий...",
+  "comments.reply": "Ответить",
+  "comments.replying_to": "Ответ для",
+  "comments.delete": "Удалить",
+
+  // Panels
+  "panels.properties": "Свойства",
 
   // Profile
   "profile.edit": "Редактировать",

@@ -364,6 +364,13 @@ fn route_request(
         Error(_) -> not_found_handler()
       }
     }
+    // POST /api/feed/:id/view - Track view
+    http.Post, ["api", "feed", id, "view"] -> {
+      case int.parse(id) {
+        Ok(template_id) -> feed_handlers.view_template_handler(template_id)
+        Error(_) -> not_found_handler()
+      }
+    }
     // GET /api/feed/:id - Get template details
     http.Get, ["api", "feed", id] -> {
       case int.parse(id) {

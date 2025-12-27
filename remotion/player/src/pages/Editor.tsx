@@ -3,7 +3,6 @@ import { useSetAtom, useAtomValue } from 'jotai';
 import { loadCaptionsAtom, updateDurationFromLipSyncAtom, lipSyncVideoAtom, transcribeVideoAtom, ensureAudioTrackAtom, ensureImageTrackAtom, selectedItemIdsAtom } from '@/atoms';
 import { useAutoRecordHistory } from '@/atoms/hooks';
 import { Header } from '@/components/Header';
-import { AssetsPanel } from '@/components/Panels/AssetsPanel';
 import { PropertiesPanel } from '@/components/Panels/PropertiesPanel';
 import { InteractiveCanvas } from '@/components/Canvas/InteractiveCanvas';
 import { Timeline } from '@/components/Timeline/Timeline';
@@ -110,16 +109,7 @@ function EditorContent() {
       />
 
       <main id="main-content" className="editor-main" role="main">
-        {/* Left sidebar: Assets */}
-        <aside className="sidebar sidebar-left">
-          <div className="sidebar-content">
-            <ErrorBoundary fallback={<PanelError />}>
-              <AssetsPanel />
-            </ErrorBoundary>
-          </div>
-        </aside>
-
-        {/* Canvas */}
+        {/* Canvas - now takes full width minus right sidebar */}
         <section className="canvas-area">
           <ErrorBoundary fallback={<PanelError />}>
             <InteractiveCanvas />
@@ -136,7 +126,7 @@ function EditorContent() {
         )}
       </main>
 
-      {/* Timeline */}
+      {/* Timeline - includes integrated asset browser */}
       <footer className="timeline-area">
         <ErrorBoundary fallback={<PanelError />}>
           <Timeline />

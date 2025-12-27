@@ -1,7 +1,7 @@
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { likeTemplateAtom, useTemplateAtom, deleteTemplateAtom, userAtom, type FeedTemplate } from '@/atoms';
+import { likeTemplateAtom, useTemplateAtom, deleteTemplateAtom, trackViewAtom, userAtom, type FeedTemplate } from '@/atoms';
 import { useLanguage } from '@/hooks/useLanguage';
 import { LikeAnimation } from '@/components/LikeAnimation';
 import { Heart, Eye, Users, Play, Loader2, Sparkles, Trash2, AlertCircle, RefreshCw, Volume2, VolumeX } from 'lucide-react';
@@ -18,6 +18,7 @@ export function FeedCard({ template }: FeedCardProps) {
   const likeTemplate = useSetAtom(likeTemplateAtom);
   const useTemplate = useSetAtom(useTemplateAtom);
   const deleteTemplate = useSetAtom(deleteTemplateAtom);
+  const trackView = useSetAtom(trackViewAtom);
   const [isUsing, setIsUsing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
@@ -29,8 +30,10 @@ export function FeedCard({ template }: FeedCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Check if current user is admin
+  // Check if current user is admin or author
   const isAdmin = user?.is_admin === true;
+  const isAuthor = user && template.telegramId === user.id;
+  const canDelete = isAdmin || isAuthor;
 
   // Lazy load video when card is near viewport (200px before visible)
   useEffect(() => {
@@ -209,7 +212,11 @@ export function FeedCard({ template }: FeedCardProps) {
                     console.error('[FeedCard] Video error:', template.videoUrl, video.error);
                     setVideoError(video.error?.message || 'Failed to load video');
                   }}
-                  onPlay={() => setIsPlaying(true)}
+                  onPlay={() => {
+                    setIsPlaying(true);
+                    // Track view when video starts playing
+                    trackView(template.id);
+                  }}
                   onPause={() => setIsPlaying(false)}
                 />
                 {/* Error indicator with retry button */}
@@ -303,7 +310,7 @@ export function FeedCard({ template }: FeedCardProps) {
             <span>Remix</span>
           </button>
 
-          {isAdmin && (
+          {canDelete && (
             <button
               className="action-btn delete-btn"
               onClick={handleDelete}

@@ -342,7 +342,7 @@
 }
 
 .like-btn.liked {
-  color: #ef4444;
+  color: #e30b5c;
 }
 
 /* Use button */
@@ -505,19 +505,26 @@
   scrollbar-width: none;
 }
 
-/* Fullscreen card - 9:16 centered */
+/* Fullscreen card - full width on mobile, 9:16 centered on desktop */
 .feed-panel.fullscreen .feed-card {
   scroll-snap-align: start;
   height: calc(100vh - 56px);
-  /* Use explicit width calculation for 9:16 ratio */
-  width: calc((100vh - 56px) * 9 / 16);
-  max-width: 100%; /* Don't exceed container */
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   border-radius: 0;
   border: none;
   position: relative;
   background: #000;
   flex-shrink: 0;
+}
+
+/* Desktop: 9:16 centered */
+@media (min-width: 1024px) {
+  .feed-panel.fullscreen .feed-card {
+    width: calc((100vh - 56px) * 9 / 16);
+    margin: 0 auto;
+  }
 }
 
 /* Card inner fills the 9:16 container */
@@ -786,11 +793,11 @@
 
 /* Like button - red when liked */
 .action-btn.like-btn.liked {
-  color: #ef4444;
+  color: #e30b5c;
 }
 
 .action-btn.like-btn.liked svg {
-  filter: drop-shadow(0 2px 8px rgba(239, 68, 68, 0.6));
+  filter: drop-shadow(0 2px 8px rgba(227, 11, 92, 0.6));
   animation: heartPop 0.3s ease;
 }
 

@@ -1,6 +1,6 @@
 import { useRef, useCallback, useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtomValue, useSetAtom, useAtom } from 'jotai';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useToast } from '@/hooks/useToast';
 import {
@@ -24,6 +24,16 @@ import {
   canvasZoomAtom,
   // Export atoms
   assetsAtom,
+  addAssetAtom,
+  // Browser atoms
+  filteredAssetsAtom,
+  browserCategoryAtom,
+  browserSearchAtom,
+  browserUploadingAtom,
+  browserUploadProgressAtom,
+  categoryCounts,
+  CATEGORY_CONFIG,
+  type AssetCategory,
   isExportingAtom,
   exportProgressAtom,
   setExportingAtom,
@@ -77,7 +87,9 @@ import { Playhead } from './Playhead';
 import { VolumePopup } from './VolumePopup';
 import { DragSnapLine } from './SnapIndicators';
 import { TimelineMinimap } from './TimelineMinimap';
-import { Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, ChevronDown, ChevronUp, Magnet, Lock, Unlock, Maximize2, Maximize, Minimize, Volume2, VolumeX, Download, Loader2, AlertTriangle, X, Undo2, Redo2, Save, Upload, RotateCcw, GripVertical } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, ChevronDown, ChevronUp, Magnet, Lock, Unlock, Maximize2, Maximize, Minimize, Volume2, VolumeX, Download, Loader2, AlertTriangle, X, Undo2, Redo2, Save, Upload, RotateCcw, GripVertical, Plus, Search } from 'lucide-react';
+import { AssetCard } from '@/components/Assets/AssetCard';
+import type { Asset } from '@/store/types';
 import { RENDER_SERVER_URL, toAbsoluteUrl } from '@/lib/mediaUrl';
 import { DEFAULT_COMPOSITION_ID } from '@/shared/compositions';
 import { logExport } from '@/lib/logger';
@@ -155,6 +167,19 @@ export function Timeline() {
   const segments = useAtomValue(segmentsAtom);
   const user = useAtomValue(userAtom);
   const canRender = useAtomValue(canRenderAtom);
+
+  // Browser atoms
+  const filteredAssets = useAtomValue(filteredAssetsAtom);
+  const [category, setCategory] = useAtom(browserCategoryAtom);
+  const [browserSearch, setBrowserSearch] = useAtom(browserSearchAtom);
+  const [isUploading, setIsUploading] = useAtom(browserUploadingAtom);
+  const [uploadProgress, setUploadProgress] = useAtom(browserUploadProgressAtom);
+  const counts = useAtomValue(categoryCounts);
+  const addAsset = useSetAtom(addAssetAtom);
+  const [showBrowserSearch, setShowBrowserSearch] = useState(false);
+  const [isDragOverBrowser, setIsDragOverBrowser] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const browserScrollRef = useRef<HTMLDivElement>(null);
 
   // Undo/Redo atoms
   const canUndoValue = useAtomValue(canUndoAtom);
@@ -532,6 +557,142 @@ export function Timeline() {
       playDirect(e); // Pass event for audio to work!
     }
   }, [isPlaying, isMuted, volume, playDirect, pauseDirect, warmupAudio, playerRef]);
+
+  // ===============================
+  // BROWSER HANDLERS
+  // ===============================
+
+  // Category chips for browser
+  const CATEGORIES: AssetCategory[] = ['all', 'video', 'audio', 'image', 'avatar'];
+
+  // File upload handler
+  const uploadFile = useCallback(async (file: File): Promise<Asset | null> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch(`${RENDER_SERVER_URL}/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const type = file.type.startsWith('video/')
+        ? 'video'
+        : file.type.startsWith('audio/')
+        ? 'audio'
+        : 'image';
+
+      return {
+        id: crypto.randomUUID(),
+        type,
+        name: file.name.replace(/\.[^.]+$/, ''),
+        url: data.url || data.path,
+        thumbnail: data.thumbnail,
+        duration: type === 'video' ? 150 : undefined,
+        fileSize: file.size,
+      };
+    } catch (error) {
+      console.error('Upload error:', error);
+      const type = file.type.startsWith('video/')
+        ? 'video'
+        : file.type.startsWith('audio/')
+        ? 'audio'
+        : 'image';
+
+      return {
+        id: crypto.randomUUID(),
+        type,
+        name: file.name.replace(/\.[^.]+$/, ''),
+        url: URL.createObjectURL(file),
+        fileSize: file.size,
+      };
+    }
+  }, []);
+
+  const handleBrowserFiles = useCallback(
+    async (files: FileList | File[]) => {
+      const fileArray = Array.from(files);
+      if (fileArray.length === 0) return;
+
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      let uploaded = 0;
+      for (const file of fileArray) {
+        const asset = await uploadFile(file);
+        if (asset) {
+          addAsset(asset);
+        }
+        uploaded++;
+        setUploadProgress((uploaded / fileArray.length) * 100);
+      }
+
+      setIsUploading(false);
+      setUploadProgress(0);
+      toast.success(
+        `${uploaded} ${uploaded === 1 ? 'file' : 'files'} uploaded`
+      );
+    },
+    [uploadFile, addAsset, setIsUploading, setUploadProgress, toast, t]
+  );
+
+  const handleBrowserFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files) {
+        handleBrowserFiles(e.target.files);
+      }
+      e.target.value = '';
+    },
+    [handleBrowserFiles]
+  );
+
+  const handleBrowserDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverBrowser(true);
+  }, []);
+
+  const handleBrowserDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverBrowser(false);
+  }, []);
+
+  const handleBrowserDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOverBrowser(false);
+
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleBrowserFiles(files);
+      }
+    },
+    [handleBrowserFiles]
+  );
+
+  const handleBrowserWheel = useCallback((e: React.WheelEvent) => {
+    if (browserScrollRef.current) {
+      if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        e.preventDefault();
+        browserScrollRef.current.scrollLeft += e.deltaY || e.deltaX;
+      } else if (Math.abs(e.deltaY) > 0) {
+        e.preventDefault();
+        browserScrollRef.current.scrollLeft += e.deltaY;
+      }
+    }
+  }, []);
+
+  const handleAssetDragStart = useCallback((e: React.DragEvent, asset: Asset) => {
+    e.dataTransfer.setData('application/json', JSON.stringify(asset));
+    e.dataTransfer.effectAllowed = 'copy';
+  }, []);
 
   const fps = project.fps;
   const duration = project.durationInFrames;
@@ -1113,6 +1274,115 @@ export function Timeline() {
 
   return (
     <div className="timeline" role="region" aria-label={t('timeline.title')}>
+      {/* Asset Browser Section */}
+      <div
+        className={`timeline-browser ${isDragOverBrowser ? 'drag-over' : ''}`}
+        onDragOver={handleBrowserDragOver}
+        onDragLeave={handleBrowserDragLeave}
+        onDrop={handleBrowserDrop}
+      >
+        <div className="timeline-browser-header">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="video/*,audio/*,image/*"
+            onChange={handleBrowserFileChange}
+            style={{ display: 'none' }}
+          />
+
+          {/* Upload button */}
+          <button
+            className="browser-upload-btn"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            title={t('assets.upload')}
+          >
+            {isUploading ? (
+              <Loader2 size={16} className="spin" />
+            ) : (
+              <Plus size={16} />
+            )}
+          </button>
+
+          {/* Search toggle */}
+          <button
+            className={`browser-search-btn ${showBrowserSearch ? 'active' : ''}`}
+            onClick={() => setShowBrowserSearch(!showBrowserSearch)}
+            title={t('assets.search')}
+          >
+            <Search size={16} />
+          </button>
+
+          {/* Search input (conditional) */}
+          {showBrowserSearch && (
+            <input
+              type="text"
+              className="browser-search-input"
+              placeholder={t('assets.searchPlaceholder')}
+              value={browserSearch}
+              onChange={(e) => setBrowserSearch(e.target.value)}
+              autoFocus
+            />
+          )}
+
+          {/* Category chips */}
+          <div className="browser-categories">
+            {CATEGORIES.map((cat) => {
+              const config = CATEGORY_CONFIG[cat];
+              const count = counts[cat];
+              const isActive = category === cat;
+              return (
+                <button
+                  key={cat}
+                  className={`browser-category-chip ${isActive ? 'active' : ''}`}
+                  onClick={() => setCategory(cat)}
+                  style={{
+                    '--chip-color': config.color,
+                  } as React.CSSProperties}
+                >
+                  <span className="chip-icon">{config.icon}</span>
+                  <span className="chip-label">{config.label}</span>
+                  <span className="chip-count">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Upload progress */}
+          {isUploading && (
+            <div className="browser-upload-progress">
+              <div className="upload-progress-bar" style={{ width: `${uploadProgress}%` }} />
+            </div>
+          )}
+        </div>
+
+        {/* Asset cards row */}
+        <div
+          ref={browserScrollRef}
+          className="timeline-browser-assets"
+          onWheel={handleBrowserWheel}
+        >
+          {filteredAssets.length === 0 ? (
+            <div className="browser-empty">
+              <span>{t('assets.empty')}</span>
+            </div>
+          ) : (
+            filteredAssets.map((asset) => (
+              <div
+                key={asset.id}
+                className="browser-asset-wrapper"
+                draggable
+                onDragStart={(e) => handleAssetDragStart(e, asset)}
+              >
+                <AssetCard asset={asset} size="compact" />
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
       {/* Transport Controls - 3-column layout: LEFT | CENTER | RIGHT */}
       <div className="timeline-transport" role="toolbar" aria-label={t('timeline.controls')}>
         {/* LEFT: Project name + Volume + Speed */}

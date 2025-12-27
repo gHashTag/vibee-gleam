@@ -113,24 +113,25 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
             <span className="logo-icon" aria-hidden="true">🐝</span>
             <span className="logo-text">VIBEE</span>
           </Link>
-
-          {/* Emoji Navigation Tabs */}
-          <nav className="header-tabs" aria-label="Main navigation">
-            {NAV_TABS.map((tab) => {
-              const isActive = ROUTE_PATTERNS[tab.id]?.test(location.pathname);
-              return (
-                <Link
-                  key={tab.id}
-                  to={tab.route}
-                  className={`header-tab ${isActive ? 'active' : ''}`}
-                  title={t(tab.labelKey)}
-                >
-                  <span className="header-tab-emoji">{tab.emoji}</span>
-                </Link>
-              );
-            })}
-          </nav>
         </div>
+
+        {/* Centered Navigation Tabs */}
+        <nav className="header-tabs" aria-label="Main navigation">
+          {NAV_TABS.map((tab) => {
+            const isActive = ROUTE_PATTERNS[tab.id]?.test(location.pathname);
+            return (
+              <Link
+                key={tab.id}
+                to={tab.route}
+                className={`header-tab ${isActive ? 'active' : ''}`}
+                title={t(tab.labelKey)}
+              >
+                <span className="header-tab-emoji">{tab.emoji}</span>
+                <span className="header-tab-label">{t(tab.labelKey)}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
       <div className="header-center">
         <RemixBadge />

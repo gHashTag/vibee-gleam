@@ -203,22 +203,35 @@ async function useTemplate(id: number): Promise<FeedTemplate> {
   return transformTemplate(data.template || data);
 }
 
+async function trackView(id: number): Promise<{ viewsCount: number }> {
+  const response = await fetch(`${API_BASE}/api/feed/${id}/view`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to track view: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 // ===============================
 // Action Atoms
 // ===============================
+
+// Module-level flag for synchronous load guard (prevents race conditions)
+let isLoadingFeed = false;
 
 // Load feed (initial or refresh)
 export const loadFeedAtom = atom(
   null,
   async (get, set, refresh?: boolean) => {
-    // Prevent concurrent loads - this fixes duplicate videos issue
-    if (get(feedLoadingAtom)) {
-      console.log('[Feed] Already loading, skip');
+    // Synchronous guard - prevents race conditions from concurrent calls
+    if (isLoadingFeed) {
+      console.log('[Feed] Already loading (sync guard), skip');
       return;
     }
+    isLoadingFeed = true;
 
     const sort = get(feedSortAtom);
-    const currentTemplates = get(feedTemplatesAtom);
 
     // If refresh, start from page 0
     const page = refresh ? 0 : get(feedPageAtom);
@@ -231,14 +244,20 @@ export const loadFeedAtom = atom(
 
     try {
       const templates = await fetchFeed(page, limit, sort);
-      console.log('[Feed] Loaded templates:', templates.length, templates);
+      console.log('[Feed] Loaded templates:', templates.length);
+
+      // ALWAYS deduplicate by ID to prevent any duplicates
+      const uniqueTemplates = templates.filter(
+        (t, index, self) => self.findIndex(x => x.id === t.id) === index
+      );
 
       if (refresh || page === 0) {
-        set(feedTemplatesAtom, templates);
+        set(feedTemplatesAtom, uniqueTemplates);
       } else {
-        // Deduplicate by ID when loading more
+        // Merge with existing, deduplicate
+        const currentTemplates = get(feedTemplatesAtom);
         const existingIds = new Set(currentTemplates.map(t => t.id));
-        const newTemplates = templates.filter(t => !existingIds.has(t.id));
+        const newTemplates = uniqueTemplates.filter(t => !existingIds.has(t.id));
         set(feedTemplatesAtom, [...currentTemplates, ...newTemplates]);
       }
 
@@ -248,6 +267,7 @@ export const loadFeedAtom = atom(
       set(feedErrorAtom, error instanceof Error ? error.message : 'Failed to load feed');
     } finally {
       set(feedLoadingAtom, false);
+      isLoadingFeed = false;
     }
   }
 );
@@ -275,25 +295,101 @@ export const changeFeedSortAtom = atom(
   }
 );
 
-// Like/unlike template
+// Track in-flight like requests to prevent double-clicks
+const likingTemplates = new Set<number>();
+
+// Like/unlike template with optimistic UI
 export const likeTemplateAtom = atom(
   null,
   async (get, set, templateId: number) => {
+    // Prevent double-clicks
+    if (likingTemplates.has(templateId)) {
+      console.log('[Feed] Like already in progress for:', templateId);
+      return;
+    }
+    likingTemplates.add(templateId);
+
+    // Get current state for optimistic update
+    const templates = get(feedTemplatesAtom);
+    const template = templates.find(t => t.id === templateId);
+    if (!template) {
+      likingTemplates.delete(templateId);
+      return;
+    }
+
+    // Optimistic UI: update immediately
+    const wasLiked = template.isLiked;
+    const oldLikesCount = template.likesCount;
+    const newIsLiked = !wasLiked;
+    const newLikesCount = wasLiked ? Math.max(0, oldLikesCount - 1) : oldLikesCount + 1;
+
+    set(feedTemplatesAtom, templates.map(t =>
+      t.id === templateId
+        ? { ...t, isLiked: newIsLiked, likesCount: newLikesCount }
+        : t
+    ));
+
     // TODO: Get actual user ID from Telegram WebApp
     const userId = 144022504; // Default for testing
 
     try {
       const result = await likeTemplate(templateId, userId);
 
-      // Update template in list
-      const templates = get(feedTemplatesAtom);
-      set(feedTemplatesAtom, templates.map(t =>
+      // Update with server response (in case of discrepancy)
+      const currentTemplates = get(feedTemplatesAtom);
+      set(feedTemplatesAtom, currentTemplates.map(t =>
         t.id === templateId
           ? { ...t, isLiked: result.liked, likesCount: result.likesCount }
           : t
       ));
     } catch (error) {
       console.error('[Feed] Failed to like:', error);
+      // Revert on error
+      const currentTemplates = get(feedTemplatesAtom);
+      set(feedTemplatesAtom, currentTemplates.map(t =>
+        t.id === templateId
+          ? { ...t, isLiked: wasLiked, likesCount: oldLikesCount }
+          : t
+      ));
+    } finally {
+      likingTemplates.delete(templateId);
+    }
+  }
+);
+
+// Track viewed templates to avoid counting multiple times per session
+const viewedTemplates = new Set<number>();
+
+// Track view for a template (call when video starts playing)
+export const trackViewAtom = atom(
+  null,
+  async (get, set, templateId: number) => {
+    // Only track once per session
+    if (viewedTemplates.has(templateId)) {
+      return;
+    }
+    viewedTemplates.add(templateId);
+
+    // Optimistic UI: increment immediately
+    const templates = get(feedTemplatesAtom);
+    set(feedTemplatesAtom, templates.map(t =>
+      t.id === templateId
+        ? { ...t, viewsCount: t.viewsCount + 1 }
+        : t
+    ));
+
+    try {
+      const result = await trackView(templateId);
+      // Update with server response
+      const currentTemplates = get(feedTemplatesAtom);
+      set(feedTemplatesAtom, currentTemplates.map(t =>
+        t.id === templateId
+          ? { ...t, viewsCount: result.viewsCount }
+          : t
+      ));
+    } catch (error) {
+      console.error('[Feed] Failed to track view:', error);
+      // Don't revert - view was likely counted anyway
     }
   }
 );
