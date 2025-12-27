@@ -178,7 +178,6 @@ export function InteractiveCanvas() {
   const setCanvasZoom = useSetAtom(canvasZoomAtom);
   const clearSelection = useSetAtom(clearSelectionAtom);
   const setPlayerRefAtom = useSetAtom(playerRefAtom);
-  const setProject = useSetAtom(projectAtom);
 
   // Store player ref for direct control (needed for autoplay policy)
   useEffect(() => {
@@ -250,16 +249,24 @@ export function InteractiveCanvas() {
     [splitTalkingHeadPropsBase, isMuted, audioTrackVolume, avatarTrackVolume, audioTrackUrl]
   );
 
-  // Calculate zoom to fit height
+  // Calculate zoom to fit height (allow scaling up for vertical videos)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const updateZoom = () => {
-      const containerHeight = container.clientHeight - 60; // padding for controls
+      const containerHeight = container.clientHeight - 40; // small padding
+      const containerWidth = container.clientWidth - 40;
       const videoHeight = project.height;
-      const fitZoom = containerHeight / videoHeight;
-      setAutoZoom(Math.min(fitZoom, 1)); // Don't zoom more than 100%
+      const videoWidth = project.width;
+
+      // Calculate zoom to fit both dimensions
+      const fitHeightZoom = containerHeight / videoHeight;
+      const fitWidthZoom = containerWidth / videoWidth;
+
+      // Use the smaller zoom to ensure video fits in both dimensions
+      const fitZoom = Math.min(fitHeightZoom, fitWidthZoom);
+      setAutoZoom(fitZoom); // Allow scaling up for small/vertical videos
     };
 
     updateZoom();
@@ -267,7 +274,7 @@ export function InteractiveCanvas() {
     observer.observe(container);
 
     return () => observer.disconnect();
-  }, [project.height]);
+  }, [project.height, project.width]);
 
   // Sync player with store - frame updates
   useEffect(() => {
@@ -352,16 +359,6 @@ export function InteractiveCanvas() {
 
   return (
     <div className="canvas-container" onClick={handleCanvasClick} ref={containerRef}>
-      {/* Project Name Input */}
-      <div className="canvas-project-name">
-        <input
-          type="text"
-          className="project-name-input"
-          value={project.name}
-          onChange={(e) => setProject({ ...project, name: e.target.value })}
-        />
-      </div>
-
       {/* Transcribing/Loading Overlay */}
       {(isTranscribing || captionsLoading) && (
         <div className="canvas-transcribing-overlay">

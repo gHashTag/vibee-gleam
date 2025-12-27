@@ -720,8 +720,104 @@ export function Timeline() {
     <div className="timeline">
       {/* Transport Controls - 3-column layout: LEFT | CENTER | RIGHT */}
       <div className="timeline-transport">
-        {/* LEFT: Editing tools */}
+        {/* LEFT: Project name + Volume + Speed */}
         <div className="transport-left">
+          {/* Project Name */}
+          <input
+            type="text"
+            className="project-name-input"
+            value={project.name}
+            onChange={(e) => setProject({ ...project, name: e.target.value })}
+            placeholder="Project name"
+          />
+
+          <div className="transport-divider" />
+
+          {/* Volume control */}
+          <div className="volume-control">
+            <button
+              className={`transport-btn ${isMuted ? '' : 'active'}`}
+              onClick={handleMuteToggle}
+              title={isMuted ? t('timeline.unmute') : t('timeline.mute')}
+            >
+              {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            </button>
+            <input
+              type="range"
+              className="volume-slider"
+              min="0"
+              max="1"
+              step="0.05"
+              value={isMuted ? 0 : volume}
+              onChange={handleVolumeChange}
+              title={`${t('timeline.volume')}: ${Math.round(volume * 100)}%`}
+            />
+          </div>
+
+          {/* Speed control */}
+          <div className="transport-speed">
+            <button
+              className="speed-btn"
+              onClick={handleSpeedDown}
+              disabled={currentSpeedIndex <= 0}
+              title={t('timeline.slower')}
+            >
+              <ChevronDown size={12} />
+            </button>
+            <span className={`speed-value ${playbackRate !== 1 ? 'modified' : ''}`}>
+              {playbackRate}x
+            </span>
+            <button
+              className="speed-btn"
+              onClick={handleSpeedUp}
+              disabled={currentSpeedIndex >= speedPresets.length - 1}
+              title={t('timeline.faster')}
+            >
+              <ChevronUp size={12} />
+            </button>
+          </div>
+        </div>
+
+        {/* CENTER: Zoom + Snap + Playback controls */}
+        <div className="transport-center">
+          {/* Zoom controls */}
+          <div className="transport-zoom">
+            <button className="transport-btn" onClick={handleZoomOut} title={`${t('timeline.zoomOut')} (-)`}>
+              <ZoomOut size={14} />
+            </button>
+            <span className="zoom-label">{Math.round(timelineZoom * 100)}%</span>
+            <button className="transport-btn" onClick={handleZoomIn} title={`${t('timeline.zoomIn')} (+)`}>
+              <ZoomIn size={14} />
+            </button>
+          </div>
+
+          <button
+            className={`transport-btn snap-btn ${snapSettings.enabled ? 'active' : ''}`}
+            onClick={() => setSnapEnabled(!snapSettings.enabled)}
+            title={`${t('timeline.snapToGrid')} (${snapSettings.enabled ? t('timeline.on') : t('timeline.off')})`}
+          >
+            <Magnet size={14} />
+          </button>
+
+          <div className="transport-divider" />
+
+          <button className="transport-btn" onClick={handleSkipBack} title={t('timeline.skipToStart')}>
+            <SkipBack size={16} />
+          </button>
+          <button
+            className="transport-btn play-btn"
+            onClickCapture={handlePlay}
+            title={isPlaying ? `${t('timeline.pause')} (Space)` : `${t('timeline.play')} (Space)`}
+          >
+            {isPlaying ? <Pause size={24} /> : <Play size={24} />}
+          </button>
+          <button className="transport-btn" onClick={handleSkipForward} title={t('timeline.skipToEnd')}>
+            <SkipForward size={16} />
+          </button>
+        </div>
+
+        {/* RIGHT: Editing tools + Time, Volume, Speed, File ops, Export */}
+        <div className="transport-right">
           {/* Undo/Redo buttons */}
           <div className="transport-undo-redo">
             <button
@@ -744,93 +840,10 @@ export function Timeline() {
 
           <div className="transport-divider" />
 
-          {/* Zoom controls */}
-          <div className="transport-zoom">
-            <button className="transport-btn" onClick={handleZoomOut} title={`${t('timeline.zoomOut')} (-)`}>
-              <ZoomOut size={14} />
-            </button>
-            <span className="zoom-label">{Math.round(timelineZoom * 100)}%</span>
-            <button className="transport-btn" onClick={handleZoomIn} title={`${t('timeline.zoomIn')} (+)`}>
-              <ZoomIn size={14} />
-            </button>
-          </div>
-
-          <button
-            className={`transport-btn snap-btn ${snapSettings.enabled ? 'active' : ''}`}
-            onClick={() => setSnapEnabled(!snapSettings.enabled)}
-            title={`${t('timeline.snapToGrid')} (${snapSettings.enabled ? t('timeline.on') : t('timeline.off')})`}
-          >
-            <Magnet size={14} />
-          </button>
-        </div>
-
-        {/* CENTER: Playback controls */}
-        <div className="transport-center">
-          <button className="transport-btn" onClick={handleSkipBack} title={t('timeline.skipToStart')}>
-            <SkipBack size={16} />
-          </button>
-          <button
-            className="transport-btn play-btn"
-            onClickCapture={handlePlay}
-            title={isPlaying ? `${t('timeline.pause')} (Space)` : `${t('timeline.play')} (Space)`}
-          >
-            {isPlaying ? <Pause size={24} /> : <Play size={24} />}
-          </button>
-          <button className="transport-btn" onClick={handleSkipForward} title={t('timeline.skipToEnd')}>
-            <SkipForward size={16} />
-          </button>
-        </div>
-
-        {/* RIGHT: Time, Volume, Speed, File ops, Export */}
-        <div className="transport-right">
           <div className="transport-time">
             <span className="time-current">{formatTime(currentFrame)}</span>
             <span className="time-separator">/</span>
             <span className="time-duration">{formatTime(duration)}</span>
-          </div>
-
-          <div className="transport-divider" />
-
-          <div className="volume-control">
-            <button
-              className={`transport-btn ${isMuted ? '' : 'active'}`}
-              onClick={handleMuteToggle}
-              title={isMuted ? t('timeline.unmute') : t('timeline.mute')}
-            >
-              {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-            </button>
-            <input
-              type="range"
-              className="volume-slider"
-              min="0"
-              max="1"
-              step="0.05"
-              value={isMuted ? 0 : volume}
-              onChange={handleVolumeChange}
-              title={`${t('timeline.volume')}: ${Math.round(volume * 100)}%`}
-            />
-          </div>
-
-          <div className="transport-speed">
-            <button
-              className="speed-btn"
-              onClick={handleSpeedDown}
-              disabled={currentSpeedIndex <= 0}
-              title={t('timeline.slower')}
-            >
-              <ChevronDown size={12} />
-            </button>
-            <span className={`speed-value ${playbackRate !== 1 ? 'modified' : ''}`}>
-              {playbackRate}x
-            </span>
-            <button
-              className="speed-btn"
-              onClick={handleSpeedUp}
-              disabled={currentSpeedIndex >= speedPresets.length - 1}
-              title={t('timeline.faster')}
-            >
-              <ChevronUp size={12} />
-            </button>
           </div>
 
           <div className="transport-divider" />

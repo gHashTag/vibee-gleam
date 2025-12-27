@@ -647,6 +647,7 @@ const en: Translations = {
   "profile.add_link": "Add Link",
   "profile.public_profile": "Public Profile",
   "profile.public_profile_hint": "When disabled, only you can see your profile",
+  "profile.viewProfile": "View Profile",
 
   // Common
   "common.back": "Back",
@@ -1287,6 +1288,7 @@ const ru: Translations = {
   "profile.add_link": "Добавить ссылку",
   "profile.public_profile": "Публичный профиль",
   "profile.public_profile_hint": "Когда выключено, только вы видите свой профиль",
+  "profile.viewProfile": "Открыть профиль",
 
   // Common
   "common.back": "Назад",

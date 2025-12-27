@@ -159,36 +159,49 @@ export const loadProfileAtom = atom(
   }
 );
 
+// User data that can be passed directly to avoid async state issues
+interface UserData {
+  id: number;
+  username?: string;
+  first_name?: string;
+  photo_url?: string;
+}
+
 // Get or create user profile on login
+// Can accept user data directly to avoid async state issues
 export const fetchMyProfileAtom = atom(
   null,
-  async (get, set) => {
-    const user = get(userAtom);
+  async (get, set, userData?: UserData) => {
+    // Use passed data or fall back to atom
+    const user = userData || get(userAtom);
     if (!user) {
       set(myProfileAtom, null);
       return null;
     }
 
     try {
-      const params = new URLSearchParams({
-        ...(user.username && { username: user.username }),
-        ...(user.first_name && { display_name: user.first_name }),
-        ...(user.photo_url && { avatar_url: user.photo_url }),
-      });
+      const params = new URLSearchParams();
+      if (user.username) params.set('username', user.username);
+      if (user.first_name) params.set('display_name', user.first_name);
+      if (user.photo_url) params.set('avatar_url', user.photo_url);
 
-      const response = await fetch(
-        `${API_BASE}/api/users/id/${user.id}?${params.toString()}`
-      );
+      const url = `${API_BASE}/api/users/id/${user.id}?${params.toString()}`;
+      console.log('[fetchMyProfile] Fetching:', url);
+
+      const response = await fetch(url);
 
       if (response.ok) {
         const data = await response.json();
+        console.log('[fetchMyProfile] Success:', data);
         const profile = transformProfile(data);
         set(myProfileAtom, profile);
         return profile;
+      } else {
+        console.error('[fetchMyProfile] Error:', response.status, await response.text());
       }
       return null;
     } catch (error) {
-      console.error('Failed to fetch my profile:', error);
+      console.error('[fetchMyProfile] Failed:', error);
       return null;
     }
   }

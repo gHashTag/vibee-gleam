@@ -11,37 +11,6 @@
   gap: 16px;
 }
 
-/* Project Name Input */
-.canvas-project-name {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-}
-
-.project-name-input {
-  width: 200px;
-  padding: 8px 16px;
-  background: #1a1a1a;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: #fff;
-  font-size: 14px;
-  text-align: center;
-  transition: all 0.15s;
-}
-
-.project-name-input:hover {
-  background: #222;
-}
-
-.project-name-input:focus {
-  outline: none;
-  border-color: #f59e0b;
-  background: #1a1a1a;
-}
-
 /* Player Wrapper */
 .canvas-player-wrapper {
   position: relative;

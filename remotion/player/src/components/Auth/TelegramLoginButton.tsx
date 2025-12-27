@@ -2,8 +2,9 @@
 // Uses official Telegram Login Widget for web authentication
 
 import { useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useSetAtom } from 'jotai';
-import { userAtom, fetchQuotaAtom } from '@/atoms';
+import { userAtom, fetchQuotaAtom, fetchMyProfileAtom } from '@/atoms';
 import { useLanguage } from '@/hooks/useLanguage';
 import type { TelegramUser } from '@/atoms';
 import { RENDER_SERVER_URL } from '@/lib/mediaUrl';
@@ -48,6 +49,7 @@ export function TelegramLoginButton({
   const containerRef = useRef<HTMLDivElement>(null);
   const setUser = useSetAtom(userAtom);
   const fetchQuota = useSetAtom(fetchQuotaAtom);
+  const fetchMyProfile = useSetAtom(fetchMyProfileAtom);
 
   useEffect(() => {
     // Define global callback for Telegram widget
@@ -66,6 +68,15 @@ export function TelegramLoginButton({
 
       setUser(user);
       fetchQuota();
+
+      // Create/fetch user profile in database
+      // Pass user data directly to avoid async state issues
+      fetchMyProfile({
+        id: data.id,
+        username: data.username,
+        first_name: data.first_name,
+        photo_url: data.photo_url,
+      });
 
       // Notify about new lead
       fetch(`${RENDER_SERVER_URL}/api/notify/lead`, {
@@ -100,7 +111,7 @@ export function TelegramLoginButton({
       // Cleanup
       delete (window as any).onTelegramAuth;
     };
-  }, [botUsername, size, setUser, fetchQuota, onSuccess, showFallback]);
+  }, [botUsername, size, setUser, fetchQuota, fetchMyProfile, onSuccess, showFallback]);
 
   // Fallback: Open bot directly in Telegram
   const handleFallbackClick = () => {
@@ -136,20 +147,26 @@ export function UserAvatar({
   onLogout: () => void;
 }) {
   const { t } = useLanguage();
+
+  // Use username for profile link, fallback to user_{id}
+  const profilePath = user.username ? `/${user.username}` : `/user_${user.id}`;
+
   return (
     <div className="user-avatar-container">
-      {user.photo_url ? (
-        <img
-          src={user.photo_url}
-          alt={user.first_name}
-          className="user-avatar-img"
-        />
-      ) : (
-        <div className="user-avatar-placeholder">
-          {user.first_name.charAt(0)}
-        </div>
-      )}
-      <span className="user-name">{user.first_name}</span>
+      <Link to={profilePath} className="user-avatar-link" title={t('profile.viewProfile')}>
+        {user.photo_url ? (
+          <img
+            src={user.photo_url}
+            alt={user.first_name}
+            className="user-avatar-img"
+          />
+        ) : (
+          <div className="user-avatar-placeholder">
+            {user.first_name.charAt(0)}
+          </div>
+        )}
+        <span className="user-name">{user.first_name}</span>
+      </Link>
       <button
         onClick={onLogout}
         className="logout-btn"

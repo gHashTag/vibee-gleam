@@ -675,7 +675,7 @@ fn get_or_create_user(
   let profile_decoder = {
     use id <- decode.field(0, decode.string)
     use tg_id <- decode.field(1, decode.string)
-    use uname <- decode.field(2, decode.string)
+    use uname <- decode.field(2, decode.optional(decode.string))
     use dname <- decode.field(3, decode.optional(decode.string))
     use bio <- decode.field(4, decode.optional(decode.string))
     use avatar <- decode.field(5, decode.optional(decode.string))
@@ -692,7 +692,7 @@ fn get_or_create_user(
     decode.success(UserProfile(
       id: id,
       telegram_id: tg_id,
-      username: uname,
+      username: option.unwrap(uname, "user_" <> tg_id),
       display_name: dname,
       bio: bio,
       avatar_url: avatar,
@@ -717,11 +717,11 @@ fn get_or_create_user(
   {
     Ok(pog.Returned(_, [profile])) -> Ok(profile)
     Ok(pog.Returned(_, [])) -> {
-      // User doesn't exist, create
+      // User doesn't exist, create with generated UUID
       let insert_sql =
         "
-        INSERT INTO users (telegram_id, username, display_name, avatar_url)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO users (id, telegram_id, username, display_name, avatar_url, created_at, updated_at)
+        VALUES (gen_random_uuid()::text, $1, $2, $3, $4, NOW(), NOW())
         RETURNING
           id, telegram_id, username, display_name, bio, avatar_url,
           COALESCE(social_links::text, '[]') as social_links,
@@ -732,7 +732,7 @@ fn get_or_create_user(
 
       case
         pog.query(insert_sql)
-        |> pog.parameter(pog.int(telegram_id))
+        |> pog.parameter(pog.text(int.to_string(telegram_id)))
         |> pog.parameter(pog.nullable(pog.text, username))
         |> pog.parameter(pog.nullable(pog.text, display_name))
         |> pog.parameter(pog.nullable(pog.text, avatar_url))

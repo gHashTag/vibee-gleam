@@ -627,7 +627,7 @@ function startRenderAsync(req: RenderRequest): string {
             '--no-first-run',
           ],
         },
-        timeoutInMilliseconds: 120000,
+        timeoutInMilliseconds: 300000, // 5 minutes for slow video loading
       });
 
       // Override duration if we detected it from video
@@ -662,7 +662,7 @@ function startRenderAsync(req: RenderRequest): string {
               '--single-process',
             ],
           },
-          timeoutInMilliseconds: 120000,
+          timeoutInMilliseconds: 300000, // 5 minutes for slow video loading
         });
 
         job.status = 'completed';
@@ -699,7 +699,7 @@ function startRenderAsync(req: RenderRequest): string {
             '--no-first-run',
           ],
         },
-        timeoutInMilliseconds: 120000,
+        timeoutInMilliseconds: 300000, // 5 minutes for slow video loading
         onProgress: ({ progress }) => {
           const percent = Math.round(progress * 100);
           job.progress = percent;
@@ -1873,7 +1873,7 @@ const server = createServer(async (req, res) => {
                   '--disable-dev-shm-usage',
                 ],
               },
-              timeoutInMilliseconds: 120000,
+              timeoutInMilliseconds: 300000, // 5 minutes for slow video loading
             });
 
             // Override duration if we detected it
@@ -1903,7 +1903,7 @@ const server = createServer(async (req, res) => {
                   '--disable-gpu',
                 ],
               },
-              timeoutInMilliseconds: 120000,
+              timeoutInMilliseconds: 300000, // 5 minutes for slow video loading
               onProgress: ({ progress }) => {
                 job.progress = Math.round(progress * 100);
               },

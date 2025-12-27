@@ -7,15 +7,15 @@
   background: #0f0f0f;
 }
 
-/* Transport Controls - 3-column layout */
+/* Transport Controls - right-aligned layout */
 .timeline-transport {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
+  gap: 8px;
   padding: 10px 16px;
   background: #111;
   border-bottom: 1px solid #1a1a1a;
-  position: relative;
 }
 
 /* LEFT section - editing tools */
@@ -25,14 +25,75 @@
   gap: 8px;
 }
 
+/* Project Name Input in transport */
+.transport-left .project-name-input {
+  width: 140px;
+  padding: 6px 12px;
+  background: #1a1a1a;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+.transport-left .project-name-input:hover {
+  background: #222;
+}
+
+.transport-left .project-name-input:focus {
+  outline: none;
+  border-color: #f59e0b;
+  background: #1a1a1a;
+}
+
+/* Responsive: Adjust for smaller screens */
+@media (max-width: 768px) {
+  .transport-left .project-name-input {
+    width: 100px;
+    font-size: 12px;
+    padding: 5px 8px;
+  }
+
+  .transport-right .transport-zoom,
+  .transport-right .transport-time {
+    display: none;
+  }
+
+  .transport-right {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 540px) {
+  .transport-left .project-name-input {
+    width: 80px;
+  }
+
+  .transport-left .volume-control,
+  .transport-left .transport-speed {
+    display: none;
+  }
+
+  .transport-right .transport-undo-redo {
+    display: none;
+  }
+
+  .transport-center {
+    gap: 2px;
+  }
+
+  .play-btn {
+    width: 36px;
+    height: 36px;
+  }
+}
+
 /* CENTER section - playback controls */
 .transport-center {
   display: flex;
   align-items: center;
   gap: 4px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
 }
 
 /* RIGHT section - time, volume, export */
