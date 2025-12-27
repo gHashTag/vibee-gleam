@@ -448,3 +448,87 @@
 .avatar-border-electric {
   animation: avatar-electric 0.5s ease-in-out infinite;
 }
+
+/* ===============================
+   Tablet Split Layout (768-1023px)
+   ===============================
+   Layout:
+   ┌──────────────────────────────────────┐
+   │ Header (48px)                        │
+   ├─────────────┬────────────────────────┤
+   │ Assets      │ Canvas                 │
+   │ (40%)       │ (60%)                  │
+   ├─────────────┴────────────────────────┤
+   │ Timeline (140px)                     │
+   └──────────────────────────────────────┘
+   =============================== */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Override: show editor as CSS grid on tablet */
+  .editor {
+    display: grid;
+    grid-template-columns: 40% 60%;
+    grid-template-rows: var(--header-height) 1fr var(--timeline-height-tablet, 140px);
+    grid-template-areas:
+      "header header"
+      "sidebar canvas"
+      "timeline timeline";
+  }
+
+  /* Header spans full width */
+  .editor > header,
+  .editor > .header {
+    grid-area: header;
+  }
+
+  /* Main content fills grid */
+  .editor-main {
+    display: contents; /* Children participate in parent grid */
+  }
+
+  /* Hide vertical tabs on tablet - sidebar is always visible */
+  .vertical-tabs {
+    display: none;
+  }
+
+  /* Left sidebar visible on tablet */
+  .sidebar-left {
+    display: flex;
+    grid-area: sidebar;
+    width: 100%;
+    border-right: 1px solid var(--vibee-border);
+    overflow-y: auto;
+  }
+
+  /* Canvas fills right column */
+  .canvas-area {
+    grid-area: canvas;
+    padding-bottom: 0; /* No extra padding needed */
+  }
+
+  /* Timeline at bottom, not fixed */
+  .timeline-area {
+    grid-area: timeline;
+    position: relative;
+    bottom: unset;
+    left: unset;
+    right: unset;
+    height: var(--timeline-height-tablet, 140px);
+    min-height: var(--timeline-height-tablet, 140px);
+    max-height: var(--timeline-height-tablet, 140px);
+    z-index: auto;
+    border-bottom: none;
+  }
+
+  /* Right sidebar - overlay on tablet */
+  .sidebar-right {
+    display: flex;
+    position: fixed;
+    right: 0;
+    top: var(--header-height);
+    bottom: var(--timeline-height-tablet, 140px);
+    width: 280px;
+    z-index: var(--z-modal);
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+  }
+}

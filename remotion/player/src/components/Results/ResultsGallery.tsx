@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { generatedResultsAtom, removeGeneratedResultAtom, type GeneratedResult } from '@/atoms/generateResults';
 import { addAssetAtom } from '@/atoms/assets';
+import { currentFrameAtom } from '@/atoms/playback';
 import { useEditorStore } from '@/store/editorStore';
 import { useLanguage } from '@/hooks/useLanguage';
 import { toAbsoluteUrl } from '@/lib/mediaUrl';
@@ -18,6 +19,7 @@ export function ResultsGallery({ tab }: ResultsGalleryProps) {
   const { t } = useLanguage();
   const generatedResults = useAtomValue(generatedResultsAtom);
   const removeResult = useSetAtom(removeGeneratedResultAtom);
+  const currentFrame = useAtomValue(currentFrameAtom);
   const addItem = useEditorStore((s) => s.addItem);
 
   // Publish modal state
@@ -45,24 +47,57 @@ export function ResultsGallery({ tab }: ResultsGalleryProps) {
     e.dataTransfer.effectAllowed = 'copy';
   };
 
-  // Add result to timeline
+  // Add result to timeline at playhead position
   const handleAddToTimeline = (result: GeneratedResult) => {
-    const trackId = result.type === 'audio' ? 'track-audio' : 'track-video';
+    // Determine target track based on asset type and current tab
+    let trackId: string;
+    let itemType: 'video' | 'image' | 'audio' | 'avatar';
+
+    // If we're on lipsync tab, treat videos as avatars
+    if (tab === 'lipsync') {
+      trackId = 'track-avatar';
+      itemType = 'avatar';
+    } else {
+      switch (result.type) {
+        case 'audio':
+          trackId = 'track-audio';
+          itemType = 'audio';
+          break;
+        case 'image':
+          trackId = 'track-image';
+          itemType = 'image';
+          break;
+        default:
+          trackId = 'track-video';
+          itemType = 'video';
+      }
+    }
 
     addItem(trackId, {
-      type: result.type as 'video' | 'image' | 'audio',
+      type: itemType,
       assetId: result.id,
-      startFrame: 0,
+      startFrame: currentFrame, // Add at playhead position
       durationInFrames: result.type === 'audio' ? 150 : 90,
       x: 0,
       y: 0,
       width: 1080,
-      height: result.type === 'video' ? 1920 : 1080,
+      height: result.type === 'video' || tab === 'lipsync' ? 1920 : 1080,
       rotation: 0,
       opacity: 1,
-      ...(result.type === 'video' && { volume: 1, playbackRate: 1 }),
-      ...(result.type === 'audio' && { volume: 1 }),
+      ...(itemType === 'video' && { volume: 1, playbackRate: 1 }),
+      ...(itemType === 'audio' && { volume: 1 }),
+      ...(itemType === 'avatar' && {
+        volume: 1,
+        circleSizePercent: 25.2,
+        circleBottomPercent: 15,
+        circleLeftPercent: 0,
+      }),
     });
+
+    // Haptic feedback
+    if ('vibrate' in navigator) {
+      navigator.vibrate(50);
+    }
   };
 
   // Remove result
@@ -151,7 +186,7 @@ export function ResultsGallery({ tab }: ResultsGalleryProps) {
                     </button>
                   )}
                   <button
-                    className="result-action-btn result-add-btn"
+                    className="result-action-btn result-add-timeline-btn"
                     onClick={() => handleAddToTimeline(result)}
                     title={t('generate.addToTimeline')}
                   >

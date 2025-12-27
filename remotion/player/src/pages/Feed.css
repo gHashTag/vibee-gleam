@@ -1,0 +1,54 @@
+/* Feed Page - Fullscreen TikTok-style */
+
+.feed-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
+  background: #000;
+  overflow: hidden;
+}
+
+@media (min-width: 769px) {
+  .feed-page {
+    bottom: 0;
+  }
+}
+
+/* Pull to refresh indicator */
+.pull-indicator {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(-60px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--vibee-bg-elevated);
+  border-radius: 50%;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  transition: transform 0.3s ease;
+  opacity: 0;
+}
+
+.pull-indicator.refreshing {
+  transform: translateX(-50%) translateY(20px);
+  opacity: 1;
+}
+
+.pull-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--vibee-border-light);
+  border-top-color: var(--vibee-amber);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

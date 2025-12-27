@@ -16,7 +16,7 @@ import { BottomSheet } from '@/components/BottomSheet/BottomSheet';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PanelError } from '@/components/Panels/PanelError';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboard';
-import { useIsMobile } from '@/hooks/useMediaQuery';
+import { useIsMobile, useIsTablet } from '@/hooks/useMediaQuery';
 import { useWebSocket, setGlobalWsSend } from '@/lib/websocket';
 import { useLanguage } from '@/hooks/useLanguage';
 
@@ -37,6 +37,7 @@ function EditorContent() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
 
   // Use atoms directly instead of bridge
   const updateDurationFromLipSync = useSetAtom(updateDurationFromLipSyncAtom);
@@ -118,14 +119,14 @@ function EditorContent() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Handle tab click - open BottomSheet on mobile
+  // Handle tab click - open BottomSheet on mobile (not tablet)
   const handleTabClick = useCallback((tabId: SidebarTab) => {
     setSidebarTab(tabId);
-    // Open BottomSheet on mobile for tabs that have panels
-    if (isMobile && tabId !== 'feed') {
+    // Open BottomSheet only on mobile (not tablet) for tabs that have panels
+    if (isMobile && !isTablet && tabId !== 'feed') {
       setMobileSheetOpen(true);
     }
-  }, [isMobile, setSidebarTab]);
+  }, [isMobile, isTablet, setSidebarTab]);
 
   // Get title for BottomSheet based on current tab (memoized)
   const sheetTitle = useMemo(() => {
@@ -156,15 +157,24 @@ function EditorContent() {
           ))}
         </nav>
 
-        {/* Hide sidebar when Feed is active - Feed goes fullscreen */}
-        {sidebarTab !== 'feed' && (
+        {/* Hide sidebar when Feed is active on desktop - Feed goes fullscreen */}
+        {/* On tablet: always show sidebar with AssetsPanel */}
+        {(isTablet || sidebarTab !== 'feed') && (
           <aside className="sidebar sidebar-left">
             <div className="sidebar-content">
               <ErrorBoundary fallback={<PanelError />}>
-                {sidebarTab === 'templates' && <TemplatesPanel />}
-                {sidebarTab === 'player' && <AssetsPanel />}
-                {['image', 'video', 'audio', 'lipsync'].includes(sidebarTab) && (
-                  <GeneratePanel activeTab={sidebarTab as GenerateTab} />
+                {isTablet ? (
+                  /* Tablet: always show AssetsPanel */
+                  <AssetsPanel />
+                ) : (
+                  /* Desktop: show based on active tab */
+                  <>
+                    {sidebarTab === 'templates' && <TemplatesPanel />}
+                    {sidebarTab === 'player' && <AssetsPanel />}
+                    {['image', 'video', 'audio', 'lipsync'].includes(sidebarTab) && (
+                      <GeneratePanel activeTab={sidebarTab as GenerateTab} />
+                    )}
+                  </>
                 )}
               </ErrorBoundary>
             </div>
@@ -173,7 +183,10 @@ function EditorContent() {
 
         <section className="canvas-area">
           <ErrorBoundary fallback={<PanelError />}>
-            {sidebarTab === 'feed' ? (
+            {isTablet ? (
+              /* Tablet: always show Canvas */
+              <InteractiveCanvas />
+            ) : sidebarTab === 'feed' ? (
               <FeedPanel fullscreen />
             ) : ['templates', 'player'].includes(sidebarTab) ? (
               <InteractiveCanvas />
@@ -192,8 +205,8 @@ function EditorContent() {
         )}
       </main>
 
-      {/* Hide timeline when Feed is active */}
-      {sidebarTab !== 'feed' && (
+      {/* Hide timeline when Feed is active (not on tablet) */}
+      {(isTablet || sidebarTab !== 'feed') && (
         <footer className="timeline-area">
           <ErrorBoundary fallback={<PanelError />}>
             <Timeline />
@@ -203,8 +216,8 @@ function EditorContent() {
 
       <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
-      {/* Mobile BottomSheet for panels */}
-      {isMobile && (
+      {/* Mobile BottomSheet for panels (not on tablet) */}
+      {isMobile && !isTablet && (
         <BottomSheet
           isOpen={mobileSheetOpen}
           onClose={() => setMobileSheetOpen(false)}
@@ -221,8 +234,8 @@ function EditorContent() {
         </BottomSheet>
       )}
 
-      {/* Mobile BottomSheet for properties */}
-      {isMobile && selectedItemIds.length > 0 && (
+      {/* Mobile BottomSheet for properties (not on tablet) */}
+      {isMobile && !isTablet && selectedItemIds.length > 0 && (
         <BottomSheet
           isOpen={selectedItemIds.length > 0}
           onClose={() => {}}

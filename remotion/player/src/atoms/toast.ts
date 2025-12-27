@@ -2,12 +2,18 @@ import { atom } from 'jotai';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface Toast {
   id: string;
   type: ToastType;
   message: string;
   title?: string;
   duration?: number;
+  action?: ToastAction;
 }
 
 export const toastsAtom = atom<Toast[]>([]);

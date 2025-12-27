@@ -60,6 +60,12 @@ export {
   getAssetByIdAtom,
   DEFAULT_ASSETS,
   DEFAULT_ASSET_IDS,
+  // Batch selection
+  assetSelectionModeAtom,
+  selectedAssetIdsAtom,
+  toggleSelectionModeAtom,
+  toggleAssetSelectionAtom,
+  clearAssetSelectionAtom,
 } from './assets';
 
 // ===============================

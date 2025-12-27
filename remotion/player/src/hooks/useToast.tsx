@@ -1,10 +1,11 @@
 import { useSetAtom } from 'jotai';
 import { useCallback } from 'react';
-import { addToastAtom, type ToastType } from '@/atoms/toast';
+import { addToastAtom, type ToastType, type ToastAction } from '@/atoms/toast';
 
 interface ToastOptions {
   title?: string;
   duration?: number;
+  action?: ToastAction;
 }
 
 export function useToast() {
@@ -17,6 +18,7 @@ export function useToast() {
         message,
         title: options?.title,
         duration: options?.duration,
+        action: options?.action,
       });
     },
     [addToast]

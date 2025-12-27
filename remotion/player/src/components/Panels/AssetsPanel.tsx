@@ -1,8 +1,9 @@
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { assetsAtom, addAssetAtom, removeAssetAtom, addItemAtom } from '@/atoms';
+import { currentFrameAtom } from '@/atoms/playback';
 import { useLanguage } from '@/hooks/useLanguage';
-import { Music, Trash2, Upload, Loader2, Play, Maximize, Minimize2, Film } from 'lucide-react';
+import { Music, Trash2, Upload, Loader2, Play, Maximize, Minimize2, Film, Plus } from 'lucide-react';
 import type { Asset, AssetType } from '@/store/types';
 import { broadcastAssetAdded, broadcastAssetRemoved } from '@/lib/websocket';
 import { toAbsoluteUrl } from '@/lib/mediaUrl';
@@ -92,6 +93,7 @@ export function AssetsPanel() {
   const addAsset = useSetAtom(addAssetAtom);
   const removeAsset = useSetAtom(removeAssetAtom);
   const addItem = useSetAtom(addItemAtom);
+  const currentFrame = useAtomValue(currentFrameAtom);
   const [uploads, setUploads] = useState<UploadProgress[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const [durations, setDurations] = useState<Record<string, number>>({});
@@ -219,30 +221,41 @@ export function AssetsPanel() {
   };
 
   const handleAddToTimeline = (asset: Asset) => {
-    const trackId =
-      asset.type === 'video'
-        ? 'track-video'
-        : asset.type === 'audio'
-        ? 'track-audio'
-        : 'track-video';
+    // Determine target track based on asset type
+    let trackId: string;
+    switch (asset.type) {
+      case 'audio':
+        trackId = 'track-audio';
+        break;
+      case 'image':
+        trackId = 'track-image';
+        break;
+      default:
+        trackId = 'track-video';
+    }
 
     addItem({
       trackId,
       itemData: {
         type: asset.type as any,
         assetId: asset.id,
-        startFrame: 0,
+        startFrame: currentFrame, // Add at playhead position
         durationInFrames: asset.duration || 150,
         x: 0,
         y: 0,
         width: 1080,
-        height: 1920,
+        height: asset.type === 'video' ? 1920 : 1080,
         rotation: 0,
         opacity: 1,
         ...(asset.type === 'video' && { volume: 1, playbackRate: 1 }),
         ...(asset.type === 'audio' && { volume: 1 }),
       },
     });
+
+    // Haptic feedback
+    if ('vibrate' in navigator) {
+      navigator.vibrate(50);
+    }
   };
 
   const videoAssets = assets.filter((a) => a.type === 'video');
@@ -452,6 +465,16 @@ function VideoAssetCard({ asset, thumbnail, duration, viewMode, onDragStart, onA
         )}
       </div>
       <button
+        className="asset-card-add"
+        onClick={(e) => {
+          e.stopPropagation();
+          onAddToTimeline(asset);
+        }}
+        title={t('generate.addToTimeline')}
+      >
+        <Plus size={12} />
+      </button>
+      <button
         className="asset-card-remove"
         onClick={(e) => {
           e.stopPropagation();
@@ -497,6 +520,16 @@ function ImageAssetCard({ asset, viewMode, onDragStart, onAddToTimeline, onRemov
         )}
       </div>
       <button
+        className="asset-card-add"
+        onClick={(e) => {
+          e.stopPropagation();
+          onAddToTimeline(asset);
+        }}
+        title={t('generate.addToTimeline')}
+      >
+        <Plus size={12} />
+      </button>
+      <button
         className="asset-card-remove"
         onClick={(e) => {
           e.stopPropagation();
@@ -537,6 +570,16 @@ function AudioAssetItem({ asset, onDragStart, onAddToTimeline, onRemove, t }: Au
         <span className="asset-size">{formatFileSize(asset.fileSize)}</span>
       )}
       {isBlobUrl && <span className="blob-badge">⚠️</span>}
+      <button
+        className="asset-add"
+        onClick={(e) => {
+          e.stopPropagation();
+          onAddToTimeline(asset);
+        }}
+        title={t('generate.addToTimeline')}
+      >
+        <Plus size={14} />
+      </button>
       <button
         className="asset-remove"
         onClick={(e) => {

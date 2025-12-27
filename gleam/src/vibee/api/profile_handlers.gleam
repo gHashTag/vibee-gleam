@@ -645,14 +645,14 @@ fn get_profile_by_username(
   }
 
   let user_id_param = case current_user_telegram_id {
-    Some(id) -> id
-    None -> 0
+    Some(id) -> int.to_string(id)
+    None -> "0"
   }
 
   case
     pog.query(sql)
     |> pog.parameter(pog.text(username))
-    |> pog.parameter(pog.int(user_id_param))
+    |> pog.parameter(pog.text(user_id_param))
     |> pog.returning(profile_decoder)
     |> pog.execute(pool)
   {

@@ -156,13 +156,19 @@
   transition: all 0.15s;
 }
 
-.result-add-btn {
-  background: #f59e0b;
-  color: #000;
+/* Add to Timeline Button - Green */
+.result-add-timeline-btn {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
 }
 
-.result-add-btn:hover {
-  background: #fbbf24;
+.result-add-timeline-btn:hover {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  transform: scale(1.05);
+}
+
+.result-add-timeline-btn:active {
+  transform: scale(0.95);
 }
 
 .result-remove-btn {
@@ -185,7 +191,11 @@
   transform: scale(1.05);
 }
 
-/* Responsive */
+/* ========================================
+   RESPONSIVE STYLES
+   ======================================== */
+
+/* Tablets */
 @media (max-width: 768px) {
   .results-gallery {
     padding: 16px;
@@ -198,6 +208,111 @@
 
   .result-info {
     padding: 10px 12px;
+  }
+
+  .result-action-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .result-drag-handle {
+    opacity: 1;
+  }
+}
+
+/* Large phones */
+@media (max-width: 640px) {
+  .results-gallery {
+    padding: 12px;
+  }
+
+  .results-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+  }
+
+  .result-card {
+    border-radius: 10px;
+  }
+
+  .result-action-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .result-empty-text {
+    font-size: 13px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .results-gallery {
+    padding: 10px;
+  }
+
+  .results-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .result-card {
+    border-radius: 8px;
+  }
+
+  .result-info {
+    padding: 8px 10px;
+  }
+
+  .result-name {
+    font-size: 11px;
+  }
+
+  .result-action-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+  }
+
+  .result-actions {
+    gap: 6px;
+  }
+
+  .result-audio-container {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .results-empty {
+    gap: 12px;
+  }
+}
+
+/* Extra small phones */
+@media (max-width: 380px) {
+  .results-gallery {
+    padding: 8px;
+  }
+
+  .results-grid {
+    gap: 6px;
+  }
+
+  .result-info {
+    padding: 6px 8px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .result-name {
+    font-size: 10px;
+    margin-right: 0;
+  }
+
+  .result-actions {
+    width: 100%;
+    justify-content: flex-end;
   }
 }
 

@@ -517,6 +517,65 @@
   100% { transform: translateX(100%); }
 }
 
+/* Ghost Item - Preview of item placement */
+.ghost-item {
+  position: absolute;
+  top: 4px;
+  height: 28px;
+  border-radius: 4px;
+  opacity: 0.5;
+  pointer-events: none;
+  border: 2px dashed currentColor;
+  animation: ghost-pulse 1.5s ease-in-out infinite;
+  z-index: 5;
+}
+
+.ghost-item--video {
+  background: rgba(59, 130, 246, 0.25);
+  color: #3b82f6;
+}
+
+.ghost-item--audio {
+  background: rgba(16, 185, 129, 0.25);
+  color: #10b981;
+}
+
+.ghost-item--image {
+  background: rgba(236, 72, 153, 0.25);
+  color: #ec4899;
+}
+
+.ghost-item--avatar {
+  background: rgba(245, 158, 11, 0.25);
+  color: #f59e0b;
+}
+
+@keyframes ghost-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+/* Track Item Thumbnail */
+.track-item-thumbnail {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.9;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+/* Adjust content to make room for thumbnail */
+.track-item:has(.track-item-thumbnail) .track-item-content {
+  padding-left: 28px;
+}
+
 .track-item-content {
   padding: 0 8px;
   font-size: 10px;
@@ -1374,4 +1433,112 @@
 .save-template-btn.secondary:hover {
   background: rgba(255, 255, 255, 0.05);
   color: #fff;
+}
+
+/* ===============================
+   Tablet Split Layout (768-1023px)
+   - Visible track labels
+   - 140px height
+   - Compact transport controls
+   =============================== */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Timeline fills grid area */
+  .timeline {
+    height: var(--timeline-height-tablet, 140px);
+    min-height: var(--timeline-height-tablet, 140px);
+  }
+
+  /* Show track labels on tablet */
+  .timeline-labels {
+    display: block;
+    width: 80px;
+  }
+
+  .track-label {
+    height: 32px;
+    padding: 0 8px;
+  }
+
+  .track-label:first-child {
+    margin-top: 20px;
+  }
+
+  .track-name {
+    font-size: 10px;
+  }
+
+  /* Compact transport */
+  .timeline-transport {
+    padding: 6px 12px;
+    gap: 6px;
+  }
+
+  .transport-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .play-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Track rows - slightly smaller for tablet */
+  .track-row {
+    height: 32px;
+  }
+
+  .track-item {
+    top: 3px;
+    height: 26px;
+  }
+
+  .track-item-content {
+    line-height: 26px;
+    font-size: 9px;
+  }
+
+  /* Ghost item - smaller for tablet */
+  .ghost-item {
+    top: 3px;
+    height: 26px;
+  }
+
+  /* Thumbnail - slightly smaller for tablet */
+  .track-item-thumbnail {
+    width: 18px;
+    height: 18px;
+    top: 4px;
+    left: 4px;
+  }
+
+  .track-item:has(.track-item-thumbnail) .track-item-content {
+    padding-left: 26px;
+  }
+
+  /* Show mute icons on tracks */
+  .track-lock-btn {
+    opacity: 1;
+    width: 28px;
+    height: 28px;
+  }
+
+  /* Transport elements */
+  .transport-time {
+    font-size: 12px;
+  }
+
+  .transport-zoom {
+    display: flex;
+  }
+
+  .transport-undo-redo {
+    display: flex;
+  }
+
+  /* Content area - smaller */
+  .timeline-content {
+    min-height: 100px;
+  }
 }

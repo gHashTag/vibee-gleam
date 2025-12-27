@@ -656,8 +656,12 @@ const en: Translations = {
   "profile.following_btn": "Following",
   "profile.unfollow": "Unfollow",
   "profile.no_followers": "No followers yet",
+  "profile.no_followers_desc": "Share your profile to get followers",
   "profile.no_following": "Not following anyone",
+  "profile.no_following_desc": "Find creators to follow",
   "profile.no_templates": "No videos yet",
+  "profile.no_templates_desc": "Create your first AI video to share",
+  "profile.create_first_video": "Create First Video",
   "profile.load_more": "Load More",
   "profile.loading": "Loading profile...",
   "profile.not_found": "User not found",
@@ -680,6 +684,33 @@ const en: Translations = {
   "common.saving": "Saving...",
   "common.cancel": "Cancel",
   "common.go_home": "Go Home",
+  "common.undo": "Undo",
+
+  // Timeline Add Actions
+  "timeline.addedTo": "Added to {track}",
+  "timeline.addToStart": "Add to Start",
+  "timeline.addToEnd": "Add to End",
+  "timeline.addAtPlayhead": "Add at Playhead",
+  "timeline.replaceSelected": "Replace Selected",
+
+  // Assets Batch Mode
+  "assets.selectMode": "Select Mode",
+  "assets.addAll": "Add All",
+  "assets.selected": "selected",
+  "assets.clearSelection": "Clear",
+
+  // Bottom Navigation
+  "nav.feed": "Feed",
+  "nav.search": "Search",
+  "nav.create": "Create",
+  "nav.profile": "Profile",
+
+  // Search Page
+  "search.placeholder": "Search users, templates...",
+  "search.no_results": "No results found",
+  "search.trending": "Trending",
+  "search.discover": "Discover Creators",
+  "search.discover_hint": "Search to find creators and templates",
 };
 
 const ru: Translations = {
@@ -1322,8 +1353,12 @@ const ru: Translations = {
   "profile.following_btn": "Подписан",
   "profile.unfollow": "Отписаться",
   "profile.no_followers": "Пока нет подписчиков",
+  "profile.no_followers_desc": "Поделитесь профилем, чтобы получить подписчиков",
   "profile.no_following": "Нет подписок",
+  "profile.no_following_desc": "Найдите интересных авторов",
   "profile.no_templates": "Пока нет видео",
+  "profile.no_templates_desc": "Создайте своё первое AI-видео",
+  "profile.create_first_video": "Создать видео",
   "profile.load_more": "Загрузить ещё",
   "profile.loading": "Загрузка профиля...",
   "profile.not_found": "Пользователь не найден",
@@ -1346,6 +1381,33 @@ const ru: Translations = {
   "common.saving": "Сохранение...",
   "common.cancel": "Отмена",
   "common.go_home": "На главную",
+  "common.undo": "Отменить",
+
+  // Timeline Add Actions
+  "timeline.addedTo": "Добавлено на {track}",
+  "timeline.addToStart": "В начало",
+  "timeline.addToEnd": "В конец",
+  "timeline.addAtPlayhead": "На playhead",
+  "timeline.replaceSelected": "Заменить выбранное",
+
+  // Assets Batch Mode
+  "assets.selectMode": "Режим выбора",
+  "assets.addAll": "Добавить все",
+  "assets.selected": "выбрано",
+  "assets.clearSelection": "Очистить",
+
+  // Bottom Navigation
+  "nav.feed": "Лента",
+  "nav.search": "Поиск",
+  "nav.create": "Создать",
+  "nav.profile": "Профиль",
+
+  // Search Page
+  "search.placeholder": "Поиск пользователей, шаблонов...",
+  "search.no_results": "Ничего не найдено",
+  "search.trending": "Популярное",
+  "search.discover": "Найти авторов",
+  "search.discover_hint": "Ищите авторов и шаблоны",
 };
 
 const translations: Record<Language, Translations> = { en, ru };

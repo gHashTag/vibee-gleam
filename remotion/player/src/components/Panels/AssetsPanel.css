@@ -292,6 +292,38 @@
   color: #fff;
 }
 
+/* Add to Timeline Button (Card) - Green */
+.asset-card-add {
+  position: absolute;
+  top: 2px;
+  right: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  border: none;
+  border-radius: 3px;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.asset-card:hover .asset-card-add {
+  opacity: 1;
+}
+
+.asset-card-add:hover {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  transform: scale(1.1);
+}
+
+.asset-card-add:active {
+  transform: scale(0.9);
+}
+
 /* List View for Audio */
 .asset-list {
   display: flex;
@@ -368,6 +400,36 @@
   color: #f87171;
 }
 
+/* Add to Timeline Button (List) - Green */
+.asset-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.asset-item:hover .asset-add {
+  opacity: 1;
+}
+
+.asset-add:hover {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  transform: scale(1.1);
+}
+
+.asset-add:active {
+  transform: scale(0.9);
+}
+
 /* Blob URL Warning */
 .asset-item.blob-warning {
   border: 1px solid #f59e0b;
@@ -431,15 +493,175 @@
     height: var(--touch-target-sm);
   }
 
+  /* Make add buttons always visible on mobile */
+  .asset-card-add {
+    width: 28px;
+    height: 28px;
+    opacity: 1;
+    right: 32px;
+  }
+
   .asset-card-remove {
     width: 28px;
     height: 28px;
     opacity: 1;
   }
 
+  .asset-add {
+    width: 36px;
+    height: 36px;
+    opacity: 1;
+  }
+
   .asset-remove {
     width: var(--touch-target-sm);
     height: var(--touch-target-sm);
+    opacity: 1;
+  }
+}
+
+/* Small phones: larger touch targets */
+@media (max-width: 480px) {
+  .asset-card-add {
+    width: 32px;
+    height: 32px;
+    right: 36px;
+  }
+
+  .asset-card-remove {
+    width: 32px;
+    height: 32px;
+  }
+
+  .asset-add {
+    width: 44px;
+    height: 44px;
+  }
+
+  .asset-remove {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* ===============================
+   Tablet Split Layout (768-1023px)
+   - 2-column asset grid
+   - Larger thumbnails with 16/9 ratio
+   - Compact upload zone
+   =============================== */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .assets-panel {
+    padding: 12px;
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  /* Panel header - tablet style */
+  .assets-panel .panel-header {
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Compact upload zone */
+  .upload-zone {
+    padding: 20px 16px;
+    margin-bottom: 12px;
+  }
+
+  .upload-label {
+    font-size: 12px;
+  }
+
+  /* View mode toggle */
+  .view-mode-toggle {
+    margin-bottom: 12px;
+  }
+
+  .view-mode-btn {
+    width: 36px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  /* 2-column grid for tablet */
+  .asset-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  /* Larger card with 16:9 aspect ratio thumbnail */
+  .asset-card {
+    border-radius: 10px;
+  }
+
+  .asset-card-thumbnail {
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+
+  /* Larger duration badge */
+  .asset-card-duration {
+    bottom: 4px;
+    right: 4px;
+    padding: 2px 6px;
+    font-size: 10px;
+    border-radius: 4px;
+  }
+
+  /* Asset info under thumbnail */
+  .asset-card-info {
+    padding: 8px 10px;
+  }
+
+  .asset-card-name {
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .asset-card-size {
+    font-size: 9px;
+  }
+
+  /* Larger action buttons */
+  .asset-card-add,
+  .asset-card-remove {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+  }
+
+  .asset-card-add {
+    right: 36px;
+    opacity: 1;
+  }
+
+  .asset-card-remove {
+    opacity: 1;
+  }
+
+  /* Audio list items - larger for tablet */
+  .asset-item {
+    padding: 12px;
+  }
+
+  .asset-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .asset-name {
+    font-size: 13px;
+  }
+
+  .asset-add,
+  .asset-remove {
+    width: 36px;
+    height: 36px;
     opacity: 1;
   }
 }

@@ -1,7 +1,9 @@
 import { useState, useCallback, memo } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { selectedItemIdsAtom, addItemAtom, updateItemAtom, lipSyncVideoAtom, backgroundMusicAtom } from '@/atoms';
+import { ghostPreviewAtom } from '@/atoms/timeline';
 import { TrackItem } from './TrackItem';
+import { GhostItem } from './GhostItem';
 import type { Track as TrackType, Asset } from '@/store/types';
 
 interface TrackProps {
@@ -15,7 +17,11 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
   const updateItem = useSetAtom(updateItemAtom);
   const setLipSyncVideo = useSetAtom(lipSyncVideoAtom);
   const setBackgroundMusic = useSetAtom(backgroundMusicAtom);
+  const ghostPreview = useAtomValue(ghostPreviewAtom);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  // Check if ghost should be shown on this track
+  const showGhost = ghostPreview && ghostPreview.trackId === track.id;
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -135,6 +141,9 @@ export const Track = memo(function Track({ track, pxPerFrame }: TrackProps) {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Ghost preview for add-to-timeline */}
+      {showGhost && <GhostItem preview={ghostPreview} pxPerFrame={pxPerFrame} />}
+
       {track.items.map((item) => (
         <TrackItem
           key={item.id}

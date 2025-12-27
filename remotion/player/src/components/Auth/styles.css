@@ -399,3 +399,168 @@
   border-color: rgba(239, 68, 68, 0.3);
   color: #ef4444;
 }
+
+/* ========================================
+   RESPONSIVE STYLES
+   ======================================== */
+
+/* Large phones */
+@media (max-width: 640px) {
+  .paywall-header {
+    padding: 32px 24px 16px;
+  }
+
+  .paywall-header h2 {
+    font-size: 24px;
+  }
+
+  .paywall-plans {
+    padding: 16px 20px;
+    gap: 16px;
+  }
+
+  .paywall-plan {
+    padding: 20px;
+  }
+
+  .price-amount {
+    font-size: 32px;
+  }
+
+  .plan-payment-methods {
+    flex-direction: column;
+  }
+
+  .payment-btn {
+    padding: 12px 10px;
+    font-size: 13px;
+  }
+
+  .paywall-footer {
+    padding: 16px 20px 24px;
+  }
+
+  .telegram-login-btn {
+    min-width: 220px;
+    padding: 12px 24px;
+    font-size: 15px;
+  }
+
+  .login-modal {
+    padding: 32px 24px;
+    margin: 16px;
+    max-width: calc(100% - 32px);
+  }
+
+  .login-modal h2 {
+    font-size: 20px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .paywall-overlay {
+    padding: 12px;
+  }
+
+  .paywall-modal {
+    border-radius: 12px;
+  }
+
+  .paywall-header {
+    padding: 24px 16px 12px;
+  }
+
+  .paywall-header h2 {
+    font-size: 20px;
+  }
+
+  .paywall-subtitle {
+    font-size: 14px;
+  }
+
+  .paywall-plans {
+    padding: 12px 16px;
+    gap: 12px;
+  }
+
+  .paywall-plan {
+    padding: 16px;
+  }
+
+  .plan-name {
+    font-size: 16px;
+  }
+
+  .price-amount {
+    font-size: 28px;
+  }
+
+  .plan-generations {
+    padding: 10px;
+    font-size: 13px;
+  }
+
+  .plan-features li {
+    font-size: 13px;
+  }
+
+  .paywall-close {
+    top: 12px;
+    right: 12px;
+    padding: 8px;
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .telegram-login-btn {
+    min-width: 100%;
+    padding: 14px 20px;
+    font-size: 15px;
+    border-radius: 10px;
+  }
+
+  .user-avatar-container {
+    padding: 6px 10px;
+  }
+
+  .user-name {
+    font-size: 12px;
+  }
+}
+
+/* Extra small phones */
+@media (max-width: 380px) {
+  .paywall-header {
+    padding: 20px 12px 10px;
+  }
+
+  .paywall-header h2 {
+    font-size: 18px;
+  }
+
+  .paywall-plans {
+    padding: 10px 12px;
+  }
+
+  .paywall-plan {
+    padding: 14px;
+  }
+
+  .price-amount {
+    font-size: 24px;
+  }
+
+  .plan-features li {
+    font-size: 12px;
+    padding: 5px 0;
+  }
+
+  .paywall-footer {
+    padding: 12px 16px 20px;
+  }
+
+  .paywall-footer p {
+    font-size: 12px;
+  }
+}

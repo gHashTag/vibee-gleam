@@ -30,6 +30,7 @@
   --sidebar-width: clamp(280px, 25vw, 360px);
   --sidebar-right-width: clamp(300px, 28vw, 400px);
   --timeline-height: clamp(120px, 20vh, 300px);
+  --timeline-height-tablet: 140px;
   --nav-height: 64px;
   --header-height: 56px;
 

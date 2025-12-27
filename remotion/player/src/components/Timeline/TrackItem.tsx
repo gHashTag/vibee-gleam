@@ -196,6 +196,16 @@ export const TrackItem = memo(function TrackItem({ item, pxPerFrame, isSelected,
         onMouseDown={(e) => handleMouseDown(e, 'resize-left')}
       />
 
+      {/* Thumbnail for video/avatar tracks */}
+      {(item.type === 'video' || item.type === 'avatar') && asset?.url && (
+        <div
+          className="track-item-thumbnail"
+          style={{
+            backgroundImage: `url(${asset.url})`,
+          }}
+        />
+      )}
+
       {/* Content */}
       <div className="track-item-content">{label}</div>
 

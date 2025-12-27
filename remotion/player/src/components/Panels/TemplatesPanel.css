@@ -91,3 +91,111 @@
   color: #ef4444;
   background: rgba(239, 68, 68, 0.1);
 }
+
+/* ========================================
+   RESPONSIVE STYLES
+   ======================================== */
+
+/* Tablets */
+@media (max-width: 768px) {
+  .templates-panel {
+    gap: 10px;
+  }
+
+  .template-item {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .template-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .template-name {
+    font-size: 13px;
+  }
+
+  .template-delete {
+    opacity: 1;
+    padding: 6px;
+    min-width: 32px;
+    min-height: 32px;
+  }
+}
+
+/* Large phones */
+@media (max-width: 640px) {
+  .template-list {
+    gap: 6px;
+  }
+
+  .template-item {
+    padding: 14px 12px;
+    border-radius: 8px;
+  }
+
+  .template-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+  }
+
+  .template-name {
+    font-size: 14px;
+  }
+
+  .template-delete {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 8px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .template-list {
+    gap: 8px;
+  }
+
+  .template-item {
+    padding: 14px;
+    min-height: 56px;
+  }
+
+  .template-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .template-name {
+    font-size: 14px;
+  }
+
+  .template-delete {
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 6px;
+  }
+}
+
+/* Extra small phones */
+@media (max-width: 380px) {
+  .template-item {
+    padding: 12px;
+  }
+
+  .template-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .template-name {
+    font-size: 13px;
+  }
+
+  .template-delete {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}

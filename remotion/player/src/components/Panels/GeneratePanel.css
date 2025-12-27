@@ -821,3 +821,172 @@
   background: #dc2626;
   color: #fff;
 }
+
+/* ========================================
+   RESPONSIVE STYLES
+   ======================================== */
+
+/* Tablets */
+@media (max-width: 768px) {
+  .generate-tabs {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .generate-tab {
+    padding: 10px 8px;
+  }
+
+  .generate-tab .tab-emoji {
+    font-size: 20px;
+  }
+
+  .generate-tab .tab-label {
+    font-size: 10px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .generate-btn {
+    padding: 14px 18px;
+    font-size: 14px;
+  }
+
+  .model-btn {
+    padding: 12px 14px;
+  }
+
+  .form-range::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+  }
+
+  .form-range::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Large phones */
+@media (max-width: 640px) {
+  .generate-panel {
+    gap: 10px;
+  }
+
+  .generate-form {
+    gap: 10px;
+  }
+
+  .form-group {
+    gap: 4px;
+  }
+
+  .voices-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .audio-source-buttons {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .audio-source-btn {
+    padding: 12px 14px;
+  }
+
+  .results-grid-images {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .generate-tabs {
+    gap: 4px;
+    padding: 3px;
+  }
+
+  .generate-tab {
+    padding: 8px 6px;
+  }
+
+  .generate-tab .tab-emoji {
+    font-size: 18px;
+  }
+
+  .generate-tab .tab-label {
+    font-size: 9px;
+  }
+
+  .form-select,
+  .form-input {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .form-textarea {
+    padding: 12px;
+    font-size: 14px;
+    min-height: 100px;
+  }
+
+  .form-chip {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .generate-btn {
+    padding: 16px 20px;
+    font-size: 15px;
+    border-radius: 10px;
+  }
+
+  .form-range::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  .form-range::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  .result-item-video {
+    max-height: 250px;
+  }
+
+  .result-add-btn,
+  .result-remove-btn {
+    padding: 8px;
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .recording-save-btn,
+  .recording-delete-btn {
+    padding: 10px 12px;
+  }
+}
+
+/* Extra small phones */
+@media (max-width: 380px) {
+  .generate-tab .tab-label {
+    font-size: 8px;
+  }
+
+  .model-btn {
+    padding: 10px;
+  }
+
+  .model-btn .model-name {
+    font-size: 11px;
+  }
+
+  .model-btn .model-desc {
+    font-size: 9px;
+  }
+}

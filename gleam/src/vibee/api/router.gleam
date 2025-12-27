@@ -474,10 +474,14 @@ fn route_request(
     http.Options, ["graphql"] -> cors_preflight_handler()
     // CORS preflight for Feed API
     http.Options, ["api", "feed", ..] -> cors_preflight_handler()
+    // CORS preflight for Render Quota API
+    http.Options, ["api", "render-quota"] -> cors_preflight_handler()
     // CORS preflight for Render Log API
     http.Options, ["api", "render-log"] -> cors_preflight_handler()
     // CORS preflight for Users API (profile endpoints)
     http.Options, ["api", "users", ..] -> cors_preflight_handler()
+    // CORS preflight for any other API endpoints
+    http.Options, ["api", ..] -> cors_preflight_handler()
 
     // ==========================================================================
     // Template Factory UI - Vibe Reels Variants Gallery

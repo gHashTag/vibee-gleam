@@ -428,3 +428,147 @@
   flex-direction: column;
   overflow: hidden;
 }
+
+/* ========================================
+   RESPONSIVE STYLES
+   ======================================== */
+
+/* Tablets */
+@media (max-width: 768px) {
+  .agent-header {
+    padding: 10px 14px;
+  }
+
+  .agent-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .agent-clear-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .message-content {
+    max-width: 88%;
+  }
+
+  .message-text {
+    font-size: 14px;
+    padding: 12px 14px;
+  }
+
+  .chat-input-container {
+    padding: 10px 14px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .chat-send-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .action-btn {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* Large phones */
+@media (max-width: 640px) {
+  .chat-messages {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .chat-context {
+    padding: 6px 10px;
+  }
+
+  .context-badge {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  .message-avatar {
+    width: 28px;
+    height: 28px;
+  }
+
+  .chat-tab {
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+
+  .action-item {
+    padding: 10px 12px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .agent-header {
+    padding: 8px 12px;
+  }
+
+  .agent-title {
+    font-size: 14px;
+  }
+
+  .agent-status {
+    font-size: 11px;
+  }
+
+  .message-content {
+    max-width: 90%;
+  }
+
+  .message-text {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .chat-input {
+    padding: 12px 14px;
+    font-size: 15px;
+    min-height: 44px;
+  }
+
+  .chat-send-btn {
+    width: 48px;
+    height: 48px;
+  }
+
+  .action-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .message-code code {
+    font-size: 12px;
+  }
+
+  .code-header {
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+}
+
+/* Extra small phones */
+@media (max-width: 380px) {
+  .agent-header-left {
+    gap: 8px;
+  }
+
+  .chat-tab {
+    padding: 10px 12px;
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .chat-input-container {
+    gap: 6px;
+    padding: 8px 10px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+}

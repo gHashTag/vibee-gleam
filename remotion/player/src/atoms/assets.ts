@@ -137,3 +137,48 @@ const DEFAULT_ASSET_IDS = [
 ];
 
 export { DEFAULT_ASSETS, DEFAULT_ASSET_IDS };
+
+// ===============================
+// Batch Selection Mode
+// ===============================
+
+// Whether batch selection mode is active
+export const assetSelectionModeAtom = atom(false);
+
+// Currently selected asset IDs for batch operations
+export const selectedAssetIdsAtom = atom<string[]>([]);
+
+// Toggle selection mode
+export const toggleSelectionModeAtom = atom(
+  null,
+  (get, set) => {
+    const current = get(assetSelectionModeAtom);
+    set(assetSelectionModeAtom, !current);
+    // Clear selection when exiting selection mode
+    if (current) {
+      set(selectedAssetIdsAtom, []);
+    }
+  }
+);
+
+// Toggle asset selection
+export const toggleAssetSelectionAtom = atom(
+  null,
+  (get, set, assetId: string) => {
+    const current = get(selectedAssetIdsAtom);
+    if (current.includes(assetId)) {
+      set(selectedAssetIdsAtom, current.filter(id => id !== assetId));
+    } else {
+      set(selectedAssetIdsAtom, [...current, assetId]);
+    }
+  }
+);
+
+// Clear all selections
+export const clearAssetSelectionAtom = atom(
+  null,
+  (get, set) => {
+    set(selectedAssetIdsAtom, []);
+    set(assetSelectionModeAtom, false);
+  }
+);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { Grid, Users, Video, UserPlus } from 'lucide-react';
 import {
@@ -12,14 +12,39 @@ import {
   loadFollowingAtom,
 } from '@/atoms';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { UserCard } from './UserCard';
 import { ProfileTemplatesGrid } from './ProfileTemplatesGrid';
 
 type TabId = 'templates' | 'followers' | 'following';
+const TAB_ORDER: TabId[] = ['templates', 'followers', 'following'];
 
 export function ProfileTabs() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabId>('templates');
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Swipe navigation between tabs
+  const goToNextTab = useCallback(() => {
+    const currentIndex = TAB_ORDER.indexOf(activeTab);
+    if (currentIndex < TAB_ORDER.length - 1) {
+      setActiveTab(TAB_ORDER[currentIndex + 1]);
+    }
+  }, [activeTab]);
+
+  const goToPrevTab = useCallback(() => {
+    const currentIndex = TAB_ORDER.indexOf(activeTab);
+    if (currentIndex > 0) {
+      setActiveTab(TAB_ORDER[currentIndex - 1]);
+    }
+  }, [activeTab]);
+
+  useSwipeGesture({
+    containerRef: contentRef,
+    onSwipeLeft: goToNextTab,
+    onSwipeRight: goToPrevTab,
+    threshold: 50,
+  });
 
   const profile = useAtomValue(viewedProfileAtom);
   const currentUser = useAtomValue(userAtom);
@@ -66,7 +91,7 @@ export function ProfileTabs() {
         ))}
       </div>
 
-      <div className="profile-tabs__content">
+      <div className="profile-tabs__content" ref={contentRef}>
         {activeTab === 'templates' && (
           <ProfileTemplatesGrid username={profile.username} />
         )}

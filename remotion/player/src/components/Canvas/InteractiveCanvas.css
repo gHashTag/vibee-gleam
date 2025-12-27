@@ -168,3 +168,45 @@
     gap: 8px;
   }
 }
+
+/* ===============================
+   Tablet Split Layout (768-1023px)
+   - Canvas fills right column (60%)
+   - Reduced padding
+   - Compact playback controls
+   =============================== */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .canvas-container {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  /* Player wrapper - optimized for 60% width */
+  .canvas-player-wrapper {
+    /* Player will auto-scale to fit */
+    max-height: calc(100% - 60px);
+  }
+
+  /* Template info - compact */
+  .canvas-template-info {
+    max-width: 220px;
+    padding: 10px 14px;
+    bottom: 12px;
+    left: 12px;
+  }
+
+  .canvas-template-info .template-name {
+    font-size: 13px;
+  }
+
+  .canvas-template-info .template-creator {
+    font-size: 11px;
+  }
+
+  /* Transcribing overlay */
+  .transcribing-indicator {
+    padding: 14px 20px;
+    font-size: 14px;
+  }
+}

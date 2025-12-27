@@ -998,7 +998,39 @@
   }
 }
 
-/* Smaller screens - stack style rows */
+/* Large phones */
+@media (max-width: 640px) {
+  .properties-panel {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .properties-section {
+    gap: 10px;
+  }
+
+  .font-dropdown-mini {
+    left: 0;
+    right: auto;
+    width: 200px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 540px) {
+  .properties-tabs {
+    gap: 2px;
+    padding: 3px;
+  }
+
+  .properties-tab {
+    padding: 10px 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
+}
+
+/* Stack style rows on smaller screens */
 @media (max-width: 480px) {
   .style-row-mini {
     flex-direction: column;
@@ -1013,5 +1045,43 @@
 
   .layout-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .caption-actions-mini {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .caption-action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Extra small phones */
+@media (max-width: 380px) {
+  .properties-panel {
+    padding: 8px;
+  }
+
+  .properties-section-title {
+    font-size: 10px;
+  }
+
+  .property-label {
+    font-size: 10px;
+  }
+
+  .properties-tab {
+    padding: 8px 6px;
+    font-size: 10px;
+  }
+
+  .layout-btn {
+    padding: 6px 4px;
+  }
+
+  .layout-label {
+    font-size: 8px;
   }
 }

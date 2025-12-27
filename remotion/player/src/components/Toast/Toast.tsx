@@ -24,6 +24,13 @@ function ToastItem({ toast }: { toast: ToastType }) {
     }
   }, [toast.id, toast.duration, removeToast]);
 
+  const handleAction = () => {
+    if (toast.action) {
+      toast.action.onClick();
+      removeToast(toast.id);
+    }
+  };
+
   return (
     <div className={`toast toast--${toast.type}`}>
       <div className="toast__icon">
@@ -33,6 +40,11 @@ function ToastItem({ toast }: { toast: ToastType }) {
         {toast.title && <div className="toast__title">{toast.title}</div>}
         <div className="toast__message">{toast.message}</div>
       </div>
+      {toast.action && (
+        <button className="toast__action" onClick={handleAction}>
+          {toast.action.label}
+        </button>
+      )}
       <button className="toast__close" onClick={() => removeToast(toast.id)}>
         <X size={16} />
       </button>
