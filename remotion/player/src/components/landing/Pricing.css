@@ -152,18 +152,74 @@
   text-decoration: none;
 }
 
-@media (max-width: 900px) {
+/* Tablets - 2 columns */
+@media (max-width: 1024px) {
   .pricing-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Center the third card */
+  .pricing-card:nth-child(3) {
+    grid-column: 1 / -1;
     max-width: 400px;
     margin: 0 auto;
+  }
+}
+
+/* Mobile - single column stack */
+@media (max-width: 768px) {
+  .pricing {
+    padding: 80px 20px;
+  }
+
+  .pricing-header {
+    margin-bottom: 40px;
+  }
+
+  .pricing-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .pricing-card {
+    padding: 28px 24px;
+    max-width: 100%;
+  }
+
+  .pricing-card:nth-child(3) {
+    grid-column: auto;
+    max-width: 100%;
   }
 
   .pricing-card.highlighted {
     transform: none;
+    order: -1; /* Move highlighted card to top on mobile */
   }
 
   .pricing-card.highlighted:hover {
     transform: translateY(-4px);
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .pricing {
+    padding: 60px 16px;
+  }
+
+  .pricing-card {
+    padding: 24px 20px;
+  }
+
+  .price-value {
+    font-size: 36px;
+  }
+
+  .pricing-features li {
+    font-size: 13px;
+  }
+
+  .pricing-cta {
+    padding: 12px;
   }
 }

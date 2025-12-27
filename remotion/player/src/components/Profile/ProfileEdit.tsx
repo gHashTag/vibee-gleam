@@ -29,6 +29,7 @@ export function ProfileEdit({ isOpen, onClose }: ProfileEditProps) {
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
   const [isPublic, setIsPublic] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile) {
@@ -43,14 +44,22 @@ export function ProfileEdit({ isOpen, onClose }: ProfileEditProps) {
 
   const handleSave = async () => {
     setIsSaving(true);
+    setError(null);
     try {
-      await updateProfile({
+      const result = await updateProfile({
         display_name: displayName || null,
         bio: bio || null,
         is_public: isPublic,
         social_links: JSON.stringify(socialLinks.filter((l) => l.url)),
       });
-      onClose();
+      if (result) {
+        onClose();
+      } else {
+        setError(t('profile.save_error'));
+      }
+    } catch (err) {
+      console.error('Profile update error:', err);
+      setError(t('profile.save_error'));
     } finally {
       setIsSaving(false);
     }
@@ -155,6 +164,12 @@ export function ProfileEdit({ isOpen, onClose }: ProfileEditProps) {
             <p className="profile-edit__hint">{t('profile.public_profile_hint')}</p>
           </div>
         </div>
+
+        {error && (
+          <div className="profile-edit__error">
+            {error}
+          </div>
+        )}
 
         <div className="profile-edit__footer">
           <button className="profile-edit__cancel" onClick={onClose}>

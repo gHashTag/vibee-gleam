@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { useToast } from '@/hooks/useToast';
 import {
   updateItemAtom,
   projectAtom,
@@ -233,6 +234,7 @@ function LayoutIcon({ type }: { type: VideoLayout }) {
 
 export function PropertiesPanel() {
   const { t } = useLanguage();
+  const toast = useToast();
   const selectedItems = useAtomValue(getSelectedItemsAtom);
   const updateItem = useSetAtom(updateItemAtom);
   const updateItemLayout = useSetAtom(updateItemLayoutAtom);
@@ -415,7 +417,7 @@ export function PropertiesPanel() {
   const handleTranscribe = async () => {
     const lipSyncVideo = templateProps.lipSyncVideo;
     if (!lipSyncVideo) {
-      alert(t('captions.noVideo'));
+      toast.warning(t('captions.noVideo'));
       return;
     }
     setTranscribing(true);
@@ -433,7 +435,7 @@ export function PropertiesPanel() {
       }
     } catch (error) {
       console.error('[Captions] Transcription error:', error);
-      alert(`${t('captions.transcriptionFailed')} ${error instanceof Error ? error.message : ''}`);
+      toast.error(`${t('captions.transcriptionFailed')} ${error instanceof Error ? error.message : ''}`);
     } finally {
       setTranscribing(false);
     }

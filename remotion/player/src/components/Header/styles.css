@@ -1,11 +1,51 @@
+/* Skip Navigation Link (A11y) */
+.skip-nav {
+  position: absolute;
+  top: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  background: #f59e0b;
+  color: #000;
+  font-weight: 600;
+  border-radius: 0 0 8px 8px;
+  z-index: 10000;
+  transition: top 0.2s ease;
+}
+
+.skip-nav:focus {
+  top: 0;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 56px;
   padding: 0 16px;
+  /* Safe area support for notch devices */
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
   background: #111;
   border-bottom: 1px solid #1a1a1a;
+}
+
+/* Mobile responsive header */
+@media (max-width: 640px) {
+  .header {
+    height: 48px;
+    padding: 0 12px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+}
+
+@media (max-width: 380px) {
+  .header {
+    gap: 4px;
+  }
 }
 
 .header-left,
@@ -51,7 +91,7 @@
 
 /* Project name input */
 .project-name-input {
-  width: 200px;
+  width: clamp(120px, 20vw, 200px);
   padding: 6px 12px;
   background: #1a1a1a;
   border: 1px solid transparent;
@@ -135,9 +175,20 @@
   justify-content: center;
   width: 32px;
   height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   border-radius: 6px;
   background: #1a1a1a;
   transition: all 0.3s ease;
+}
+
+@media (max-width: 1023px) {
+  .ws-status {
+    width: var(--touch-target-sm, 36px);
+    height: var(--touch-target-sm, 36px);
+    min-width: var(--touch-target-sm, 36px);
+    min-height: var(--touch-target-sm, 36px);
+  }
 }
 
 .ws-status.connected {
@@ -837,4 +888,265 @@
   background: #333;
   margin: 0 4px;
   flex-shrink: 0;
+}
+
+/* ==================== */
+/* Mobile Styles        */
+/* ==================== */
+
+@media (max-width: 768px) {
+  .header {
+    height: 48px;
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .header-left,
+  .header-right {
+    gap: 6px;
+  }
+
+  .header-center {
+    display: none;
+  }
+
+  /* Logo - more compact */
+  .logo {
+    gap: 6px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 20px;
+    border-radius: 8px;
+  }
+
+  .logo-text {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  /* Language toggle - compact */
+  .lang-toggle {
+    padding: 6px 8px;
+    min-width: 36px;
+    font-size: 12px;
+  }
+
+  /* Quota - compact pill */
+  .quota-display {
+    padding: 4px 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .quota-display svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* User avatar - more compact */
+  .user-avatar-container {
+    padding: 3px 6px;
+    gap: 6px;
+  }
+
+  .user-avatar-img,
+  .user-avatar-placeholder {
+    width: 26px;
+    height: 26px;
+  }
+
+  .user-name {
+    font-size: 12px;
+    max-width: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .logout-btn {
+    font-size: 16px;
+    padding: 0 2px;
+  }
+
+  /* Telegram login button */
+  .telegram-login-container {
+    transform: scale(0.85);
+    transform-origin: right center;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding: 0 8px;
+  }
+
+  .logo-text {
+    font-size: 15px;
+  }
+
+  /* Hide language on very small screens */
+  .lang-toggle {
+    display: none;
+  }
+
+  .user-name {
+    display: none;
+  }
+
+  .user-avatar-container {
+    padding: 3px 4px 3px 3px;
+    gap: 4px;
+  }
+}
+
+/* ==================== */
+/* Fullscreen Modals    */
+/* on Mobile            */
+/* ==================== */
+
+@media (max-width: 640px) {
+  /* Blob Warning Dialog - Fullscreen */
+  .blob-warning-dialog {
+    max-width: 100%;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px;
+    padding-top: env(safe-area-inset-top, 24px);
+    padding-bottom: env(safe-area-inset-bottom, 24px);
+  }
+
+  .blob-warning-overlay {
+    align-items: stretch;
+  }
+
+  .blob-warning-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .blob-warning-btn {
+    width: 100%;
+    min-height: var(--touch-target, 44px);
+  }
+
+  /* Settings Modal - Fullscreen */
+  .settings-modal {
+    max-width: 100%;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    padding-top: env(safe-area-inset-top, 0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .settings-overlay {
+    align-items: stretch;
+  }
+
+  .shortcuts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .settings-row select {
+    max-width: 100%;
+    min-height: var(--touch-target, 44px);
+  }
+
+  /* Reset Dialog - Fullscreen */
+  .reset-dialog {
+    max-width: 100%;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px;
+    padding-top: env(safe-area-inset-top, 24px);
+    padding-bottom: env(safe-area-inset-bottom, 24px);
+  }
+
+  .reset-overlay {
+    align-items: stretch;
+  }
+
+  .reset-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .reset-btn-secondary,
+  .reset-btn-danger {
+    width: 100%;
+    min-height: var(--touch-target, 44px);
+  }
+
+  /* Save Template Dialog - Fullscreen */
+  .save-template-dialog {
+    max-width: 100%;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px;
+    padding-top: env(safe-area-inset-top, 24px);
+    padding-bottom: env(safe-area-inset-bottom, 24px);
+  }
+
+  .save-template-overlay {
+    align-items: stretch;
+  }
+
+  .save-template-input {
+    min-height: var(--touch-target, 44px);
+  }
+
+  .save-template-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .save-template-btn {
+    width: 100%;
+    min-height: var(--touch-target, 44px);
+  }
+
+  /* Login Modal - Fullscreen */
+  .login-modal {
+    max-width: 100%;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px;
+    padding-top: env(safe-area-inset-top, 24px);
+    padding-bottom: env(safe-area-inset-bottom, 24px);
+  }
+
+  .login-modal-overlay {
+    align-items: stretch;
+  }
 }

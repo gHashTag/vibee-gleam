@@ -80,13 +80,18 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
   // Note: Undo/Redo, Play, Save, Load, Reset buttons moved to Timeline.tsx
 
   return (
-    <header className="header">
-      <div className="header-left">
-        <div className="logo">
-          <span className="logo-icon">🐝</span>
-          <span className="logo-text">VIBEE Editor</span>
+    <>
+      {/* Skip navigation link for keyboard users */}
+      <a href="#main-content" className="skip-nav">
+        {t('a11y.skipToContent')}
+      </a>
+      <header className="header" role="banner">
+        <div className="header-left">
+          <div className="logo">
+            <span className="logo-icon" aria-hidden="true">🐝</span>
+            <span className="logo-text">VIBEE</span>
+          </div>
         </div>
-      </div>
 
       <div className="header-center">
         <RemixBadge />
@@ -284,6 +289,7 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
         </div>
       )}
 
-    </header>
+      </header>
+    </>
   );
 }

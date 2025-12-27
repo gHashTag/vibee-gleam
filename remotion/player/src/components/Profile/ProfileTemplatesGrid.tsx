@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Heart, Eye } from 'lucide-react';
+import { Play, Heart, Eye, Video, Plus } from 'lucide-react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { userAtom, useTemplateAtom } from '@/atoms';
 import type { FeedTemplate } from '@/atoms';
@@ -62,13 +62,33 @@ export function ProfileTemplatesGrid({ username }: ProfileTemplatesGridProps) {
   };
 
   if (loading && templates.length === 0) {
-    return <div className="profile-templates__loading">Loading...</div>;
+    return (
+      <div className="profile-templates__grid">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} className="profile-templates__item">
+            <div className="skeleton skeleton-card" style={{ aspectRatio: '9/16' }} />
+            <div className="profile-templates__info">
+              <div className="skeleton skeleton-text skeleton-text--md" />
+              <div className="skeleton skeleton-text skeleton-text--sm" style={{ width: '50%' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   }
 
   if (templates.length === 0) {
     return (
-      <div className="profile-templates__empty">
-        {t('profile.no_templates')}
+      <div className="empty-state">
+        <div className="empty-state__icon">
+          <Video size={48} />
+        </div>
+        <h3 className="empty-state__title">{t('profile.no_templates')}</h3>
+        <p className="empty-state__desc">{t('profile.no_templates_desc')}</p>
+        <button className="empty-state__action" onClick={() => navigate('/editor')}>
+          <Plus size={18} />
+          <span>{t('profile.create_first_video')}</span>
+        </button>
       </div>
     );
   }
@@ -88,8 +108,9 @@ export function ProfileTemplatesGrid({ username }: ProfileTemplatesGridProps) {
               ) : (
                 <video src={template.videoUrl} muted />
               )}
-              <div className="profile-templates__overlay">
-                <Play size={32} />
+              {/* Play button on hover */}
+              <div className="profile-templates__play-btn">
+                <Play size={24} />
               </div>
             </div>
 

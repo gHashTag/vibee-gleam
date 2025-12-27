@@ -6,7 +6,8 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #0a0a0a;
+  height: 100dvh; /* Dynamic viewport height for mobile */
+  background: var(--vibee-bg);
   color: #fff;
   overflow: hidden;
 }
@@ -34,15 +35,29 @@
 }
 
 .sidebar-left {
-  width: 320px;
+  width: var(--sidebar-width);
   flex-shrink: 0;
-  border-right: 1px solid #1a1a1a;
+  border-right: 1px solid var(--vibee-border);
+}
+
+/* Hide left sidebar on mobile - replaced by BottomSheet */
+@media (max-width: 1023px) {
+  .sidebar-left {
+    display: none;
+  }
 }
 
 .sidebar-right {
-  width: 360px;
+  width: var(--sidebar-right-width);
   flex-shrink: 0;
-  border-left: 1px solid #1a1a1a;
+  border-left: 1px solid var(--vibee-border);
+}
+
+/* Hide right sidebar on mobile - replaced by BottomSheet */
+@media (max-width: 1023px) {
+  .sidebar-right {
+    display: none;
+  }
 }
 
 .sidebar-header {
@@ -116,8 +131,27 @@
   gap: 4px;
   padding: 8px;
   background: #0d0d0d;
-  border-right: 1px solid #1a1a1a;
+  border-right: 1px solid var(--vibee-border);
   flex-shrink: 0;
+}
+
+/* Mobile: Bottom navigation bar */
+@media (max-width: 1023px) {
+  .vertical-tabs {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    flex-direction: row;
+    justify-content: space-around;
+    height: var(--nav-height);
+    padding: 8px 4px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    border-right: none;
+    border-top: 1px solid var(--vibee-border);
+    z-index: var(--z-nav);
+    background: var(--vibee-bg);
+  }
 }
 
 .vertical-tab {
@@ -135,6 +169,17 @@
   transition: all 0.15s;
 }
 
+/* Mobile: Compact tabs */
+@media (max-width: 1023px) {
+  .vertical-tab {
+    min-width: unset;
+    flex: 1;
+    max-width: 72px;
+    padding: 6px 4px;
+    gap: 2px;
+  }
+}
+
 .vertical-tab:hover {
   background: #1a1a1a;
 }
@@ -147,6 +192,13 @@
   font-size: 20px;
 }
 
+/* Mobile: Smaller emoji */
+@media (max-width: 1023px) {
+  .vertical-tab .tab-emoji {
+    font-size: 18px;
+  }
+}
+
 .vertical-tab .tab-label {
   font-size: 9px;
   font-weight: 500;
@@ -154,6 +206,21 @@
   text-transform: uppercase;
   letter-spacing: 0.3px;
   white-space: nowrap;
+}
+
+/* Mobile: Smaller label */
+@media (max-width: 1023px) {
+  .vertical-tab .tab-label {
+    font-size: 8px;
+    letter-spacing: 0;
+  }
+}
+
+/* Hide label on very small screens */
+@media (max-width: 480px) {
+  .vertical-tab .tab-label {
+    display: none;
+  }
 }
 
 .vertical-tab:hover .tab-label {
@@ -198,6 +265,14 @@
   overflow: hidden;
 }
 
+/* Mobile: Account for fixed timeline and nav bar */
+@media (max-width: 1023px) {
+  .canvas-area {
+    /* Space for timeline (120px) + nav bar (64px) + safe area */
+    padding-bottom: calc(var(--timeline-height) + var(--nav-height) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* ===============================
    Timeline Area
    =============================== */
@@ -207,9 +282,25 @@
   height: auto;
   max-height: 300px;
   flex-shrink: 0;
-  border-top: 1px solid #1a1a1a;
+  border-top: 1px solid var(--vibee-border);
   background: #0f0f0f;
   overflow-y: auto;
+}
+
+/* Mobile: Fixed timeline above nav bar */
+@media (max-width: 1023px) {
+  .timeline-area {
+    position: fixed;
+    bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
+    left: 0;
+    right: 0;
+    min-height: unset;
+    height: var(--timeline-height);
+    max-height: var(--timeline-height);
+    z-index: var(--z-timeline);
+    border-top: 1px solid var(--vibee-border);
+    border-bottom: 1px solid var(--vibee-border);
+  }
 }
 
 /* ===============================

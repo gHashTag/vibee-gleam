@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useToast } from '@/hooks/useToast';
 import { templatePropsAtom, updateTemplatePropAtom, currentFrameAtom, projectAtom, transcribingAtom } from '@/atoms';
 import type { CaptionItem, CaptionStyle } from '@/store/types';
 import {
@@ -165,6 +166,7 @@ function parseVtt(content: string): CaptionItem[] {
 
 export function CaptionsPanel() {
   const { t } = useLanguage();
+  const toast = useToast();
   const templateProps = useAtomValue(templatePropsAtom);
   const updateTemplateProp = useSetAtom(updateTemplatePropAtom);
   const currentFrame = useAtomValue(currentFrameAtom);
@@ -199,7 +201,7 @@ export function CaptionsPanel() {
   const handleTranscribe = async () => {
     const lipSyncVideo = templateProps.lipSyncVideo;
     if (!lipSyncVideo) {
-      alert(t('captions.noVideo'));
+      toast.warning(t('captions.noVideo'));
       return;
     }
 
@@ -227,7 +229,7 @@ export function CaptionsPanel() {
       }
     } catch (error) {
       console.error('[Captions] Transcription error:', error);
-      alert(`${t('captions.transcriptionFailed')} ${error instanceof Error ? error.message : t('chat.unknownError')}`);
+      toast.error(`${t('captions.transcriptionFailed')} ${error instanceof Error ? error.message : t('chat.unknownError')}`);
     } finally {
       setTranscribing(false);
     }
@@ -254,7 +256,7 @@ export function CaptionsPanel() {
         updateTemplateProp({ key: 'captions', value: parsedCaptions });
         console.log(`[Captions] Loaded ${parsedCaptions.length} captions from ${file.name}`);
       } else {
-        alert(t('captions.parseError'));
+        toast.error(t('captions.parseError'));
       }
     };
 

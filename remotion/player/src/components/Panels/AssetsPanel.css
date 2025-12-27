@@ -382,3 +382,64 @@
   font-size: 12px;
   flex-shrink: 0;
 }
+
+/* Container for responsive grids */
+.assets-panel {
+  container-type: inline-size;
+}
+
+/* Responsive asset grid based on container width */
+@container (max-width: 250px) {
+  .asset-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .asset-card-thumbnail {
+    height: 48px;
+  }
+
+  .asset-card-info {
+    padding: 3px 4px;
+  }
+
+  .asset-card-name {
+    font-size: 8px;
+  }
+}
+
+@container (min-width: 400px) {
+  .asset-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Mobile: touch-friendly upload zone */
+@media (max-width: 1023px) {
+  .upload-zone {
+    padding: 24px 16px;
+  }
+
+  .upload-label {
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .view-mode-btn {
+    min-width: var(--touch-target-sm);
+    min-height: var(--touch-target-sm);
+    width: var(--touch-target-sm);
+    height: var(--touch-target-sm);
+  }
+
+  .asset-card-remove {
+    width: 28px;
+    height: 28px;
+    opacity: 1;
+  }
+
+  .asset-remove {
+    width: var(--touch-target-sm);
+    height: var(--touch-target-sm);
+    opacity: 1;
+  }
+}

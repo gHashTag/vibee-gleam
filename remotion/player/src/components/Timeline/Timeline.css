@@ -7,6 +7,14 @@
   background: #0f0f0f;
 }
 
+/* Mobile: Compact timeline */
+@media (max-width: 1023px) {
+  .timeline {
+    min-height: unset;
+    height: 100%;
+  }
+}
+
 /* Transport Controls - right-aligned layout */
 .timeline-transport {
   display: flex;
@@ -27,7 +35,7 @@
 
 /* Project Name Input in transport */
 .transport-left .project-name-input {
-  width: 140px;
+  width: clamp(80px, 18vw, 140px);
   padding: 6px 12px;
   background: #1a1a1a;
   border: 1px solid transparent;
@@ -47,7 +55,18 @@
   background: #1a1a1a;
 }
 
-/* Responsive: Adjust for smaller screens */
+/* Responsive: Tablets landscape */
+@media (max-width: 1024px) {
+  .transport-left .project-name-input {
+    width: 120px;
+  }
+
+  .transport-right .transport-file-ops {
+    gap: 4px;
+  }
+}
+
+/* Tablets portrait */
 @media (max-width: 768px) {
   .transport-left .project-name-input {
     width: 100px;
@@ -55,23 +74,46 @@
     padding: 5px 8px;
   }
 
-  .transport-right .transport-zoom,
-  .transport-right .transport-time {
+  .transport-right .transport-zoom {
     display: none;
   }
 
   .transport-right {
     gap: 8px;
   }
+
+  .transport-center {
+    gap: 4px;
+  }
 }
 
-@media (max-width: 540px) {
+/* Large phones */
+@media (max-width: 640px) {
   .transport-left .project-name-input {
-    width: 80px;
+    width: 90px;
   }
 
-  .transport-left .volume-control,
+  .transport-right .transport-time {
+    display: none;
+  }
+
   .transport-left .transport-speed {
+    display: none;
+  }
+
+  .transport-center .transport-zoom {
+    display: none;
+  }
+}
+
+/* Small phones */
+@media (max-width: 540px) {
+  .transport-left .project-name-input {
+    width: 70px;
+    font-size: 11px;
+  }
+
+  .transport-left .volume-control {
     display: none;
   }
 
@@ -86,6 +128,17 @@
   .play-btn {
     width: 36px;
     height: 36px;
+  }
+}
+
+/* Extra small phones */
+@media (max-width: 380px) {
+  .transport-left .project-name-input {
+    display: none;
+  }
+
+  .transport-right .transport-file-ops {
+    display: none;
   }
 }
 
@@ -123,12 +176,24 @@
   justify-content: center;
   width: 32px;
   height: 32px;
+  min-width: var(--touch-target-sm);
+  min-height: var(--touch-target-sm);
   background: #1a1a1a;
   border: none;
   border-radius: 6px;
   color: #888;
   cursor: pointer;
   transition: all 0.15s;
+}
+
+/* Mobile: Larger touch targets */
+@media (max-width: 1023px) {
+  .transport-btn {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    width: var(--touch-target);
+    height: var(--touch-target);
+  }
 }
 
 .transport-btn:hover {
@@ -191,14 +256,22 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   background: transparent;
   border: none;
   border-radius: 4px;
   color: #666;
   cursor: pointer;
   transition: all 0.15s;
+}
+
+/* Mobile: Larger touch targets for speed buttons */
+@media (max-width: 1023px) {
+  .speed-btn {
+    width: var(--touch-target-sm);
+    height: var(--touch-target-sm);
+  }
 }
 
 .speed-btn:hover:not(:disabled) {
@@ -267,10 +340,17 @@
 
 /* Track Labels */
 .timeline-labels {
-  width: 100px;
+  width: clamp(60px, 15vw, 100px);
   flex-shrink: 0;
   background: #111;
   border-right: 1px solid #1a1a1a;
+}
+
+/* Mobile: Hide track labels to save space */
+@media (max-width: 768px) {
+  .timeline-labels {
+    display: none;
+  }
 }
 
 .track-label {
@@ -303,8 +383,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   background: transparent;
   border: none;
   border-radius: 4px;
@@ -312,6 +392,15 @@
   cursor: pointer;
   opacity: 0;
   transition: all 0.15s;
+}
+
+/* Mobile: Larger touch targets for track lock */
+@media (max-width: 1023px) {
+  .track-lock-btn {
+    width: var(--touch-target-sm);
+    height: var(--touch-target-sm);
+    opacity: 1; /* Always visible on touch devices */
+  }
 }
 
 .track-label:hover .track-lock-btn {
@@ -337,6 +426,8 @@
   flex: 1;
   overflow-x: auto;
   overflow-y: visible;
+  touch-action: pan-x pinch-zoom;
+  -webkit-overflow-scrolling: touch;
 }
 
 .timeline-tracks {
@@ -485,6 +576,7 @@
   width: 8px;
   cursor: ew-resize;
   background: transparent;
+  touch-action: none;
 }
 
 .track-item-handle:hover {
@@ -497,6 +589,21 @@
 
 .track-item-handle.right {
   right: 0;
+}
+
+/* Mobile: Larger touch area for handles */
+@media (max-width: 1023px) {
+  .track-item-handle {
+    width: 16px;
+  }
+
+  .track-item-handle.left {
+    left: -4px;
+  }
+
+  .track-item-handle.right {
+    right: -4px;
+  }
 }
 
 /* Track Item Badges */

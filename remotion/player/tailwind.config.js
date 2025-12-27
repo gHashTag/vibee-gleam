@@ -6,12 +6,17 @@ export default {
   ],
   theme: {
     extend: {
+      screens: {
+        'xs': '480px',
+        '3xl': '1920px',
+      },
       colors: {
         'editor-bg': '#0a0a0a',
         'panel-bg': '#1a1a1a',
         'panel-border': '#2a2a2a',
-        'accent': '#7c3aed',
-        'accent-hover': '#6d28d9',
+        'vibee-amber': '#f59e0b',
+        'vibee-amber-light': '#fbbf24',
+        'vibee-amber-dark': '#d97706',
       }
     },
   },

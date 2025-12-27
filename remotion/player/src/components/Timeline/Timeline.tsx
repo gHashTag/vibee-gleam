@@ -1,6 +1,7 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useToast } from '@/hooks/useToast';
 import {
   projectAtom,
   tracksAtom,
@@ -73,7 +74,15 @@ import { Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, ChevronDown, Chevr
 import { RENDER_SERVER_URL, toAbsoluteUrl } from '@/lib/mediaUrl';
 import { DEFAULT_COMPOSITION_ID } from '@/shared/compositions';
 import { logExport } from '@/lib/logger';
+import { STORAGE_KEYS } from '@/atoms/storageKeys';
 import './Timeline.css';
+
+// Render session type for localStorage persistence
+interface RenderSession {
+  renderId: string;
+  projectName: string;
+  startedAt: number;
+}
 
 // Download file using fetch + blob to bypass CORS download restriction
 async function downloadFile(url: string, filename: string): Promise<boolean> {
@@ -110,6 +119,7 @@ async function downloadFile(url: string, filename: string): Promise<boolean> {
 
 export function Timeline() {
   const { t } = useLanguage();
+  const toast = useToast();
   const timelineRef = useRef<HTMLDivElement>(null);
   const projectImportRef = useRef<HTMLInputElement>(null);
 
@@ -199,6 +209,159 @@ export function Timeline() {
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
   const [templateName, setTemplateName] = useState('');
 
+  // Ref for EventSource to allow cleanup
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Helper: Clear render session from localStorage
+  const clearRenderSession = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEYS.renderSession);
+  }, []);
+
+  // Helper: Subscribe to render progress via SSE
+  const subscribeToRenderProgress = useCallback((renderId: string, projectName: string) => {
+    console.log('[Export] Subscribing to SSE for renderId:', renderId);
+
+    // Close existing connection if any
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    const sseUrl = `${RENDER_SERVER_URL}/render/${renderId}/status`;
+    const eventSource = new EventSource(sseUrl);
+    eventSourceRef.current = eventSource;
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('[Export] SSE update:', data);
+
+        // Update progress
+        setExportingAction({ exporting: true, progress: data.progress || 0 });
+
+        // Check if completed
+        if (data.status === 'completed' && data.outputUrl) {
+          console.log('[Export] Render completed!');
+          eventSource.close();
+          eventSourceRef.current = null;
+          clearRenderSession();
+
+          // Log render to quota system
+          logRender();
+
+          // Download the file
+          const downloadUrl = data.outputUrl.startsWith('http')
+            ? data.outputUrl
+            : `${RENDER_SERVER_URL}${data.outputUrl}`;
+
+          console.log('[Export] Downloading from:', downloadUrl);
+
+          // Auto-publish to community feed
+          // Read CURRENT user from store (not stale closure value - fixes closure bug)
+          const currentUser = editorStore.get(userAtom);
+          console.log('[Feed] User check:', currentUser ? `ID=${currentUser.id}, name=${currentUser.first_name}` : 'NOT LOGGED IN');
+          if (currentUser) {
+            console.log('[Feed] Publishing to feed...', { name: projectName, videoUrl: downloadUrl });
+            publishToFeed({
+              name: projectName,
+              description: `Created by ${currentUser.first_name || currentUser.username || 'Anonymous'}`,
+              videoUrl: downloadUrl,
+              templateSettings: templateProps,
+            }).then(() => {
+              console.log('[Feed] ✅ Auto-published to community feed');
+            }).catch((err: Error) => {
+              console.error('[Feed] ❌ Auto-publish failed:', err);
+            });
+          } else {
+            console.warn('[Feed] ⚠️ Skipping publish - user not logged in');
+          }
+
+          // Download using fetch + blob
+          downloadFile(downloadUrl, `${projectName}.mp4`).then(() => {
+            setExportingAction({ exporting: false, progress: 0 });
+          });
+        } else if (data.status === 'failed') {
+          console.error('[Export] Render failed:', data.error);
+          eventSource.close();
+          eventSourceRef.current = null;
+          clearRenderSession();
+          toast.error(`${t('editor.exportFailed')}: ${data.error || t('editor.unknownError')}`);
+          setExportingAction({ exporting: false, progress: 0 });
+        }
+      } catch (e) {
+        console.error('[Export] SSE parse error:', e);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('[Export] SSE error:', error);
+      eventSource.close();
+      eventSourceRef.current = null;
+      // Don't clear session - render may still be running
+      // User can reconnect on next page load
+      setExportingAction({ exporting: false, progress: 0 });
+    };
+  }, [templateProps, logRender, publishToFeed, setExportingAction, clearRenderSession, t]);
+
+  // Check for active render session on mount and reconnect
+  useEffect(() => {
+    const sessionStr = localStorage.getItem(STORAGE_KEYS.renderSession);
+    if (!sessionStr) return;
+
+    try {
+      const session: RenderSession = JSON.parse(sessionStr);
+      const oneHourAgo = Date.now() - 60 * 60 * 1000;
+
+      // Skip if session is too old (server cleans up after 1 hour)
+      if (session.startedAt < oneHourAgo) {
+        console.log('[Export] Render session expired, clearing');
+        clearRenderSession();
+        return;
+      }
+
+      console.log('[Export] Found active render session, reconnecting...', session);
+
+      // Check if render is still active on server
+      fetch(`${RENDER_SERVER_URL}/render/${session.renderId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === 'rendering' || data.status === 'pending') {
+            // Reconnect to SSE
+            subscribeToRenderProgress(session.renderId, session.projectName);
+          } else if (data.status === 'completed' && data.outputUrl) {
+            // Render finished while away - trigger download
+            console.log('[Export] Render completed while away, downloading...');
+            setExportingAction({ exporting: true, progress: 100 });
+            const downloadUrl = data.outputUrl.startsWith('http')
+              ? data.outputUrl
+              : `${RENDER_SERVER_URL}${data.outputUrl}`;
+            downloadFile(downloadUrl, `${session.projectName}.mp4`).then(() => {
+              setExportingAction({ exporting: false, progress: 0 });
+              clearRenderSession();
+            });
+          } else {
+            // Render failed or unknown status
+            clearRenderSession();
+          }
+        })
+        .catch(err => {
+          console.error('[Export] Failed to check render status:', err);
+          clearRenderSession();
+        });
+    } catch (e) {
+      console.error('[Export] Invalid render session:', e);
+      clearRenderSession();
+    }
+  }, [subscribeToRenderProgress, clearRenderSession, setExportingAction]);
+
+  // Cleanup EventSource on unmount
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+  }, []);
+
   // Helper functions
   const canUndo = () => canUndoValue;
   const canRedo = () => canRedoValue;
@@ -256,7 +419,7 @@ export function Timeline() {
         const content = event.target?.result as string;
         const data = JSON.parse(content);
         if (!data.project || !data.tracks) {
-          alert(t('editor.invalidFormat'));
+          toast.error(t('editor.invalidFormat'));
           return;
         }
         if (data.project) editorStore.set(projectAtom, data.project);
@@ -265,10 +428,10 @@ export function Timeline() {
             editorStore.set(updateTemplatePropAtom, { key: key as any, value: value as any });
           });
         }
-        alert(t('editor.importSuccess'));
+        toast.success(t('editor.importSuccess'));
       } catch (err) {
         console.error('[Project] Import failed:', err);
-        alert(t('editor.importFailed'));
+        toast.error(t('editor.importFailed'));
       }
     };
     reader.readAsText(file);
@@ -621,79 +784,18 @@ export function Timeline() {
       console.log('[Export] Render result:', result);
 
       if (result.success && result.renderId) {
-        console.log('[Export] Render started, subscribing to SSE for progress...');
+        console.log('[Export] Render started, saving session and subscribing to SSE...');
+
+        // Save render session to localStorage for reconnection
+        const session: RenderSession = {
+          renderId: result.renderId,
+          projectName: project.name,
+          startedAt: Date.now(),
+        };
+        localStorage.setItem(STORAGE_KEYS.renderSession, JSON.stringify(session));
 
         // Subscribe to SSE for real-time progress
-        const sseUrl = `${RENDER_SERVER_URL}/render/${result.renderId}/status`;
-        console.log('[Export] SSE URL:', sseUrl);
-
-        const eventSource = new EventSource(sseUrl);
-
-        eventSource.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            console.log('[Export] SSE update:', data);
-
-            // Update progress
-            setExporting(true, data.progress || 0);
-
-            // Check if completed
-            if (data.status === 'completed' && data.outputUrl) {
-              console.log('[Export] Render completed!');
-              eventSource.close();
-
-              // Log render to quota system
-              logRender();
-
-              // Download the file
-              const downloadUrl = data.outputUrl.startsWith('http')
-                ? data.outputUrl
-                : `${RENDER_SERVER_URL}${data.outputUrl}`;
-
-              console.log('[Export] Downloading from:', downloadUrl);
-
-              // Auto-publish to community feed
-              if (user) {
-                publishToFeed({
-                  name: project.name,
-                  description: `Created by ${user.first_name || user.username || 'Anonymous'}`,
-                  videoUrl: downloadUrl,
-                  templateSettings: templateProps,
-                }).then(() => {
-                  console.log('[Feed] Auto-published to community feed');
-                }).catch((err: Error) => {
-                  console.error('[Feed] Auto-publish failed:', err);
-                  // Show error to user - publish failed but download continues
-                  alert(`Failed to publish to Feed: ${err.message || 'Unknown error'}`);
-                });
-              } else {
-                console.log('[Feed] Skipping auto-publish: user not authenticated');
-              }
-
-              // Download using fetch + blob to bypass CORS restriction
-              downloadFile(downloadUrl, `${project.name}.mp4`).then(() => {
-                setExporting(false, 0);
-              });
-            } else if (data.status === 'failed') {
-              console.error('[Export] Render failed:', data.error);
-              eventSource.close();
-              alert(`${t('editor.exportFailed')}: ${data.error || t('editor.unknownError')}`);
-              setExporting(false, 0);
-            }
-          } catch (e) {
-            console.error('[Export] SSE parse error:', e);
-          }
-        };
-
-        eventSource.onerror = (error) => {
-          console.error('[Export] SSE error:', error);
-          eventSource.close();
-          // Don't show error if already completed
-          if (isExporting) {
-            alert(t('editor.connectionLost'));
-            setExporting(false, 0);
-          }
-        };
+        subscribeToRenderProgress(result.renderId, project.name);
 
       } else if (result.success && result.outputUrl) {
         // Legacy: immediate response with outputUrl (fallback)
@@ -711,15 +813,16 @@ export function Timeline() {
       }
     } catch (error) {
       console.error('[Export] Error:', error);
-      alert(`${t('editor.exportFailed')}: ${error instanceof Error ? error.message : t('editor.unknownError')}`);
+      clearRenderSession();
+      toast.error(`${t('editor.exportFailed')}: ${error instanceof Error ? error.message : t('editor.unknownError')}`);
       setExporting(false, 0);
     }
   };
 
   return (
-    <div className="timeline">
+    <div className="timeline" role="region" aria-label={t('timeline.title')}>
       {/* Transport Controls - 3-column layout: LEFT | CENTER | RIGHT */}
-      <div className="timeline-transport">
+      <div className="timeline-transport" role="toolbar" aria-label={t('timeline.controls')}>
         {/* LEFT: Project name + Volume + Speed */}
         <div className="transport-left">
           {/* Project Name */}
@@ -729,16 +832,19 @@ export function Timeline() {
             value={project.name}
             onChange={(e) => setProject({ ...project, name: e.target.value })}
             placeholder="Project name"
+            aria-label={t('editor.projectName')}
           />
 
           <div className="transport-divider" />
 
           {/* Volume control */}
-          <div className="volume-control">
+          <div className="volume-control" role="group" aria-label={t('timeline.volume')}>
             <button
               className={`transport-btn ${isMuted ? '' : 'active'}`}
               onClick={handleMuteToggle}
               title={isMuted ? t('timeline.unmute') : t('timeline.mute')}
+              aria-label={isMuted ? t('timeline.unmute') : t('timeline.mute')}
+              aria-pressed={!isMuted}
             >
               {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
             </button>
@@ -750,21 +856,23 @@ export function Timeline() {
               step="0.05"
               value={isMuted ? 0 : volume}
               onChange={handleVolumeChange}
-              title={`${t('timeline.volume')}: ${Math.round(volume * 100)}%`}
+              aria-label={t('timeline.volume')}
+              aria-valuetext={`${Math.round(volume * 100)}%`}
             />
           </div>
 
           {/* Speed control */}
-          <div className="transport-speed">
+          <div className="transport-speed" role="group" aria-label={t('timeline.speed')}>
             <button
               className="speed-btn"
               onClick={handleSpeedDown}
               disabled={currentSpeedIndex <= 0}
               title={t('timeline.slower')}
+              aria-label={t('timeline.slower')}
             >
               <ChevronDown size={12} />
             </button>
-            <span className={`speed-value ${playbackRate !== 1 ? 'modified' : ''}`}>
+            <span className={`speed-value ${playbackRate !== 1 ? 'modified' : ''}`} aria-live="polite">
               {playbackRate}x
             </span>
             <button
@@ -772,6 +880,7 @@ export function Timeline() {
               onClick={handleSpeedUp}
               disabled={currentSpeedIndex >= speedPresets.length - 1}
               title={t('timeline.faster')}
+              aria-label={t('timeline.faster')}
             >
               <ChevronUp size={12} />
             </button>
@@ -781,12 +890,12 @@ export function Timeline() {
         {/* CENTER: Zoom + Snap + Playback controls */}
         <div className="transport-center">
           {/* Zoom controls */}
-          <div className="transport-zoom">
-            <button className="transport-btn" onClick={handleZoomOut} title={`${t('timeline.zoomOut')} (-)`}>
+          <div className="transport-zoom" role="group" aria-label={t('timeline.zoom')}>
+            <button className="transport-btn" onClick={handleZoomOut} title={`${t('timeline.zoomOut')} (-)`} aria-label={t('timeline.zoomOut')}>
               <ZoomOut size={14} />
             </button>
-            <span className="zoom-label">{Math.round(timelineZoom * 100)}%</span>
-            <button className="transport-btn" onClick={handleZoomIn} title={`${t('timeline.zoomIn')} (+)`}>
+            <span className="zoom-label" aria-live="polite">{Math.round(timelineZoom * 100)}%</span>
+            <button className="transport-btn" onClick={handleZoomIn} title={`${t('timeline.zoomIn')} (+)`} aria-label={t('timeline.zoomIn')}>
               <ZoomIn size={14} />
             </button>
           </div>
@@ -795,23 +904,26 @@ export function Timeline() {
             className={`transport-btn snap-btn ${snapSettings.enabled ? 'active' : ''}`}
             onClick={() => setSnapEnabled(!snapSettings.enabled)}
             title={`${t('timeline.snapToGrid')} (${snapSettings.enabled ? t('timeline.on') : t('timeline.off')})`}
+            aria-label={t('timeline.snapToGrid')}
+            aria-pressed={snapSettings.enabled}
           >
             <Magnet size={14} />
           </button>
 
           <div className="transport-divider" />
 
-          <button className="transport-btn" onClick={handleSkipBack} title={t('timeline.skipToStart')}>
+          <button className="transport-btn" onClick={handleSkipBack} title={t('timeline.skipToStart')} aria-label={t('timeline.skipToStart')}>
             <SkipBack size={16} />
           </button>
           <button
             className="transport-btn play-btn"
             onClickCapture={handlePlay}
             title={isPlaying ? `${t('timeline.pause')} (Space)` : `${t('timeline.play')} (Space)`}
+            aria-label={isPlaying ? t('timeline.pause') : t('timeline.play')}
           >
             {isPlaying ? <Pause size={24} /> : <Play size={24} />}
           </button>
-          <button className="transport-btn" onClick={handleSkipForward} title={t('timeline.skipToEnd')}>
+          <button className="transport-btn" onClick={handleSkipForward} title={t('timeline.skipToEnd')} aria-label={t('timeline.skipToEnd')}>
             <SkipForward size={16} />
           </button>
         </div>
@@ -819,12 +931,13 @@ export function Timeline() {
         {/* RIGHT: Editing tools + Time, Volume, Speed, File ops, Export */}
         <div className="transport-right">
           {/* Undo/Redo buttons */}
-          <div className="transport-undo-redo">
+          <div className="transport-undo-redo" role="group" aria-label={t('editor.history')}>
             <button
               className="transport-btn"
               onClick={undo}
               disabled={!canUndo()}
               title={`${t('editor.undo')} (Cmd+Z)`}
+              aria-label={t('editor.undo')}
             >
               <Undo2 size={16} />
             </button>
@@ -833,6 +946,7 @@ export function Timeline() {
               onClick={redo}
               disabled={!canRedo()}
               title={`${t('editor.redo')} (Cmd+Shift+Z)`}
+              aria-label={t('editor.redo')}
             >
               <Redo2 size={16} />
             </button>
@@ -840,7 +954,7 @@ export function Timeline() {
 
           <div className="transport-divider" />
 
-          <div className="transport-time">
+          <div className="transport-time" role="timer" aria-label={t('timeline.currentTime')} aria-live="off">
             <span className="time-current">{formatTime(currentFrame)}</span>
             <span className="time-separator">/</span>
             <span className="time-duration">{formatTime(duration)}</span>
@@ -849,11 +963,12 @@ export function Timeline() {
           <div className="transport-divider" />
 
           {/* Save/Load/Reset buttons */}
-          <div className="transport-file-ops">
+          <div className="transport-file-ops" role="group" aria-label={t('editor.fileOps')}>
             <button
               className="transport-btn"
               onClick={handleSaveClick}
               title={t('editor.saveTemplate')}
+              aria-label={t('editor.saveTemplate')}
             >
               <Save size={16} />
             </button>
@@ -863,11 +978,13 @@ export function Timeline() {
               accept=".json,.vibee.json"
               onChange={handleProjectImport}
               style={{ display: 'none' }}
+              aria-hidden="true"
             />
             <button
               className="transport-btn"
               onClick={() => projectImportRef.current?.click()}
               title={t('editor.load')}
+              aria-label={t('editor.load')}
             >
               <Upload size={16} />
             </button>
@@ -875,6 +992,7 @@ export function Timeline() {
               className="transport-btn"
               onClick={() => setShowResetConfirm(true)}
               title={t('editor.reset')}
+              aria-label={t('editor.reset')}
             >
               <RotateCcw size={16} />
             </button>

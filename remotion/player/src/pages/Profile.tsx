@@ -42,9 +42,36 @@ export function ProfilePage() {
             <ArrowLeft size={18} />
             <span>{t('common.back')}</span>
           </button>
-          <div className="profile-page__loading">
-            <div className="follow-button__loader" style={{ width: 32, height: 32 }} />
-            <p>{t('profile.loading')}</p>
+
+          {/* Skeleton Cover */}
+          <div className="skeleton" style={{ height: 200, borderRadius: '1rem 1rem 0 0' }} />
+
+          {/* Skeleton Header */}
+          <div className="profile-header" style={{ marginTop: -60 }}>
+            <div className="profile-header__top">
+              <div className="skeleton skeleton-avatar" style={{ width: 130, height: 130 }} />
+              <div className="profile-header__info" style={{ flex: 1 }}>
+                <div className="skeleton skeleton-text skeleton-text--lg" style={{ marginBottom: 8 }} />
+                <div className="skeleton skeleton-text skeleton-text--sm" style={{ marginBottom: 16 }} />
+                <div className="skeleton skeleton-text skeleton-text--md" />
+              </div>
+            </div>
+
+            {/* Skeleton Stats */}
+            <div className="profile-stats">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="skeleton" style={{ height: 80, borderRadius: 12 }} />
+              ))}
+            </div>
+          </div>
+
+          {/* Skeleton Tabs */}
+          <div className="profile-tabs" style={{ marginTop: 24 }}>
+            <div className="profile-tabs__header">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="skeleton" style={{ flex: 1, height: 48 }} />
+              ))}
+            </div>
           </div>
         </div>
       </div>

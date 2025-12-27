@@ -125,6 +125,7 @@ pub fn notify(event: OwnerEvent) -> Result(Int, NotificationError) {
 pub fn notify_new_chat(
   chat_id: Int,
   chat_type: String,
+  chat_name: String,
   from_id: Int,
   from_name: String,
   username: String,
@@ -137,11 +138,17 @@ pub fn notify_new_chat(
     None -> []
   }
 
+  // Используем chat_name если есть, иначе chat_type
+  let display_name = case chat_name {
+    "" -> chat_type
+    name -> name
+  }
+
   let event = OwnerEvent(
     event_type: NewChat,
     importance: High,
     chat_id: chat_id,
-    chat_name: chat_type,
+    chat_name: display_name,
     from_id: from_id,
     from_name: from_name,
     username: username,

@@ -834,3 +834,184 @@
   background: rgba(245, 158, 11, 0.2);
   color: #f59e0b;
 }
+
+/* ===============================
+   Responsive Styles
+   =============================== */
+
+@media (max-width: 1023px) {
+  .properties-panel {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  /* Grid becomes single column on mobile */
+  .properties-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Layout grid adapts to 3 columns */
+  .layout-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .layout-grid.pip-grid {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 100%;
+  }
+
+  /* Touch-friendly buttons */
+  .layout-btn {
+    min-height: var(--touch-target, 44px);
+    padding: 10px 6px;
+  }
+
+  /* Touch-friendly inputs */
+  .property-input-wrapper input {
+    padding: 10px 12px;
+    font-size: 14px;
+    min-height: var(--touch-target, 44px);
+  }
+
+  .property-select select {
+    padding: 10px 12px;
+    font-size: 14px;
+    min-height: var(--touch-target, 44px);
+  }
+
+  .property-color-wrapper input[type='color'] {
+    width: 44px;
+    height: 44px;
+  }
+
+  .property-color-hex {
+    padding: 10px 12px;
+    font-size: 14px;
+    min-height: var(--touch-target, 44px);
+  }
+
+  .property-textarea textarea {
+    padding: 10px 12px;
+    font-size: 14px;
+    min-height: 80px;
+  }
+
+  /* Touch-friendly slider thumb */
+  .property-slider input[type='range'] {
+    height: 8px;
+  }
+
+  .property-slider input[type='range']::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Touch-friendly tabs */
+  .properties-tab {
+    padding: 12px;
+    min-height: var(--touch-target, 44px);
+    font-size: 13px;
+  }
+
+  /* Caption actions */
+  .caption-action-btn {
+    padding: 12px 16px;
+    min-height: var(--touch-target, 44px);
+    font-size: 13px;
+  }
+
+  /* Caption items */
+  .caption-item-mini {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .time-input-mini {
+    width: 70px;
+    padding: 8px 10px;
+    font-size: 12px;
+    min-height: var(--touch-target-sm, 36px);
+  }
+
+  .caption-text-mini {
+    padding: 10px 12px;
+    font-size: 14px;
+    min-height: 60px;
+  }
+
+  .caption-delete-mini {
+    padding: 8px;
+    min-width: var(--touch-target-sm, 36px);
+    min-height: var(--touch-target-sm, 36px);
+  }
+
+  /* Batch buttons */
+  .batch-buttons button {
+    padding: 12px 8px;
+    min-height: var(--touch-target, 44px);
+    font-size: 12px;
+  }
+
+  .batch-uniform-btn {
+    padding: 14px;
+    min-height: var(--touch-target, 44px);
+    font-size: 14px;
+  }
+
+  /* Style section inputs */
+  .style-row-mini input[type='number'] {
+    width: 80px;
+    padding: 8px 10px;
+    font-size: 13px;
+    min-height: var(--touch-target-sm, 36px);
+  }
+
+  .style-row-mini select {
+    width: 120px;
+    padding: 8px 10px;
+    font-size: 13px;
+    min-height: var(--touch-target-sm, 36px);
+  }
+
+  .style-row-mini input[type='color'] {
+    width: 36px;
+    height: 36px;
+  }
+
+  /* Font selector */
+  .font-selector-btn-mini {
+    padding: 8px 12px;
+    font-size: 13px;
+    min-height: var(--touch-target-sm, 36px);
+  }
+
+  .font-dropdown-mini {
+    width: 220px;
+    max-height: 280px;
+  }
+
+  .font-list-mini button {
+    padding: 12px;
+    font-size: 13px;
+    min-height: var(--touch-target, 44px);
+  }
+}
+
+/* Smaller screens - stack style rows */
+@media (max-width: 480px) {
+  .style-row-mini {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .style-row-mini input[type='number'],
+  .style-row-mini select {
+    width: 100%;
+  }
+
+  .layout-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

@@ -159,20 +159,31 @@ pub fn update_profile_handler(
 
       let update_decoder = {
         use telegram_id <- decode.field("telegram_id", decode.int)
-        use display_name <- decode.field(
+        use display_name <- decode.optional_field(
           "display_name",
+          None,
           decode.optional(decode.string),
         )
-        use bio <- decode.field("bio", decode.optional(decode.string))
-        use avatar_url <- decode.field(
+        use bio <- decode.optional_field(
+          "bio",
+          None,
+          decode.optional(decode.string),
+        )
+        use avatar_url <- decode.optional_field(
           "avatar_url",
+          None,
           decode.optional(decode.string),
         )
-        use social_links <- decode.field(
+        use social_links <- decode.optional_field(
           "social_links",
+          None,
           decode.optional(decode.string),
         )
-        use is_public <- decode.field("is_public", decode.optional(decode.bool))
+        use is_public <- decode.optional_field(
+          "is_public",
+          None,
+          decode.optional(decode.bool),
+        )
         decode.success(#(
           telegram_id,
           display_name,
@@ -634,14 +645,14 @@ fn get_profile_by_username(
   }
 
   let user_id_param = case current_user_telegram_id {
-    Some(id) -> int.to_string(id)
-    None -> "0"
+    Some(id) -> id
+    None -> 0
   }
 
   case
     pog.query(sql)
     |> pog.parameter(pog.text(username))
-    |> pog.parameter(pog.text(user_id_param))
+    |> pog.parameter(pog.int(user_id_param))
     |> pog.returning(profile_decoder)
     |> pog.execute(pool)
   {
@@ -754,6 +765,7 @@ fn verify_profile_ownership(
   username: String,
   telegram_id: Int,
 ) -> Result(Bool, String) {
+  // Note: telegram_id is TEXT in DB, so we pass as text
   let sql =
     "SELECT 1 FROM users WHERE LOWER(username) = LOWER($1) AND telegram_id = $2"
 
@@ -765,7 +777,7 @@ fn verify_profile_ownership(
   case
     pog.query(sql)
     |> pog.parameter(pog.text(username))
-    |> pog.parameter(pog.int(telegram_id))
+    |> pog.parameter(pog.text(int.to_string(telegram_id)))
     |> pog.returning(exists_decoder)
     |> pog.execute(pool)
   {
@@ -897,7 +909,7 @@ fn get_user_templates(
       pt.likes_count, pt.views_count, pt.uses_count,
       false as is_liked, pt.created_at::text
     FROM public_templates pt
-    JOIN users u ON u.telegram_id = pt.telegram_id
+    JOIN users u ON u.telegram_id = pt.telegram_id::text
     WHERE LOWER(u.username) = LOWER($1) AND pt.is_public = true
     ORDER BY pt.created_at DESC
     LIMIT $2 OFFSET $3

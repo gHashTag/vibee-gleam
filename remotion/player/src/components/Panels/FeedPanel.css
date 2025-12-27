@@ -787,3 +787,85 @@
     font-size: 13px;
   }
 }
+
+/* ========================================
+   MOBILE RESPONSIVE - Tabs & Feed
+   ======================================== */
+
+@media (max-width: 768px) {
+  /* Hide separate header on mobile - tabs are enough */
+  .feed-panel.fullscreen .panel-header {
+    display: none;
+  }
+
+  /* Sort tabs centered at top on mobile */
+  .feed-panel.fullscreen .feed-sort {
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    padding: 4px;
+    gap: 2px;
+  }
+
+  .feed-panel.fullscreen .sort-btn {
+    padding: 8px 16px;
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .feed-panel.fullscreen .sort-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .feed-panel.fullscreen .feed-card-actions {
+    right: 8px;
+    bottom: 120px;
+    gap: 18px;
+  }
+
+  .feed-panel.fullscreen .action-btn svg {
+    width: 30px;
+    height: 30px;
+  }
+
+  .feed-panel.fullscreen .action-btn span {
+    font-size: 11px;
+  }
+
+  .feed-panel.fullscreen .feed-card-info {
+    padding: 50px 14px 20px;
+    right: 65px;
+  }
+
+  .feed-panel.fullscreen .feed-card-name {
+    font-size: 15px;
+  }
+
+  .feed-panel.fullscreen .feed-card-creator {
+    font-size: 12px;
+  }
+
+  .feed-panel.fullscreen .feed-card-description {
+    font-size: 12px;
+    -webkit-line-clamp: 2;
+  }
+
+  .feed-panel.fullscreen .feed-card-avatar {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 480px) {
+  .feed-panel.fullscreen .feed-sort {
+    top: 65px;
+  }
+
+  .feed-panel.fullscreen .sort-btn {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+}

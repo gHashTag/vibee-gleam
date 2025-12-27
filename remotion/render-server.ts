@@ -1456,18 +1456,19 @@ const server = createServer(async (req, res) => {
     const ext = path.extname(s3Key).toLowerCase();
     const isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'].includes(ext);
     const isAudio = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.webm'].includes(ext);
+    const isJson = ext === '.json';
 
-    console.log(`🎬 S3 proxy request: ${s3Key} (image: ${isImage}, audio: ${isAudio})`);
+    console.log(`🎬 S3 proxy request: ${s3Key} (image: ${isImage}, audio: ${isAudio}, json: ${isJson})`);
 
-    // For images and audio - serve directly from S3 without conversion
-    if (isImage || isAudio) {
+    // For images, audio, and JSON - serve directly from S3 without conversion
+    if (isImage || isAudio || isJson) {
       try {
         const command = new GetObjectCommand({
           Bucket: S3_BUCKET,
           Key: s3Key,
         });
         const response = await s3Client.send(command);
-        const contentType = response.ContentType || (isImage ? 'image/jpeg' : 'audio/mpeg');
+        const contentType = response.ContentType || (isImage ? 'image/jpeg' : isAudio ? 'audio/mpeg' : 'application/json');
 
         res.writeHead(200, {
           "Content-Type": contentType,

@@ -97,6 +97,11 @@ export const STORAGE_KEYS = {
   voices: 'vibee-voices-v1',
   selectedVoice: 'vibee-selected-voice',
   generatedResults: 'vibee-generated-results-v1',
+
+  // ===============================
+  // Render Session (for reconnecting)
+  // ===============================
+  renderSession: 'vibee-render-session',
 } as const;
 
 // Type for storage key names

@@ -4,6 +4,7 @@ import './Pricing.css';
 
 const plans = [
   {
+    id: 'free',
     nameKey: 'pricing.free.name',
     priceKey: 'pricing.free.price',
     periodKey: 'pricing.free.period',
@@ -17,6 +18,7 @@ const plans = [
     highlighted: false,
   },
   {
+    id: 'pro',
     nameKey: 'pricing.pro.name',
     priceKey: 'pricing.pro.price',
     periodKey: 'pricing.pro.period',
@@ -32,6 +34,7 @@ const plans = [
     popularKey: 'pricing.pro.popular',
   },
   {
+    id: 'business',
     nameKey: 'pricing.business.name',
     priceKey: 'pricing.business.price',
     periodKey: 'pricing.business.period',
@@ -83,7 +86,7 @@ export function Pricing() {
                 ))}
               </ul>
               <Link
-                to="/editor"
+                to={`/editor?plan=${plan.id}`}
                 className={`pricing-cta ${plan.highlighted ? 'primary' : 'secondary'}`}
               >
                 {t(plan.ctaKey)}

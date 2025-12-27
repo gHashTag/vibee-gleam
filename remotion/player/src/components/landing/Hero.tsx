@@ -26,12 +26,12 @@ export function Hero() {
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </Link>
-          <a href="#" className="btn-secondary">
+          <Link to="/editor?demo=true" className="btn-secondary">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <polygon points="5 3 19 12 5 21 5 3"/>
             </svg>
             {t('cta.demo')}
-          </a>
+          </Link>
         </div>
 
         <div className="hero-stats">

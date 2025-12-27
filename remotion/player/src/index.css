@@ -18,6 +18,41 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Responsive spacing (fluid) */
+  --space-xs: clamp(4px, 1vw, 8px);
+  --space-sm: clamp(8px, 2vw, 16px);
+  --space-md: clamp(16px, 3vw, 24px);
+  --space-lg: clamp(24px, 4vw, 32px);
+  --space-xl: clamp(32px, 5vw, 48px);
+
+  /* Layout dimensions */
+  --sidebar-width: clamp(280px, 25vw, 360px);
+  --sidebar-right-width: clamp(300px, 28vw, 400px);
+  --timeline-height: clamp(120px, 20vh, 300px);
+  --nav-height: 64px;
+  --header-height: 56px;
+
+  /* Touch targets (WCAG 2.2 AA) */
+  --touch-target: 44px;
+  --touch-target-sm: 36px;
+
+  /* Z-index layers */
+  --z-timeline: 40;
+  --z-nav: 50;
+  --z-sidebar: 45;
+  --z-bottomsheet: 60;
+  --z-modal: 100;
+  --z-toast: 110;
+
+  /* VIBEE brand colors */
+  --vibee-amber: #f59e0b;
+  --vibee-amber-light: #fbbf24;
+  --vibee-amber-dark: #d97706;
+  --vibee-bg: #0a0a0a;
+  --vibee-bg-elevated: #111111;
+  --vibee-border: #1a1a1a;
+  --vibee-border-light: #2a2a2a;
 }
 
 body {
@@ -45,4 +80,49 @@ a {
 
 a:hover {
   text-decoration: underline;
+}
+
+/* ===============================
+   Safe Area Insets for Notched Devices
+   (iPhone X+, Android with notch/pill)
+   =============================== */
+
+/* Enable viewport-fit for iOS notch handling */
+@supports (padding: env(safe-area-inset-top)) {
+  :root {
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-right: env(safe-area-inset-right, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-left: env(safe-area-inset-left, 0px);
+  }
+
+  /* Apply safe area to body for landscape mode */
+  body {
+    padding-left: var(--safe-area-left);
+    padding-right: var(--safe-area-right);
+  }
+}
+
+/* Utility classes for safe area padding */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-left {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.safe-area-right {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.safe-area-all {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
 }

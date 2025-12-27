@@ -37,6 +37,7 @@ import vibee/agent/eliza.{ActionContext}
 import vibee/video/pipeline
 import gleam/erlang/process
 import gleam/dynamic/decode
+import pog
 
 /// Get VIBEE_API_KEY from environment
 @external(erlang, "vibee_polling_ffi", "get_api_key")
@@ -171,6 +172,23 @@ fn get_chat_type(chat_id: Int) -> String {
       True -> "supergroup"
       False -> "group"
     }
+  }
+}
+
+/// Получить название чата из БД telegram_dialogs
+fn get_chat_name_from_db(pool: pog.Connection, chat_id: Int) -> String {
+  let sql = "SELECT title FROM telegram_dialogs WHERE id = $1"
+  let decoder = {
+    use title <- decode.field(0, decode.string)
+    decode.success(title)
+  }
+
+  case pog.query(sql)
+    |> pog.parameter(pog.int(chat_id))
+    |> pog.returning(decoder)
+    |> pog.execute(pool) {
+    Ok(pog.Returned(_, [title])) -> title
+    _ -> ""  // Пустая строка - будет показан chat_type
   }
 }
 
@@ -451,9 +469,12 @@ pub fn handle_incoming_message(
                     |> vibe_logger.with_data("action", json.string("notify")),
                     "[OWNER_NOTIFY] Sending notification - trigger found in NotWhitelisted chat")
 
+                  // Попробуем получить название чата из БД
+                  let chat_name = get_chat_name_from_db(pool, chat_id_int)
                   let _ = owner_notifier.notify_new_chat(
                     chat_id_int,
                     get_chat_type(chat_id_int),
+                    chat_name,
                     from_id,
                     from_name,
                     username,
@@ -498,9 +519,12 @@ pub fn handle_incoming_message(
                     |> vibe_logger.with_data("action", json.string("notify")),
                     "[OWNER_NOTIFY] Sending notification - trigger found in Unknown chat")
 
+                  // Попробуем получить название чата из БД
+                  let chat_name = get_chat_name_from_db(pool, chat_id_int)
                   let _ = owner_notifier.notify_new_chat(
                     chat_id_int,
                     get_chat_type(chat_id_int),
+                    chat_name,
                     from_id,
                     from_name,
                     username,

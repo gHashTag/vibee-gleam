@@ -2139,7 +2139,7 @@ fn get_messages_json() -> String {
 /// Get allowed CORS origin from ENV
 /// Default includes localhost for development and Fly.io domains for production
 fn get_cors_origin(request_origin: String) -> String {
-  let allowed_origins = config.get_env_or("CORS_ALLOWED_ORIGINS", "http://localhost:8080,http://localhost:3000,https://vibee-mcp.fly.dev,https://vibee-eliza-999-prod-v2.fly.dev,https://vibee-telegram-bridge.fly.dev")
+  let allowed_origins = config.get_env_or("CORS_ALLOWED_ORIGINS", "http://localhost:8080,http://localhost:3000,http://localhost:5173,http://localhost:5174,https://vibee-mcp.fly.dev,https://vibee-player.fly.dev,https://vibee-eliza-999-prod-v2.fly.dev,https://vibee-telegram-bridge.fly.dev")
   case allowed_origins == "*" {
     True -> "*"
     False -> {
@@ -2202,7 +2202,7 @@ fn json_response_with_cors(status: Int, body: json.Json, request_origin: String)
 fn cors_preflight_handler() -> Response(ResponseData) {
   response.new(204)
   |> response.set_header("access-control-allow-origin", "*")
-  |> response.set_header("access-control-allow-methods", "GET, POST, OPTIONS")
+  |> response.set_header("access-control-allow-methods", "GET, POST, PUT, DELETE, OPTIONS")
   |> response.set_header("access-control-allow-headers", "content-type, authorization")
   |> response.set_header("access-control-max-age", "86400")
   |> response.set_body(mist.Bytes(bytes_tree.new()))

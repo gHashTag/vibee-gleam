@@ -92,6 +92,21 @@ const en: Translations = {
   "errors.clearAndReload": "Clear Data & Reload",
   "errors.showDetails": "Show Error Details",
   "errors.support": "If the problem persists, contact support",
+  "error.panel_crashed": "Panel Error",
+  "error.panel_desc": "This panel encountered an error. Try reloading.",
+  "error.retry": "Retry",
+
+  // Accessibility
+  "a11y.skipToContent": "Skip to main content",
+
+  // Newsletter
+  "newsletter.title": "Stay Updated",
+  "newsletter.subtitle": "Get the latest AI video creation tips and product updates",
+  "newsletter.placeholder": "Enter your email",
+  "newsletter.subscribe": "Subscribe",
+  "newsletter.success": "Thanks for subscribing!",
+  "newsletter.error": "Subscription failed. Please try again.",
+  "newsletter.invalidEmail": "Please enter a valid email address",
 
   // Footer
   "footer.product": "Product",
@@ -118,6 +133,9 @@ const en: Translations = {
   "editor.reset": "Reset to Defaults",
   "editor.undo": "Undo",
   "editor.redo": "Redo",
+  "editor.projectName": "Project Name",
+  "editor.history": "History",
+  "editor.fileOps": "File Operations",
 
   // Settings Modal
   "settings.title": "Settings",
@@ -342,6 +360,11 @@ const en: Translations = {
   "timeline.zoomOut": "Zoom out",
   "timeline.zoomIn": "Zoom in",
   "timeline.fitToView": "Fit to view",
+  "timeline.title": "Timeline",
+  "timeline.controls": "Transport Controls",
+  "timeline.speed": "Playback Speed",
+  "timeline.zoom": "Timeline Zoom",
+  "timeline.currentTime": "Current Time",
   "timeline.in": "In",
   "timeline.out": "Out",
   "timeline.assetNotCompatible": "Asset type not compatible with track",
@@ -622,6 +645,7 @@ const en: Translations = {
 
   // Profile
   "profile.edit": "Edit",
+  "profile.edit_cover": "Edit Cover",
   "profile.followers": "Followers",
   "profile.following": "Following",
   "profile.videos": "Videos",
@@ -648,6 +672,7 @@ const en: Translations = {
   "profile.public_profile": "Public Profile",
   "profile.public_profile_hint": "When disabled, only you can see your profile",
   "profile.viewProfile": "View Profile",
+  "profile.save_error": "Failed to save profile. Please try again.",
 
   // Common
   "common.back": "Back",
@@ -733,6 +758,21 @@ const ru: Translations = {
   "errors.clearAndReload": "Очистить данные и перезагрузить",
   "errors.showDetails": "Показать детали ошибки",
   "errors.support": "Если проблема сохраняется, обратитесь в поддержку",
+  "error.panel_crashed": "Ошибка панели",
+  "error.panel_desc": "Эта панель столкнулась с ошибкой. Попробуйте перезагрузить.",
+  "error.retry": "Повторить",
+
+  // Accessibility
+  "a11y.skipToContent": "Перейти к основному содержимому",
+
+  // Newsletter
+  "newsletter.title": "Будьте в курсе",
+  "newsletter.subtitle": "Получайте советы по созданию видео с ИИ и обновления продукта",
+  "newsletter.placeholder": "Введите email",
+  "newsletter.subscribe": "Подписаться",
+  "newsletter.success": "Спасибо за подписку!",
+  "newsletter.error": "Ошибка подписки. Попробуйте ещё раз.",
+  "newsletter.invalidEmail": "Введите корректный email адрес",
 
   // Footer
   "footer.product": "Продукт",
@@ -759,6 +799,9 @@ const ru: Translations = {
   "editor.reset": "Сбросить настройки",
   "editor.undo": "Отменить",
   "editor.redo": "Повторить",
+  "editor.projectName": "Название проекта",
+  "editor.history": "История",
+  "editor.fileOps": "Операции с файлами",
 
   // Settings Modal
   "settings.title": "Настройки",
@@ -983,6 +1026,11 @@ const ru: Translations = {
   "timeline.zoomOut": "Уменьшить",
   "timeline.zoomIn": "Увеличить",
   "timeline.fitToView": "По размеру окна",
+  "timeline.title": "Таймлайн",
+  "timeline.controls": "Управление воспроизведением",
+  "timeline.speed": "Скорость воспроизведения",
+  "timeline.zoom": "Масштаб таймлайна",
+  "timeline.currentTime": "Текущее время",
   "timeline.in": "Вход",
   "timeline.out": "Выход",
   "timeline.assetNotCompatible": "Тип файла несовместим с дорожкой",
@@ -1263,6 +1311,7 @@ const ru: Translations = {
 
   // Profile
   "profile.edit": "Редактировать",
+  "profile.edit_cover": "Изменить обложку",
   "profile.followers": "Подписчики",
   "profile.following": "Подписки",
   "profile.videos": "Видео",
@@ -1289,6 +1338,7 @@ const ru: Translations = {
   "profile.public_profile": "Публичный профиль",
   "profile.public_profile_hint": "Когда выключено, только вы видите свой профиль",
   "profile.viewProfile": "Открыть профиль",
+  "profile.save_error": "Не удалось сохранить профиль. Попробуйте ещё раз.",
 
   // Common
   "common.back": "Назад",

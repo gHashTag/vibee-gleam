@@ -29,8 +29,10 @@ export interface UserProfile {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  cover_url: string | null;
   social_links: SocialLink[];
   is_public: boolean;
+  is_verified: boolean;
   followers_count: number;
   following_count: number;
   templates_count: number;
@@ -101,10 +103,12 @@ function transformProfile(raw: Record<string, unknown>): UserProfile {
     display_name: raw.display_name as string | null,
     bio: raw.bio as string | null,
     avatar_url: raw.avatar_url as string | null,
+    cover_url: (raw.cover_url as string | null) || null,
     social_links: typeof raw.social_links === 'string'
       ? parseSocialLinks(raw.social_links)
       : (raw.social_links as SocialLink[]) || [],
     is_public: raw.is_public as boolean,
+    is_verified: (raw.is_verified as boolean) || false,
     followers_count: raw.followers_count as number,
     following_count: raw.following_count as number,
     templates_count: raw.templates_count as number,
@@ -139,6 +143,11 @@ export const loadProfileAtom = atom(
         const data = await response.json();
         const profile = transformProfile(data);
         set(viewedProfileAtom, profile);
+
+        // If this is user's own profile, also update myProfileAtom for editing
+        if (profile.is_own_profile) {
+          set(myProfileAtom, profile);
+        }
         return profile;
       } else if (response.status === 404) {
         set(profileErrorAtom, 'User not found');
@@ -214,38 +223,42 @@ export const updateProfileAtom = atom(
     const user = get(userAtom);
     const myProfile = get(myProfileAtom);
 
-    if (!user || !myProfile) return null;
+    if (!user || !myProfile) {
+      console.error('[updateProfile] No user or profile:', { user, myProfile });
+      return null;
+    }
+
+    const url = `${API_BASE}/api/users/${encodeURIComponent(myProfile.username)}`;
+    const body = {
+      telegram_id: user.id,
+      ...updates,
+    };
+    console.log('[updateProfile] Request:', url, body);
 
     try {
-      const response = await fetch(
-        `${API_BASE}/api/users/${encodeURIComponent(myProfile.username)}`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            telegram_id: user.id,
-            ...updates,
-          }),
-        }
-      );
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.profile) {
-          const profile = transformProfile(data.profile);
-          set(myProfileAtom, profile);
+      const data = await response.json();
+      console.log('[updateProfile] Response:', response.status, data);
 
-          // Update viewed profile if it's own profile
-          const viewed = get(viewedProfileAtom);
-          if (viewed?.is_own_profile) {
-            set(viewedProfileAtom, profile);
-          }
-          return profile;
+      if (response.ok && data.profile) {
+        const profile = transformProfile(data.profile);
+        set(myProfileAtom, profile);
+
+        // Update viewed profile if it's own profile
+        const viewed = get(viewedProfileAtom);
+        if (viewed?.is_own_profile) {
+          set(viewedProfileAtom, profile);
         }
+        return profile;
       }
       return null;
     } catch (error) {
-      console.error('Failed to update profile:', error);
+      console.error('[updateProfile] Failed:', error);
       return null;
     }
   }

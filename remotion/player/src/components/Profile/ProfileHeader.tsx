@@ -1,5 +1,5 @@
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { User, Users, Video, Eye, Heart, Settings } from 'lucide-react';
+import { User, Users, Video, Eye, Heart, Settings, CheckCircle, Camera } from 'lucide-react';
 import {
   viewedProfileAtom,
   userAtom,
@@ -44,88 +44,89 @@ export function ProfileHeader({ onEditClick }: ProfileHeaderProps) {
     return num.toString();
   };
 
+  const stats = [
+    { icon: <Users size={18} />, value: profile.followers_count, label: t('profile.followers') },
+    { icon: <Users size={18} />, value: profile.following_count, label: t('profile.following') },
+    { icon: <Video size={18} />, value: profile.templates_count, label: t('profile.videos') },
+    { icon: <Eye size={18} />, value: profile.total_views, label: t('profile.views') },
+    { icon: <Heart size={18} />, value: profile.total_likes, label: t('profile.likes') },
+  ];
+
   return (
-    <div className="profile-header">
-      <div className="profile-header__top">
-        <div className="profile-header__avatar">
-          {profile.avatar_url ? (
-            <img src={profile.avatar_url} alt={profile.display_name || profile.username} />
-          ) : (
-            <div className="profile-header__avatar-placeholder">
-              <User size={48} />
+    <>
+      {/* Cover Image */}
+      <div className="profile-cover">
+        {profile.cover_url ? (
+          <img src={profile.cover_url} alt="" className="profile-cover__image" />
+        ) : null}
+        <div className="profile-cover__gradient" />
+        {profile.is_own_profile && (
+          <button className="profile-cover__edit" onClick={onEditClick}>
+            <Camera size={16} />
+            <span>{t('profile.edit_cover')}</span>
+          </button>
+        )}
+      </div>
+
+      <div className="profile-header">
+        <div className="profile-header__top">
+          {/* Animated Avatar */}
+          <div className="profile-header__avatar">
+            <div className="profile-header__avatar-inner">
+              {profile.avatar_url ? (
+                <img src={profile.avatar_url} alt={profile.display_name || profile.username} />
+              ) : (
+                <div className="profile-header__avatar-placeholder">
+                  <User size={48} />
+                </div>
+              )}
             </div>
-          )}
+          </div>
+
+          <div className="profile-header__info">
+            <h1 className="profile-header__name">
+              {profile.display_name || profile.username}
+              {profile.is_verified && (
+                <span className="verified-badge" title="Verified">
+                  <CheckCircle size={20} />
+                </span>
+              )}
+            </h1>
+            <p className="profile-header__username">@{profile.username}</p>
+
+            {profile.bio && (
+              <p className="profile-header__bio">{profile.bio}</p>
+            )}
+
+            <SocialLinks links={profile.social_links} />
+          </div>
+
+          <div className="profile-header__actions">
+            {profile.is_own_profile ? (
+              <button className="profile-header__edit-btn" onClick={onEditClick}>
+                <Settings size={18} />
+                <span>{t('profile.edit')}</span>
+              </button>
+            ) : (
+              <FollowButton
+                isFollowing={profile.is_following}
+                onClick={handleFollowClick}
+              />
+            )}
+          </div>
         </div>
 
-        <div className="profile-header__info">
-          <h1 className="profile-header__name">
-            {profile.display_name || profile.username}
-          </h1>
-          <p className="profile-header__username">@{profile.username}</p>
-
-          {profile.bio && (
-            <p className="profile-header__bio">{profile.bio}</p>
-          )}
-
-          <SocialLinks links={profile.social_links} />
-        </div>
-
-        <div className="profile-header__actions">
-          {profile.is_own_profile ? (
-            <button className="profile-header__edit-btn" onClick={onEditClick}>
-              <Settings size={18} />
-              <span>{t('profile.edit')}</span>
-            </button>
-          ) : (
-            <FollowButton
-              isFollowing={profile.is_following}
-              onClick={handleFollowClick}
-            />
-          )}
-        </div>
-      </div>
-
-      <div className="profile-header__stats">
-        <div className="profile-header__stat">
-          <Users size={18} />
-          <span className="profile-header__stat-value">
-            {formatNumber(profile.followers_count)}
-          </span>
-          <span className="profile-header__stat-label">{t('profile.followers')}</span>
-        </div>
-
-        <div className="profile-header__stat">
-          <Users size={18} />
-          <span className="profile-header__stat-value">
-            {formatNumber(profile.following_count)}
-          </span>
-          <span className="profile-header__stat-label">{t('profile.following')}</span>
-        </div>
-
-        <div className="profile-header__stat">
-          <Video size={18} />
-          <span className="profile-header__stat-value">
-            {formatNumber(profile.templates_count)}
-          </span>
-          <span className="profile-header__stat-label">{t('profile.videos')}</span>
-        </div>
-
-        <div className="profile-header__stat">
-          <Eye size={18} />
-          <span className="profile-header__stat-value">
-            {formatNumber(profile.total_views)}
-          </span>
-          <span className="profile-header__stat-label">{t('profile.views')}</span>
-        </div>
-
-        <div className="profile-header__stat">
-          <Heart size={18} />
-          <span className="profile-header__stat-value">
-            {formatNumber(profile.total_likes)}
-          </span>
-          <span className="profile-header__stat-label">{t('profile.likes')}</span>
+        {/* Stats Cards with Glassmorphism */}
+        <div className="profile-stats">
+          {stats.map((stat, index) => (
+            <div key={index} className="profile-stat-card">
+              <div className="profile-stat-card__icon">{stat.icon}</div>
+              <span className="profile-stat-card__value">{formatNumber(stat.value)}</span>
+              <span className="profile-stat-card__label">{stat.label}</span>
+            </div>
+          ))}
         </div>
       </div>
-    </div>
+    </>
   );
 }

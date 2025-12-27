@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { Grid, Users } from 'lucide-react';
+import { Grid, Users, Video, UserPlus } from 'lucide-react';
 import {
   viewedProfileAtom,
   userAtom,
@@ -74,10 +74,24 @@ export function ProfileTabs() {
         {activeTab === 'followers' && (
           <div className="profile-tabs__users">
             {followersLoading ? (
-              <div className="profile-tabs__loading">Loading...</div>
+              <div className="profile-tabs__users">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="user-card">
+                    <div className="skeleton skeleton-avatar" style={{ width: 48, height: 48 }} />
+                    <div style={{ flex: 1 }}>
+                      <div className="skeleton skeleton-text skeleton-text--md" />
+                      <div className="skeleton skeleton-text skeleton-text--sm" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : followers.length === 0 ? (
-              <div className="profile-tabs__empty">
-                {t('profile.no_followers')}
+              <div className="empty-state">
+                <div className="empty-state__icon">
+                  <Users size={48} />
+                </div>
+                <h3 className="empty-state__title">{t('profile.no_followers')}</h3>
+                <p className="empty-state__desc">{t('profile.no_followers_desc')}</p>
               </div>
             ) : (
               followers.map((user) => (
@@ -90,10 +104,24 @@ export function ProfileTabs() {
         {activeTab === 'following' && (
           <div className="profile-tabs__users">
             {followingLoading ? (
-              <div className="profile-tabs__loading">Loading...</div>
+              <div className="profile-tabs__users">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="user-card">
+                    <div className="skeleton skeleton-avatar" style={{ width: 48, height: 48 }} />
+                    <div style={{ flex: 1 }}>
+                      <div className="skeleton skeleton-text skeleton-text--md" />
+                      <div className="skeleton skeleton-text skeleton-text--sm" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : following.length === 0 ? (
-              <div className="profile-tabs__empty">
-                {t('profile.no_following')}
+              <div className="empty-state">
+                <div className="empty-state__icon">
+                  <UserPlus size={48} />
+                </div>
+                <h3 className="empty-state__title">{t('profile.no_following')}</h3>
+                <p className="empty-state__desc">{t('profile.no_following_desc')}</p>
               </div>
             ) : (
               following.map((user) => (

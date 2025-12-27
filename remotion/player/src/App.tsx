@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { LanguageProvider } from '@/hooks/useLanguage';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { JotaiProvider } from '@/atoms/Provider';
+import { ToastContainer } from '@/components/Toast/Toast';
 import { HomePage } from '@/pages/Home';
 import { EditorPage } from '@/pages/Editor';
 import { ChatPage } from '@/pages/Chat';
@@ -21,6 +22,7 @@ function App() {
               <Route path="/:username" element={<ProfilePage />} />
             </Routes>
           </BrowserRouter>
+          <ToastContainer />
         </LanguageProvider>
       </JotaiProvider>
     </ErrorBoundary>

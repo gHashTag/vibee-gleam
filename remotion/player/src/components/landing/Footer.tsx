@@ -1,13 +1,59 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useToast } from '@/hooks/useToast';
 import './Footer.css';
 
 export function Footer() {
   const { t } = useLanguage();
+  const toast = useToast();
+  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !email.includes('@')) {
+      toast.warning(t('newsletter.invalidEmail'));
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Simulate API call - replace with actual newsletter service
+      await new Promise(resolve => setTimeout(resolve, 500));
+      toast.success(t('newsletter.success'));
+      setEmail('');
+    } catch {
+      toast.error(t('newsletter.error'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <footer className="footer">
       <div className="footer-container">
+        {/* Newsletter Section */}
+        <div className="footer-newsletter">
+          <div className="newsletter-content">
+            <h3>{t('newsletter.title')}</h3>
+            <p>{t('newsletter.subtitle')}</p>
+          </div>
+          <form className="newsletter-form" onSubmit={handleSubscribe}>
+            <input
+              type="email"
+              placeholder={t('newsletter.placeholder')}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={isSubmitting}
+              aria-label={t('newsletter.placeholder')}
+            />
+            <button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? '...' : t('newsletter.subscribe')}
+            </button>
+          </form>
+        </div>
+
         <div className="footer-main">
           <div className="footer-brand">
             <Link to="/" className="footer-logo">
