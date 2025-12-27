@@ -16,12 +16,25 @@ import { TelegramLoginButton, UserAvatar, PaywallModal } from '@/components/Auth
 import { RemixBadge } from '@/components/RemixBadge';
 import './styles.css';
 
-// Page navigation tabs for desktop
-const NAV_ITEMS = [
-  { path: '/feed', labelKey: 'nav.feed' },
-  { path: '/editor', labelKey: 'nav.editor' },
-  { path: '/generate', labelKey: 'nav.generate' },
+// Page navigation tabs with emojis (same as VerticalTabs)
+const NAV_TABS = [
+  { id: 'feed', emoji: '🌐', labelKey: 'tabs.feed', route: '/feed' },
+  { id: 'editor', emoji: '▶️', labelKey: 'tabs.editor', route: '/editor' },
+  { id: 'lipsync', emoji: '👄', labelKey: 'tabs.avatar', route: '/generate/avatar' },
+  { id: 'video', emoji: '🎬', labelKey: 'generate.video', route: '/generate/video' },
+  { id: 'image', emoji: '📷', labelKey: 'generate.image', route: '/generate/image' },
+  { id: 'audio', emoji: '🎤', labelKey: 'generate.audio', route: '/generate/audio' },
 ] as const;
+
+// Route patterns to match for active state
+const ROUTE_PATTERNS: Record<string, RegExp> = {
+  'feed': /^\/feed/,
+  'editor': /^\/editor/,
+  'lipsync': /^\/generate\/avatar/,
+  'video': /^\/generate\/video/,
+  'image': /^\/generate\/image/,
+  'audio': /^\/generate\/audio/,
+};
 
 // Export settings stored in localStorage
 interface ExportSettings {
@@ -101,18 +114,18 @@ export function Header({ wsStatus, wsClientId }: HeaderProps) {
             <span className="logo-text">VIBEE</span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="header-nav" aria-label="Main navigation">
-            {NAV_ITEMS.map((item) => {
-              const isActive = location.pathname === item.path ||
-                (item.path === '/generate' && location.pathname.startsWith('/generate'));
+          {/* Emoji Navigation Tabs */}
+          <nav className="header-tabs" aria-label="Main navigation">
+            {NAV_TABS.map((tab) => {
+              const isActive = ROUTE_PATTERNS[tab.id]?.test(location.pathname);
               return (
                 <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`header-nav-link ${isActive ? 'active' : ''}`}
+                  key={tab.id}
+                  to={tab.route}
+                  className={`header-tab ${isActive ? 'active' : ''}`}
+                  title={t(tab.labelKey)}
                 >
-                  {t(item.labelKey)}
+                  <span className="header-tab-emoji">{tab.emoji}</span>
                 </Link>
               );
             })}

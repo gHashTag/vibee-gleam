@@ -2,10 +2,8 @@ import { useParams, Navigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { GeneratePanel, type GenerateTab } from '@/components/Panels/GeneratePanel';
 import { ResultsGallery } from '@/components/Results/ResultsGallery';
-import { VerticalTabs } from '@/components/Navigation';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PanelError } from '@/components/Panels/PanelError';
-import { useIsTablet } from '@/hooks/useMediaQuery';
 import './Generate.css';
 
 // Valid tabs for URL param
@@ -25,7 +23,6 @@ function urlParamToTab(param: string | undefined): GenerateTab {
 
 function GenerateContent() {
   const { tab: urlTab } = useParams<{ tab: string }>();
-  const isTablet = useIsTablet();
 
   // Redirect invalid tabs to /generate/image
   if (urlTab && !isValidTab(urlTab)) {
@@ -40,9 +37,6 @@ function GenerateContent() {
       <Header />
 
       <main className="generate-main">
-        {/* Vertical tabs navigation (hidden on tablet) */}
-        {!isTablet && <VerticalTabs />}
-
         {/* Left panel: Generation form */}
         <aside className="generate-sidebar">
           <ErrorBoundary fallback={<PanelError />}>

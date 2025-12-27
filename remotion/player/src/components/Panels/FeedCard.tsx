@@ -4,7 +4,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { likeTemplateAtom, useTemplateAtom, deleteTemplateAtom, userAtom, type FeedTemplate } from '@/atoms';
 import { useLanguage } from '@/hooks/useLanguage';
 import { LikeAnimation } from '@/components/LikeAnimation';
-import { Heart, Eye, Users, Play, Loader2, Sparkles, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Heart, Eye, Users, Play, Loader2, Sparkles, Trash2, AlertCircle, RefreshCw, Volume2, VolumeX } from 'lucide-react';
 import './FeedPanel.css';
 
 interface FeedCardProps {
@@ -25,6 +25,7 @@ export function FeedCard({ template }: FeedCardProps) {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // Start muted for autoplay
   const videoRef = useRef<HTMLVideoElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -91,6 +92,16 @@ export function FeedCard({ template }: FeedCardProps) {
     e.stopPropagation();
     likeTemplate(template.id);
   }, [likeTemplate, template.id]);
+
+  // Sound toggle
+  const handleSoundToggle = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const video = videoRef.current;
+    if (video) {
+      video.muted = !video.muted;
+      setIsMuted(video.muted);
+    }
+  }, []);
 
   // Double-tap like handler
   const handleDoubleTapLike = useCallback(() => {
@@ -177,7 +188,7 @@ export function FeedCard({ template }: FeedCardProps) {
                   ref={videoRef}
                   src={template.videoUrl}
                   poster={template.thumbnailUrl || undefined}
-                  muted
+                  muted={isMuted}
                   loop
                   playsInline
                   preload="metadata"
@@ -250,6 +261,15 @@ export function FeedCard({ template }: FeedCardProps) {
 
         {/* TikTok-style right action bar */}
         <div className="feed-card-actions">
+          {/* Sound toggle */}
+          <button
+            className={`action-btn sound-btn ${!isMuted ? 'unmuted' : ''}`}
+            onClick={handleSoundToggle}
+            title={isMuted ? 'Unmute' : 'Mute'}
+          >
+            {isMuted ? <VolumeX size={32} /> : <Volume2 size={32} />}
+          </button>
+
           <button
             className={`action-btn like-btn ${template.isLiked ? 'liked' : ''}`}
             onClick={handleLike}

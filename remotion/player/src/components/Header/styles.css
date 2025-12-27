@@ -55,38 +55,64 @@
   gap: 8px;
 }
 
-/* Desktop Navigation */
-.header-nav {
-  display: none;
+/* Header Emoji Tabs */
+.header-tabs {
+  display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 24px;
+  gap: 2px;
+  margin-left: 16px;
+  padding: 4px;
+  background: #1a1a1a;
+  border-radius: 8px;
 }
 
-@media (min-width: 1024px) {
-  .header-nav {
-    display: flex;
-  }
-}
-
-.header-nav-link {
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #888;
-  text-decoration: none;
+.header-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 32px;
   border-radius: 6px;
+  text-decoration: none;
   transition: all 0.15s ease;
 }
 
-.header-nav-link:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.05);
+.header-tab:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.header-nav-link.active {
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.1);
+.header-tab.active {
+  background: rgba(245, 158, 11, 0.2);
+}
+
+.header-tab-emoji {
+  font-size: 20px;
+  line-height: 1;
+  filter: grayscale(0.3);
+  transition: filter 0.15s ease;
+}
+
+.header-tab:hover .header-tab-emoji,
+.header-tab.active .header-tab-emoji {
+  filter: grayscale(0);
+}
+
+/* Mobile: smaller tabs */
+@media (max-width: 640px) {
+  .header-tabs {
+    margin-left: 8px;
+    padding: 2px;
+    gap: 1px;
+  }
+
+  .header-tab {
+    width: 36px;
+    height: 32px;
+  }
+
+  .header-tab-emoji {
+    font-size: 18px;
+  }
 }
 
 .header-center {

@@ -11,7 +11,6 @@ import { ShortcutsModal } from '@/components/Modals/ShortcutsModal';
 import { BottomSheet } from '@/components/BottomSheet/BottomSheet';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PanelError } from '@/components/Panels/PanelError';
-import { VerticalTabs } from '@/components/Navigation';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboard';
 import { useIsMobile, useIsTablet } from '@/hooks/useMediaQuery';
 import { useWebSocket, setGlobalWsSend } from '@/lib/websocket';
@@ -111,9 +110,6 @@ function EditorContent() {
       />
 
       <main id="main-content" className="editor-main" role="main">
-        {/* Vertical tabs navigation (hidden on tablet) */}
-        {!isTablet && <VerticalTabs />}
-
         {/* Left sidebar: Assets */}
         <aside className="sidebar sidebar-left">
           <div className="sidebar-content">

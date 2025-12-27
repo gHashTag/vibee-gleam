@@ -741,7 +741,8 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  z-index: 20;
+  z-index: 30; /* Above video and overlays */
+  pointer-events: auto; /* Ensure clicks work */
 }
 
 /* TikTok style - TRANSPARENT buttons, icon + count */
@@ -809,6 +810,19 @@
 .action-btn.views-btn:hover,
 .action-btn.uses-btn:hover {
   transform: none;
+}
+
+/* Sound button */
+.action-btn.sound-btn {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.action-btn.sound-btn.unmuted {
+  color: #22c55e;
+}
+
+.action-btn.sound-btn.unmuted svg {
+  filter: drop-shadow(0 2px 8px rgba(34, 197, 94, 0.5));
 }
 
 /* Remix button - golden accent */
