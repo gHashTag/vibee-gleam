@@ -156,10 +156,10 @@ async function publishTemplate(data: PublishData, userInfo: PublishUserInfo): Pr
     body: JSON.stringify({
       telegram_id: userInfo.telegramId,
       creator_name: userInfo.creatorName,
-      creator_avatar: userInfo.creatorAvatar,
+      creator_avatar: userInfo.creatorAvatar ?? null,  // must be null, not undefined (Gleam expects field to exist)
       name: data.name,
-      description: data.description,
-      thumbnail_url: data.thumbnailUrl,
+      description: data.description ?? null,           // must be null, not undefined
+      thumbnail_url: data.thumbnailUrl ?? null,        // must be null, not undefined
       video_url: data.videoUrl,
       // Backend expects JSON strings, not objects
       template_settings: JSON.stringify(data.templateSettings || {}),

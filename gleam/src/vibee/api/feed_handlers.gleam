@@ -339,7 +339,7 @@ fn get_feed(
 
   let sql = "
     SELECT
-      pt.id, pt.telegram_id::int, pt.creator_name, pt.creator_avatar,
+      pt.id, pt.telegram_id::bigint, pt.creator_name, pt.creator_avatar,
       u.username as creator_username,
       pt.name, pt.description, pt.thumbnail_url, pt.video_url,
       pt.template_settings::text, pt.assets::text, pt.tracks::text,
@@ -425,7 +425,7 @@ fn publish_template(
   "
 
   let id_decoder = {
-    use id <- decode.field("id", decode.int)
+    use id <- decode.field(0, decode.int)  // positional index, not named field
     decode.success(id)
   }
 
@@ -510,7 +510,7 @@ fn get_template_by_id(
 ) -> Result(Option(FeedTemplate), String) {
   let sql = "
     SELECT
-      pt.id, pt.telegram_id::int, pt.creator_name, pt.creator_avatar,
+      pt.id, pt.telegram_id::bigint, pt.creator_name, pt.creator_avatar,
       u.username as creator_username,
       pt.name, pt.description, pt.thumbnail_url, pt.video_url,
       pt.template_settings::text, pt.assets::text, pt.tracks::text,
@@ -604,6 +604,10 @@ fn increment_uses(pool: pog.Connection, template_id: Int) -> Result(Nil, String)
 // Helpers
 // ============================================================
 
+/// Pass through JSON string without escaping (for pre-serialized JSON from DB)
+@external(erlang, "vibee_json_ffi", "raw")
+fn raw_json(s: String) -> json.Json
+
 fn template_to_json(t: FeedTemplate) -> json.Json {
   json.object([
     #("id", json.int(t.id)),
@@ -630,9 +634,9 @@ fn template_to_json(t: FeedTemplate) -> json.Json {
       None -> json.null()
     }),
     #("video_url", json.string(t.video_url)),
-    #("template_settings", json.string(t.template_settings)),
-    #("assets", json.string(t.assets)),
-    #("tracks", json.string(t.tracks)),
+    #("template_settings", raw_json(t.template_settings)),
+    #("assets", raw_json(t.assets)),
+    #("tracks", raw_json(t.tracks)),
     #("likes_count", json.int(t.likes_count)),
     #("views_count", json.int(t.views_count)),
     #("uses_count", json.int(t.uses_count)),

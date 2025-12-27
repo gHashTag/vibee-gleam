@@ -65,6 +65,7 @@ import {
   addTemplateAtom,
   sidebarTabAtom,
 } from '@/atoms';
+import { scrollToFrameAtom, clearScrollRequestAtom } from '@/atoms/timeline';
 import { editorStore } from '@/atoms/Provider';
 import { TimeRuler } from './TimeRuler';
 import { Track } from './Track';
@@ -543,6 +544,24 @@ export function Timeline() {
       });
     }
   }, [currentFrame, pxPerFrame, isPlaying]);
+
+  // Scroll to frame on request (from add-to-timeline button)
+  const scrollToFrame = useAtomValue(scrollToFrameAtom);
+  const clearScrollRequest = useSetAtom(clearScrollRequestAtom);
+
+  useEffect(() => {
+    if (scrollToFrame !== null && timelineRef.current) {
+      const pxPosition = scrollToFrame * pxPerFrame;
+      const wrapperWidth = timelineRef.current.clientWidth;
+
+      timelineRef.current.scrollTo({
+        left: Math.max(0, pxPosition - wrapperWidth * 0.3),
+        behavior: 'smooth',
+      });
+
+      clearScrollRequest();
+    }
+  }, [scrollToFrame, pxPerFrame, clearScrollRequest]);
 
   // Format frame as timecode
   const formatTime = useCallback(

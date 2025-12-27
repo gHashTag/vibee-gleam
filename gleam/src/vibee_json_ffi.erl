@@ -1,5 +1,9 @@
 -module(vibee_json_ffi).
--export([decode_map/1, get_string/2, get_string_list/2]).
+-export([decode_map/1, get_string/2, get_string_list/2, raw/1]).
+
+%% Pass through JSON string without escaping
+%% Used when the string is already valid JSON and we don't want to double-encode
+raw(JsonString) when is_binary(JsonString) -> JsonString.
 
 %% Decode erlang map to list of {key, value} pairs
 decode_map(Term) when is_map(Term) ->

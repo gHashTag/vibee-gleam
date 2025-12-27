@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useSetAtom } from 'jotai';
 import { likeTemplateAtom, useTemplateAtom, type FeedTemplate } from '@/atoms';
 import { useLanguage } from '@/hooks/useLanguage';
+import { LikeAnimation } from '@/components/LikeAnimation';
 import { Heart, Eye, Users, Play, Loader2, Sparkles } from 'lucide-react';
 import './FeedPanel.css';
 
@@ -21,6 +22,13 @@ export function FeedCard({ template }: FeedCardProps) {
     e.stopPropagation();
     likeTemplate(template.id);
   }, [likeTemplate, template.id]);
+
+  // Double-tap like handler
+  const handleDoubleTapLike = useCallback(() => {
+    if (!template.isLiked) {
+      likeTemplate(template.id);
+    }
+  }, [likeTemplate, template.id, template.isLiked]);
 
   const handleUse = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -59,30 +67,39 @@ export function FeedCard({ template }: FeedCardProps) {
     >
       {/* Inner wrapper for max-width centering */}
       <div className="feed-card-inner">
-        <div className="feed-card-thumbnail">
-          {template.thumbnailUrl ? (
-            <img src={template.thumbnailUrl} alt={template.name} />
-          ) : (
-            <div className="feed-card-placeholder">
-              <Play size={24} />
-            </div>
-          )}
+        <LikeAnimation onDoubleTap={handleDoubleTapLike}>
+          <div className="feed-card-thumbnail">
+            {template.thumbnailUrl ? (
+              <img src={template.thumbnailUrl} alt={template.name} />
+            ) : template.videoUrl ? (
+              <video
+                src={template.videoUrl}
+                muted
+                playsInline
+                className="feed-card-thumbnail-video"
+              />
+            ) : (
+              <div className="feed-card-placeholder">
+                <Play size={24} />
+              </div>
+            )}
 
-          {isHovering && template.videoUrl && (
-            <video
-              src={template.videoUrl}
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="feed-card-preview"
-            />
-          )}
+            {isHovering && template.videoUrl && (
+              <video
+                src={template.videoUrl}
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="feed-card-preview"
+              />
+            )}
 
-          {template.isFeatured && (
-            <div className="feed-card-featured">Featured</div>
-          )}
-        </div>
+            {template.isFeatured && (
+              <div className="feed-card-featured">Featured</div>
+            )}
+          </div>
+        </LikeAnimation>
 
         {/* TikTok-style right action bar */}
         <div className="feed-card-actions">
